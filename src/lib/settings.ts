@@ -1,0 +1,109 @@
+import { z } from "zod";
+
+import { AiProvider, Creativity, DateFormat, PaperSize, Tone } from "@/generated/prisma/enums";
+import { JOB_SOURCES, JSEARCH_HOSTS } from "@/lib/job-search/search";
+
+/** Date styles for documents (SET-6), labelled with an example as in the prototype. */
+export const DATE_FORMATS: readonly { value: DateFormat; label: string }[] = [
+  { value: DateFormat.DAY_MONTH_YEAR, label: "27 September 2026" },
+  { value: DateFormat.MONTH_DAY_YEAR, label: "September 27, 2026" },
+  { value: DateFormat.NUMERIC, label: "27-09-2026" },
+];
+
+/**
+ * Formats a calendar date in the chosen style, with month names in the
+ * document's language. Uses the date's UTC day, so pass a date at UTC midnight.
+ */
+export function formatDocumentDate(date: Date, format: DateFormat, locale = "en-US"): string {
+  const day = date.getUTCDate();
+  const year = date.getUTCFullYear();
+  if (format === DateFormat.NUMERIC) {
+    const month = date.getUTCMonth() + 1;
+    return `${String(day).padStart(2, "0")}-${String(month).padStart(2, "0")}-${year}`;
+  }
+  const month = new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(date);
+  return format === DateFormat.DAY_MONTH_YEAR ? `${day} ${month} ${year}` : `${month} ${day}, ${year}`;
+}
+
+// ─── Stored settings ─────────────────────────────────────────────────────────
+// Settings are stored in the Setting table, one text row per key: enums by
+// name, flags as "true"/"false", lists as JSON. A missing key, or a value that
+// doesn't fit, reads as the default below; null means "not set".
+
+export const DEFAULT_BASE_THEME = "editorial";
+
+const flag = (fallback: boolean) => z.stringbool().catch(fallback);
+
+/** A list stored as a JSON array of strings. */
+const stringList = z
+  .string()
+  .transform((value): unknown => {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  })
+  .pipe(z.array(z.string()));
+
+export const settingsSchema = z.object({
+  // AI provider (SET-1). Null means "not set in the app": fall back to the
+  // DOSSIER_AI_* environment variables, then to the built-in defaults.
+  provider: z.enum(AiProvider).nullable().catch(null),
+  baseUrl: z.string().nullable().catch(null),
+  model: z.string().nullable().catch(null),
+  /** Encrypted with a key derived from DOSSIER_SECRET (E6-2); never sent to the client. */
+  apiKeyEnc: z.string().nullable().catch(null),
+  creativity: z.enum(Creativity).catch(Creativity.BALANCED),
+  /** "Never invent experience" (SET-4). */
+  strict: flag(true),
+  /** "Show what changed" (SET-5). */
+  showDiff: flag(true),
+  paper: z.enum(PaperSize).catch(PaperSize.A4),
+  dateFormat: z.enum(DateFormat).catch(DateFormat.DAY_MONTH_YEAR),
+  defaultTone: z.enum(Tone).catch(Tone.WARM),
+  /** Language for generated documents; null means "the posting's language" (SET-7). */
+  docLanguage: z.string().nullable().catch(null),
+  /** Languages added with "Other language…", kept in the list. */
+  customLanguages: stringList.catch([]),
+  fileNamePattern: z.string().catch("{name} – {company} – {doc}"),
+  includeRefs: flag(false),
+  onePage: flag(true),
+  nightlyBackup: flag(true),
+  /** A theme's id. loadSettings() reads a deleted one as Editorial. */
+  baseThemeId: z.string().catch(DEFAULT_BASE_THEME),
+  /** The Applications screen as last left (LST-7): view, filter and sort, e.g. "-match". */
+  applicationsView: z.enum(["board", "table"]).catch("board"),
+  applicationsFilter: z.enum(["all", "active", "closed"]).catch("all"),
+  applicationsSort: z.string().catch("updated"),
+  /** The dashboard's period as last left (E9-8). */
+  dashboardPeriod: z.enum(["30d", "90d", "all"]).catch("all"),
+  /** Days without news before "Worth a look" suggests a follow-up (E9-9). */
+  quietDays: z.coerce.number().int().min(1).max(60).catch(7),
+  /** Experience and education: newest first by date, or the order set by hand (E4-9). */
+  experienceOrder: z.enum(["date", "manual"]).catch("date"),
+  educationOrder: z.enum(["date", "manual"]).catch("date"),
+  /** Why the last nightly backup failed; null once one works again (E10-7). */
+  backupProblem: z.string().nullable().catch(null),
+  // Job search (E14-4). Null means "not set in the app": DOSSIER_JOBS_SOURCE
+  // decides. "OFF" is a choice. Each source keeps its own key, encrypted
+  // like the AI key, so switching back and forth loses nothing.
+  jobSource: z.enum([...JOB_SOURCES, "OFF"]).nullable().catch(null),
+  jsearchKeyEnc: z.string().nullable().catch(null),
+  /** Where the JSearch key is from: OpenWeb Ninja, or the RapidAPI marketplace. */
+  jsearchHost: z.enum(JSEARCH_HOSTS).catch("openwebninja"),
+  adzunaAppId: z.string().nullable().catch(null),
+  adzunaKeyEnc: z.string().nullable().catch(null),
+});
+export type SettingsData = z.output<typeof settingsSchema>;
+
+/** The settings from Setting rows; keys it doesn't know are ignored. */
+export function settingsFromRows(rows: readonly { key: string; value: string }[]): SettingsData {
+  return settingsSchema.parse(Object.fromEntries(rows.map((row) => [row.key, row.value])));
+}
+
+/** The text stored for a setting's value, or null for "not set", whose row is removed. */
+export function settingValue(value: SettingsData[keyof SettingsData]): string | null {
+  if (value === null) return null;
+  return Array.isArray(value) ? JSON.stringify(value) : String(value);
+}

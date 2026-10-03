@@ -1,0 +1,172 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens, taken from the prototype (design/Dossier.dc.html).
+ * Each token below becomes a Tailwind utility, e.g. --color-muted → text-muted,
+ * --radius-card → rounded-card, --text-title → text-title.
+ */
+@theme {
+  /* Surfaces */
+  --color-paper: #f4f2ed; /* page background */
+  --color-sidebar: #eeebe4;
+  --color-card: #fbfaf7;
+  --color-canvas: #e8e5de; /* behind document previews */
+  --color-input: #ffffff; /* inputs */
+
+  /* Text. Every text colour meets WCAG AA (4.5:1) on every surface above. */
+  --color-ink: #1d1c1a;
+  --color-document: #2b2a27; /* body text inside resumes and letters */
+  /* Secondary text: hints, labels, metadata. The prototype used #6f6a62 and
+     #8a857c, which fall below 4.5:1 on the sidebar and canvas (#8a857c is
+     3.3:1 even on paper), so both became this one colour. It passes on every
+     surface and on the hover/selected tints over paper, but not on a selected
+     item in the sidebar (4.3:1): use ink there. */
+  --color-muted: #69655d;
+  /* Disabled and decorative only (2.4:1 on paper): never for text people need to read. */
+  --color-faint: #a29d94;
+
+  /* Primary actions */
+  --color-primary: #222222;
+  --color-primary-hover: #3a3936;
+  --color-on-primary: #fbfaf7;
+
+  /* Lines */
+  --color-line: rgb(29 28 26 / 0.08); /* dividers */
+  --color-line-card: rgb(29 28 26 / 0.1);
+  --color-line-field: rgb(29 28 26 / 0.14); /* chips and other controls named by their text */
+  /* Text fields, whose border is what shows they're fields: 3:1 on every surface (E11-3, WCAG 1.4.11). */
+  --color-line-input: rgb(29 28 26 / 0.5);
+  --color-line-control: rgb(29 28 26 / 0.16); /* secondary buttons */
+  --color-line-popover: rgb(29 28 26 / 0.12); /* menus */
+  --color-line-strong: rgb(29 28 26 / 0.2); /* upcoming steps */
+
+  /* Tints for hover, selection and tracks */
+  --color-hover: rgb(29 28 26 / 0.05);
+  --color-selected: rgb(29 28 26 / 0.07);
+  --color-track: rgb(29 28 26 / 0.06);
+  --color-toggle-off: rgb(29 28 26 / 0.5); /* 3:1, like text fields */
+
+  /* Feedback */
+  --color-danger: #9a4a3a; /* remove / destructive text */
+  --color-error: #9a3a2c;
+  --color-error-strong: #7a2e22;
+  --color-danger-surface: oklch(0.98 0.01 30);
+  --color-danger-line: oklch(0.8 0.06 30);
+  --color-danger-control: oklch(0.7 0.1 30); /* outlined danger button */
+  --color-danger-disabled: oklch(0.8 0.05 30);
+  --color-warning: #6b4f1a;
+  --color-warning-surface: oklch(0.94 0.04 85);
+  --color-success: #2f6b4a;
+  --color-flash: oklch(0.95 0.05 90); /* briefly marks content that changed */
+
+  /* Application statuses (dots and bars; the label next to them is ink) */
+  --color-status-draft: #a29d94;
+  --color-status-sent: oklch(0.62 0.09 250);
+  --color-status-screening: oklch(0.62 0.09 205);
+  --color-status-interview: oklch(0.6 0.09 295);
+  --color-status-offer: oklch(0.68 0.1 80);
+  --color-status-accepted: oklch(0.6 0.1 150);
+  --color-status-rejected: oklch(0.58 0.1 30);
+  --color-status-declined: #6f6a62;
+
+  /* Radii */
+  --radius-control: 8px; /* buttons, inputs, nav items */
+  --radius-toast: 10px;
+  --radius-card: 12px;
+  --radius-panel: 14px; /* large cards and panels */
+  --radius-dialog: 16px; /* login card */
+
+  /* Shadows */
+  --shadow-page: 0 1px 2px rgb(0 0 0 / 0.06), 0 12px 40px rgb(40 35 25 / 0.1);
+  --shadow-dialog: 0 1px 2px rgb(40 35 25 / 0.04), 0 16px 40px rgb(40 35 25 / 0.06); /* login card */
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.08); /* selected segment */
+  --shadow-knob: 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-menu: 0 14px 36px rgb(40 35 25 / 0.16);
+  --shadow-toolbar: 0 4px 14px rgb(0 0 0 / 0.16);
+  --shadow-toast: 0 10px 30px rgb(0 0 0 / 0.18);
+
+  /* Type scale. Sizes follow the prototype; text-xs (12px) and text-sm
+     (14px) keep Tailwind's defaults. */
+  --text-label: 12.5px; /* field labels, hints */
+  --text-label--line-height: 1.45;
+  --text-meta: 13px; /* secondary lines, "Saved just now" */
+  --text-meta--line-height: 1.45;
+  --text-control: 13.5px; /* chips, compact rows */
+  --text-control--line-height: 1.4;
+  --text-field: 14.5px; /* input text, settings rows */
+  --text-field--line-height: 1.4;
+  --text-lead: 15px; /* page introductions */
+  --text-lead--line-height: 1.55;
+  --text-section: 24px; /* section titles (serif) */
+  --text-section--line-height: 1.2;
+  --text-section--letter-spacing: -0.01em;
+  --text-section--font-weight: 500;
+  --text-title: 40px; /* page titles (serif) */
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.015em;
+  --text-title--font-weight: 400;
+
+  /* Motion. Use with motion-safe: so reduced-motion users don't get it. */
+  --animate-toast-in: toast-in 160ms ease-out;
+  /* Only an opacity change, after a pause, so it's fine without motion-safe. */
+  --animate-skeleton-in: skeleton-in 200ms ease-out 150ms both;
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes skeleton-in {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+/* Fonts come from next/font (src/fonts), which sets the --typeface-* variables at runtime. */
+@theme inline {
+  --font-sans: var(--typeface-geist);
+  --font-serif: var(--typeface-newsreader);
+  --font-mono: var(--typeface-plex-mono);
+  --font-plex-sans: var(--typeface-plex-sans);
+  --font-garamond: var(--typeface-eb-garamond);
+}
+
+@layer base {
+  :root {
+    /* v1 has one light theme; keep native controls light in dark-mode browsers too. */
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  a {
+    color: var(--color-ink);
+  }
+  a:hover {
+    color: var(--color-muted);
+  }
+
+  ::placeholder {
+    color: var(--color-muted);
+    opacity: 1;
+  }
+
+  /* A visible keyboard focus ring on every control (WCAG 2.2 AA). Ink on the
+     paper-coloured gap stands out on every surface, including dark buttons. */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}

@@ -1,0 +1,67 @@
+# Dossier with Docker Compose, for a server without CapRover (see the README,
+# "Install with Docker Compose"). Put POSTGRES_PASSWORD, DOSSIER_PASSWORD and
+# DOSSIER_SECRET in a .env file next to this one, then:
+#
+#   docker compose -f compose.production.yml up -d
+#
+# Add `--profile ai` to run Ollama for a local model as well.
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dossier
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: dossier
+    volumes:
+      # Postgres 18+ keeps data in a versioned subdirectory, so mount the parent.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dossier -d dossier"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ${DOSSIER_IMAGE:-ghcr.io/aientech/dossier:latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD}@db:5432/dossier
+      DOSSIER_PASSWORD: ${DOSSIER_PASSWORD:?Set DOSSIER_PASSWORD in .env}
+      DOSSIER_SECRET: ${DOSSIER_SECRET:?Set DOSSIER_SECRET in .env}
+      DOSSIER_BACKUP_RETENTION_DAYS: ${DOSSIER_BACKUP_RETENTION_DAYS:-}
+      # Your time zone, e.g. Europe/Berlin: nightly backups run at 03:00 in it.
+      TZ: ${TZ:-}
+      DOSSIER_AI_PROVIDER: ${DOSSIER_AI_PROVIDER:-}
+      DOSSIER_AI_URL: ${DOSSIER_AI_URL:-}
+      DOSSIER_AI_MODEL: ${DOSSIER_AI_MODEL:-}
+      DOSSIER_AI_KEY: ${DOSSIER_AI_KEY:-}
+      DOSSIER_AI_TIMEOUT_SECONDS: ${DOSSIER_AI_TIMEOUT_SECONDS:-}
+    # Only on the server itself: put a reverse proxy with HTTPS in front.
+    ports:
+      - "127.0.0.1:${DOSSIER_PORT:-3000}:3000"
+    volumes:
+      - data:/data
+    # Room for Chromium, which prints the PDFs.
+    mem_limit: 1g
+    # Lets http://host.docker.internal:11434 reach an Ollama on the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # A local model: `docker compose -f compose.production.yml --profile ai up -d`,
+  # then pull one (see the README). Dossier reaches it at http://ollama:11434.
+  ollama:
+    profiles: [ai]
+    image: ollama/ollama:0.34.4
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+
+volumes:
+  pgdata:
+  data:
+  ollama:
