@@ -56,7 +56,7 @@ services:
   # then pull one (see the README). Dossier reaches it at http://ollama:11434.
   ollama:
     profiles: [ai]
-    image: ollama/ollama:0.34.4
+    image: ollama/ollama:0.35.0
     restart: unless-stopped
     volumes:
       - ollama:/root/.ollama
