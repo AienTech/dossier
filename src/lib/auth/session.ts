@@ -1,20 +1,21 @@
 import "server-only";
 
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 import { EncryptJWT, jwtDecrypt } from "jose";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
+import { verifyPassword } from "@/lib/auth/password-hash";
 import { env } from "@/lib/env";
 import { deriveKey } from "@/lib/keys";
 
 // Sessions are stateless: the cookie holds an encrypted token (JWE,
 // A256GCM with a key derived from DOSSIER_SECRET), so nothing is stored on
 // the server, and tampering or a different secret makes it invalid. Each
-// token also carries a fingerprint of DOSSIER_PASSWORD, so changing the
-// password and restarting signs everyone out (AUTH-6).
+// token also carries a fingerprint of DOSSIER_PASSWORD (the password's
+// hash), so changing the password and restarting signs everyone out (AUTH-6).
 
 export const SESSION_COOKIE = "dossier_session";
 
@@ -38,8 +39,8 @@ type TokenOptions = {
 };
 
 /**
- * A short HMAC of the password, keyed from DOSSIER_SECRET. It identifies the
- * password a session was created with, without revealing it.
+ * A short HMAC of DOSSIER_PASSWORD, keyed from DOSSIER_SECRET. It identifies
+ * the password a session was created with, without revealing it.
  */
 export function passwordFingerprint(
   password = env.DOSSIER_PASSWORD,
@@ -95,13 +96,9 @@ export async function decodeSession(
   }
 }
 
-/**
- * Whether `candidate` is the password in DOSSIER_PASSWORD. Both are hashed
- * first, so the comparison takes the same time whatever their lengths.
- */
-export function passwordMatches(candidate: string, password = env.DOSSIER_PASSWORD): boolean {
-  const hash = (value: string) => createHash("sha256").update(value, "utf8").digest();
-  return timingSafeEqual(hash(candidate), hash(password));
+/** Whether `candidate` is the password that DOSSIER_PASSWORD is a hash of. */
+export function passwordMatches(candidate: string, hash = env.DOSSIER_PASSWORD): Promise<boolean> {
+  return verifyPassword(candidate, hash);
 }
 
 /** Whether the browser reached us over HTTPS, as the reverse proxy reports it. */

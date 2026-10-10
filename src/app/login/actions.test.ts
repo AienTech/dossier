@@ -27,7 +27,7 @@ vi.mock("@/lib/profile-data", () => ({ loadProfileName: vi.fn() }));
 describe("signIn", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(passwordMatches).mockImplementation((candidate) => candidate === "correct horse");
+    vi.mocked(passwordMatches).mockImplementation(async (candidate) => candidate === "correct horse");
     vi.mocked(loginWaitMs).mockResolvedValue(0);
     vi.mocked(loadProfileName).mockResolvedValue("Lena Hartmann");
   });

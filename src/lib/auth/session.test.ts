@@ -1,6 +1,7 @@
 import { EncryptJWT } from "jose";
 import { describe, expect, it } from "vitest";
 
+import { hashPassword } from "@/lib/auth/password-hash";
 import { deriveKey } from "@/lib/keys";
 
 import {
@@ -71,11 +72,13 @@ describe("session tokens", () => {
 });
 
 describe("password check", () => {
-  it("accepts only the exact password", () => {
-    expect(passwordMatches("correct horse", "correct horse")).toBe(true);
-    expect(passwordMatches("correct horse ", "correct horse")).toBe(false);
-    expect(passwordMatches("Correct horse", "correct horse")).toBe(false);
-    expect(passwordMatches("", "correct horse")).toBe(false);
+  it("accepts only the password that DOSSIER_PASSWORD is a hash of", async () => {
+    const hash = await hashPassword("correct horse");
+    expect(await passwordMatches("correct horse", hash)).toBe(true);
+    expect(await passwordMatches("Correct horse", hash)).toBe(false);
+    expect(await passwordMatches("", hash)).toBe(false);
+    // The password itself where its hash belongs never matches.
+    expect(await passwordMatches("correct horse", "correct horse")).toBe(false);
   });
 });
 

@@ -15,7 +15,7 @@ import { loadProfileName } from "@/lib/profile-data";
 import { loginMessages } from "./messages";
 
 /**
- * Signs in with the password from DOSSIER_PASSWORD (PRD AUTH-1, AUTH-4).
+ * Signs in with the password that DOSSIER_PASSWORD is a hash of (PRD AUTH-1, AUTH-4).
  * Failed attempts are rate-limited per IP and globally (AUTH-5). Returns
  * where to go next: the requested page if it's on this site, or the dashboard.
  */
@@ -31,7 +31,7 @@ export const signIn = publicAction(
     if (wait > 0) throw new ActionError(tooManyAttemptsMessage(wait));
 
     if (!password) throw new ActionError(loginMessages.empty);
-    if (!passwordMatches(password)) {
+    if (!(await passwordMatches(password))) {
       await recordLoginFailure(prisma, ip);
       throw new ActionError(loginMessages.wrong);
     }

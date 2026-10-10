@@ -57,6 +57,10 @@ RUN mkdir /tools && node -e ' \
 RUN node_modules/.bin/esbuild prisma/seed.ts --bundle --platform=node --format=esm --target=node24 \
   --external:pg-native --outfile=/tools/seed.mjs \
   --banner:js='import { createRequire } from "node:module"; const require = createRequire(import.meta.url);'
+# `hash-password`, which makes the hash for DOSSIER_PASSWORD, as one file too.
+RUN node_modules/.bin/esbuild scripts/hash-password.ts --bundle --platform=node --format=esm --target=node24 \
+  --outfile=/tools/hash-password.mjs --banner:js='#!/usr/bin/env node' \
+  && chmod 755 /tools/hash-password.mjs
 
 FROM base AS production
 ENV NODE_ENV=production \
@@ -70,6 +74,8 @@ RUN --mount=type=bind,from=deps,source=/app/node_modules/playwright-core,target=
   node /tmp/playwright-core/cli.js install --with-deps --only-shell chromium \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=build /tools ./tools
+# On the PATH, so `docker run --rm -it ghcr.io/aientech/dossier hash-password` works.
+RUN ln -s /app/tools/hash-password.mjs /usr/local/bin/hash-password
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public

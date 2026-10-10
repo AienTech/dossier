@@ -51,8 +51,14 @@ Dossier is published to GitHub's container registry as `ghcr.io/aientech/dossier
 
   ```
   DATABASE_URL=postgresql://<user>:<password>@srv-captain--dossier-db:5432/dossier
-  DOSSIER_PASSWORD=<the password you'll sign in with>
+  DOSSIER_PASSWORD=<a hash of the password you'll sign in with: see below>
   DOSSIER_SECRET=<32 or more random characters: openssl rand -base64 32>
+  ```
+
+  `DOSSIER_PASSWORD` holds a hash of your password, never the password itself, so reading the app's settings doesn't reveal it. To make the hash, run this on the server (or any machine with Docker), type the password twice, and paste the line it prints, which starts with `argon2id:`:
+
+  ```bash
+  docker run --rm -it ghcr.io/aientech/dossier hash-password
   ```
 
   Optionally `TZ` (e.g. `Europe/Berlin`, so nightly backups run at 03:00 your time), `DOSSIER_AI_*` for the AI provider (you can also set it up in the app) and `DOSSIER_BACKUP_RETENTION_DAYS`. Keep `DOSSIER_SECRET` somewhere safe: saved API keys and every session depend on it.
@@ -132,9 +138,11 @@ On any server with Docker, [`compose.production.yml`](compose.production.yml) ru
 
 ```bash
 POSTGRES_PASSWORD=<random: openssl rand -hex 24>
-DOSSIER_PASSWORD=<the password you'll sign in with>
+DOSSIER_PASSWORD=<a hash of the password you'll sign in with: see below>
 DOSSIER_SECRET=<32 or more random characters: openssl rand -base64 32>
 ```
+
+For `DOSSIER_PASSWORD`, run `docker run --rm -it ghcr.io/aientech/dossier hash-password`, type the password you'll sign in with twice, and paste the line it prints. Dossier only takes the hash, never the password itself.
 
 Then start it, and sign in at http://localhost:3000 on the server:
 
@@ -160,7 +168,7 @@ Dossier is configured with environment variables; everything else is set in the 
 | Variable | Default | What it's for |
 |---|---|---|
 | `DATABASE_URL` | required | PostgreSQL connection string, `postgresql://user:password@host:5432/database`. |
-| `DOSSIER_PASSWORD` | required | The password you sign in with. It's only read from here, never stored. Changing it signs every session out. |
+| `DOSSIER_PASSWORD` | required | A hash of the password you sign in with, made with `hash-password` (see [step 3](#3-create-the-app)); the password itself isn't accepted. It's only read from here, never stored. Changing it signs every session out. |
 | `DOSSIER_SECRET` | required | At least 32 random characters. Signs sessions and encrypts saved API keys; changing it signs everyone out and API keys have to be entered again. |
 | `DOSSIER_DATA_DIR` | `/data` | Where nightly backups, the backups made before an import, and zipped PDFs go. Mount a volume here. |
 | `DOSSIER_BACKUP_RETENTION_DAYS` | `14` | How many days of nightly backups to keep. |
@@ -229,16 +237,26 @@ Take a backup first (an export, or a database dump). Then:
 
 The new version updates the database on start. Going back to an older version after that isn't supported: restore the backup you took instead.
 
+### From 1.0: the password hash
+
+Dossier 1.0 took the password itself in `DOSSIER_PASSWORD`. Newer versions only take a hash of it, and don't start until it is one. When you upgrade:
+
+1. Make the hash with the newer image: `docker run --rm -it ghcr.io/aientech/dossier hash-password`. Type your current password to keep it.
+2. **CapRover:** set `DOSSIER_PASSWORD` to the hash in **App Configs**, save, and deploy the newer image straight away: until then, 1.0 takes the hash itself as the password. **Compose:** put the hash in `.env`, then pull and start as above.
+
+Every browser is signed out once and signs in again with the same password.
+
 ## Troubleshooting
 
 - **"Dossier didn't start: applying the database migrations failed."** The error above that line says why. `P1001` means the database isn't reachable: check `DATABASE_URL` and that PostgreSQL is running. If a migration failed halfway, the database needs repairing before the next start: restore the dump you took before upgrading, or ask for help with the log. On CapRover with the update override from step 3, the previous version keeps running meanwhile.
 - **"… is not set" or "DOSSIER_SECRET is too short":** set the variable the log names and restart.
+- **"DOSSIER_PASSWORD must be a hash of your password":** it's set to the password itself, which Dossier 1.0 took. Make a hash with `docker run --rm -it ghcr.io/aientech/dossier hash-password`, set `DOSSIER_PASSWORD` to it and restart.
 - **PDFs fail or time out:** Chromium needs memory; give the app at least 768 MB (1 GB is comfortable). Fonts are bundled with Dossier, so documents look the same everywhere; a custom document language in a script Dossier has no font for may show empty boxes.
 - **The AI times out:** local models on a CPU are slow. Try a smaller model, or raise `DOSSIER_AI_TIMEOUT_SECONDS`. **Test connection** in Settings shows whether Dossier reaches the server at all; inside Docker, `localhost` isn't the host.
 - **An import fails with "413" or "Request Entity Too Large":** the reverse proxy's upload limit is below 10 MB; on CapRover, see [Turn on HTTPS](#5-turn-on-https).
 - **"That file is over 10 MB":** imports are capped at 10 MB, roughly 500 applications. Raising the cap means changing two settings in the code (see [Import size limit](DEVELOPMENT.md#import-size-limit)).
 - **"Too many attempts":** after five wrong passwords in a minute, sign-in pauses for 30 seconds, then longer each time, up to 15 minutes. The count is kept in the database, so restarting doesn't reset it: wait it out.
-- **Forgot the password:** set a new `DOSSIER_PASSWORD` and restart.
+- **Forgot the password:** make a hash of a new one with `hash-password` (see [step 3](#3-create-the-app)), set it as `DOSSIER_PASSWORD` and restart.
 - **Is it up?** `/api/health` answers `{"status":"ok"}` when the app and its database are fine, and 503 when the database isn't reachable.
 
 ## Privacy

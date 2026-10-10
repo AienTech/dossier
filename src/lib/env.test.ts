@@ -4,8 +4,11 @@ import { describe, expect, it } from "vitest";
 
 import { EnvError, parseEnv } from "./env";
 
+// A hash of "correct horse" (scripts/hash-password.ts).
+const PASSWORD_HASH = "argon2id:m=19456,t=2,p=1:CLZW5wQoCjh3Q9CHBp_JWw:Ak2xS7TYlYYrhemlgBkVxFmWXfcMq_rjd0mJGZcZFfA";
+
 const valid = {
-  DOSSIER_PASSWORD: "correct horse",
+  DOSSIER_PASSWORD: PASSWORD_HASH,
   DOSSIER_SECRET: "a".repeat(32),
   DATABASE_URL: "postgresql://postgres:postgres@db:5432/dossier",
 };
@@ -77,6 +80,13 @@ describe("parseEnv", () => {
     ]);
   });
 
+  it("wants a hash of the password, not the password itself", () => {
+    expect(problems({ ...valid, DOSSIER_PASSWORD: "correct horse" })).toEqual([
+      expect.stringMatching(/^DOSSIER_PASSWORD must be a hash of your password, not the password itself\. .*hash-password/),
+    ]);
+    expect(parseEnv({ ...valid, DOSSIER_PASSWORD: ` ${PASSWORD_HASH}\n` }).DOSSIER_PASSWORD).toBe(PASSWORD_HASH);
+  });
+
   it("rejects a secret shorter than 32 characters", () => {
     expect(problems({ ...valid, DOSSIER_SECRET: "short" })).toEqual([
       expect.stringMatching(/^DOSSIER_SECRET is too short \(5 characters\)\./),
@@ -89,6 +99,7 @@ describe("parseEnv", () => {
       DOSSIER_SECRET: "tiny-secret",
       DATABASE_URL: "mysql://root:db-password@db/dossier",
     }).join("\n");
+    expect(messages).not.toContain("hunter2");
     expect(messages).not.toContain("tiny-secret");
     expect(messages).not.toContain("db-password");
     expect(messages).toMatch(/DATABASE_URL must be a PostgreSQL connection string/);

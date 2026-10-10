@@ -1,6 +1,7 @@
 # Dossier with Docker Compose, for a server without CapRover (see the README,
-# "Install with Docker Compose"). Put POSTGRES_PASSWORD, DOSSIER_PASSWORD and
-# DOSSIER_SECRET in a .env file next to this one, then:
+# "Install with Docker Compose"). Put POSTGRES_PASSWORD, DOSSIER_PASSWORD (a
+# hash of your password, from `docker run --rm -it ghcr.io/aientech/dossier
+# hash-password`) and DOSSIER_SECRET in a .env file next to this one, then:
 #
 #   docker compose -f compose.production.yml up -d
 #
@@ -31,7 +32,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD}@db:5432/dossier
-      DOSSIER_PASSWORD: ${DOSSIER_PASSWORD:?Set DOSSIER_PASSWORD in .env}
+      DOSSIER_PASSWORD: ${DOSSIER_PASSWORD:?Set DOSSIER_PASSWORD in .env to a hash from hash-password}
       DOSSIER_SECRET: ${DOSSIER_SECRET:?Set DOSSIER_SECRET in .env}
       DOSSIER_BACKUP_RETENTION_DAYS: ${DOSSIER_BACKUP_RETENTION_DAYS:-}
       # Your time zone, e.g. Europe/Berlin: nightly backups run at 03:00 in it.
