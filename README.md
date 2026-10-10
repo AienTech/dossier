@@ -12,6 +12,25 @@ It's a single-user web app for a small server: one password, your data in your o
 - **Track:** a board and a table of every application, and a dashboard with your funnel (last 30 days, 90 days or all time), a week-by-week chart and what's worth a look next, upcoming interviews included.
 - **Your data:** export and import everything as one file, nightly backups, and Delete everything.
 
+![The dashboard: your funnel, a week-by-week chart and what's worth a look next](.github/images/dashboard.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src=".github/images/application.png" alt="An application with its tailored resume and the chat that refines it"><br>An application: the tailored resume, and a chat to refine it</td>
+    <td width="50%"><img src=".github/images/new-application.png" alt="A new application, showing how the profile matches the posting's requirements"><br>A new application: how you match the posting</td>
+  </tr>
+  <tr>
+    <td><img src=".github/images/applications.png" alt="The applications board, with columns from draft to offer"><br>Every application on a board, from draft to offer</td>
+    <td><img src=".github/images/find-jobs.png" alt="Find jobs: postings near the profile's city, with one open"><br>Find jobs and start an application from a posting</td>
+  </tr>
+  <tr>
+    <td><img src=".github/images/resume.png" alt="The base resume next to its themes"><br>The base resume, with six themes and a theme builder</td>
+    <td><img src=".github/images/profile.png" alt="The profile editor, with its sections and strength meter"><br>One profile that every resume and letter comes from</td>
+  </tr>
+</table>
+
+<sub>The screenshots show the demo data: Lena Hartmann is made up.</sub>
+
 ## Install on CapRover
 
 Dossier runs as one app on a [CapRover](https://caprover.com) server, next to a Postgres one-click app. Give the server at least 2 vCPUs and 2 GB of memory: Dossier needs about 768 MB, Postgres and CapRover the rest (see [Performance and sizing](#performance-and-sizing)).
