@@ -8,12 +8,15 @@ import { ChatRole, DocumentKind, VersionCause } from "@/generated/prisma/enums";
 import { action, ActionError } from "@/lib/action";
 import { isAiConfigured } from "@/lib/ai/config";
 import { editsSchema, extractedSchema, matchSchema, trimmedSchema, unitsSchema, withSkillAdded } from "@/lib/application-data";
+import { WRITTEN_EMAIL_UNITS } from "@/lib/application-email";
 import { updateDocuments } from "@/lib/document-units";
+import { DOCUMENT_LABELS } from "@/lib/file-name";
 import { isFrameUnit, withFrame, WRITTEN_FRAME_UNITS } from "@/lib/letter-frame";
 import { saveVersion } from "@/lib/document-versions";
 import { refineJob, refineJobKey } from "@/lib/jobs/refine";
 import { regenerateUnitJob, unitJobKey } from "@/lib/jobs/regenerate-unit";
 import { findUnfinishedJobs, startJob } from "@/lib/jobs/runner";
+import { emailJobKey, writeEmailJob } from "@/lib/jobs/write-email";
 import { prisma } from "@/lib/prisma";
 import { findOrCreateSkill } from "@/lib/profile-entries";
 import { cleanUnitText, unitName } from "@/lib/unit-text";
@@ -65,7 +68,10 @@ export const saveUnit = action(
   }),
   async ({ id, document, unitId, text, expected }) => {
     const clean = cleanUnitText(unitId, text);
-    if (!clean) throw new ActionError("Write something first, or cancel to keep it as it was.");
+    // The email's recipient may be left empty, for the mail app to fill in.
+    if (!clean && !(document === DocumentKind.EMAIL && unitId === "to")) {
+      throw new ActionError("Write something first, or cancel to keep it as it was.");
+    }
 
     await updateDocuments(id, async (documents) => {
       const units = documents[document];
@@ -102,7 +108,9 @@ export const startRegenerating = action(
   async ({ id, document, unitId, shown }) => {
     const frame = document === DocumentKind.COVER_LETTER && isFrameUnit(unitId);
     // The sender, date and signature come from the profile and the day, not the AI (E8-11).
-    if (frame && !WRITTEN_FRAME_UNITS.has(unitId)) throw new ActionError("This part isn't written by the AI. Edit it instead.");
+    if ((frame && !WRITTEN_FRAME_UNITS.has(unitId)) || (document === DocumentKind.EMAIL && !WRITTEN_EMAIL_UNITS.has(unitId))) {
+      throw new ActionError("This part isn't written by the AI. Edit it instead.");
+    }
     if (frame && shown) {
       await updateDocuments(id, async (documents) => {
         const units = documents[document];
@@ -148,7 +156,7 @@ export const restoreUnit = action(
 );
 
 /** The answer on the Job posting tab, where there's nothing to change. */
-const POSTING_REPLY = "I can change the resume or the cover letter. Switch to one of them, or hover a section and pick “Ask AI”.";
+const POSTING_REPLY = "I can change the resume, the cover letter or the email. Switch to one of them, or hover a section and pick “Ask AI”.";
 
 /**
  * Sends a message from the Refine with AI panel (E8-5): saves it and starts
@@ -159,7 +167,7 @@ export const sendMessage = action(
   z.object({
     id: z.string().min(1),
     text: z.string().trim().min(1, "Write what should change first.").max(2000),
-    /** The document on screen; null on the Job posting tab. */
+    /** The document on screen; null on the Job posting and Notes tabs, and on the Email tab before there's an email. */
     viewing: z.enum(DocumentKind).nullable(),
     /** The unit picked with "Ask AI". */
     target: z.object({ document: z.enum(DocumentKind), unitId: z.string().min(1) }).nullable(),
@@ -335,11 +343,10 @@ export const putBackTrimmed = action(z.object({ id: z.string().min(1), index: z.
 
 // ─── Versions (E8-10, APP-13) ────────────────────────────────────────────────
 
-const documentKind = z.enum([DocumentKind.RESUME, DocumentKind.COVER_LETTER]);
 const VERSION_GONE = "That version no longer exists. Open the history again to see what's there.";
 
 /** A document's versions, newest first, without their units. */
-export const listVersions = action(z.object({ id: z.string().min(1), document: documentKind }), async ({ id, document }) => {
+export const listVersions = action(z.object({ id: z.string().min(1), document: z.enum(DocumentKind) }), async ({ id, document }) => {
   const versions = await prisma.documentVersion.findMany({
     where: { document: { applicationId: id, kind: document } },
     orderBy: { createdAt: "desc" },
@@ -403,8 +410,44 @@ export const restoreVersion = action(z.object({ id: z.string().min(1), versionId
       data: { trimmed: stillLeftOut.length > 0 ? stillLeftOut : Prisma.DbNull },
     });
   }
-  toast(`Restored the ${kind === DocumentKind.RESUME ? "resume" : "cover letter"} as it was then. The version you had is in the history too.`);
+  toast(`Restored the ${DOCUMENT_LABELS[kind].toLowerCase()} as it was then. The version you had is in the history too.`);
   refresh(id);
   return null;
 });
 
+// ─── The email (Email tab) ───────────────────────────────────────────────────
+
+/**
+ * "Write the email" and "Rewrite": writes the application's email in the
+ * background and returns the job's id. Asking again while it's being
+ * written follows the same job.
+ */
+export const startWritingEmail = action(z.object({ id: z.string().min(1) }), async ({ id }) => {
+  if (!(await prisma.application.count({ where: { id } }))) throw new ActionError(GONE);
+  if (!(await isAiConfigured())) throw new ActionError("That needs an AI provider. Choose one in Settings → AI provider.");
+  const [running] = await findUnfinishedJobs(emailJobKey(id));
+  return running?.id ?? startJob(writeEmailJob, { applicationId: id }, { key: emailJobKey(id) });
+});
+
+/**
+ * Undo on the "Rewrote the email." toast: puts back the email the rewrite
+ * replaced, unless it has changed again since.
+ */
+export const undoEmailRewrite = action(z.object({ id: z.string().min(1), jobId: z.string().min(1) }), async ({ id, jobId }) => {
+  const job = await prisma.job.findFirst({ where: { id: jobId, key: emailJobKey(id), status: "DONE" }, select: { result: true } });
+  const result = writeEmailJob.result.safeParse(job?.result);
+  const previous = result.success ? result.data.previous : null;
+  if (!result.success || !previous) throw new ActionError("There's nothing to undo.");
+
+  const same = (a: unknown, b: unknown) => JSON.stringify(unitsSchema.parse(a)) === JSON.stringify(unitsSchema.parse(b));
+  await updateDocuments(id, async (documents) => {
+    const current = documents[DocumentKind.EMAIL];
+    if (!current) throw new ActionError(PART_GONE);
+    if (!same(current, result.data.units)) {
+      throw new ActionError("The email has changed since, so this can't be undone. Earlier versions are in its history.");
+    }
+    documents[DocumentKind.EMAIL] = previous;
+  }, { version: { cause: VersionCause.UNDONE } });
+  refresh(id);
+  return null;
+});

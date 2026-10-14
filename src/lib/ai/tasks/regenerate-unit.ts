@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { DocumentKind, type Tone } from "@/generated/prisma/enums";
 import { SIGN_OFF_UNIT, type Extracted, type Unit } from "@/lib/application-data";
+import { emailParts } from "@/lib/application-email";
 import { isFrameUnit } from "@/lib/letter-frame";
 import type { ProfileData } from "@/lib/profile";
 import { TONES } from "@/lib/tones";
@@ -32,6 +33,19 @@ const FRAME_PARTS: Record<string, string> = {
     "It's the letter's address block, one line per line: who it's for (the company's hiring team, or the contact person the posting names, at the company), then the place if the job has one.",
 };
 
+/** What the email's parts are, for the model. */
+const EMAIL_PARTS: Record<string, string> = {
+  subject: "It's the email's subject line: the role and the candidate's name, or the reference or subject line the posting asks for. One line.",
+  body: "It's the email's whole message, sent with the resume and cover letter attached: the greeting (to the contact person the posting names, else the hiring team), two or three short paragraphs (about 80–150 words together) on the role the candidate is applying for, what makes them a strong fit and that the resume and cover letter are attached, then the sign-off and the candidate's name. A blank line between paragraphs. It doesn't repeat the cover letter.",
+};
+
+/** What each document is called in the prompt. */
+const DOCUMENT_NAMES: Record<DocumentKind, string> = {
+  [DocumentKind.RESUME]: "resume",
+  [DocumentKind.COVER_LETTER]: "cover letter",
+  [DocumentKind.EMAIL]: "application email",
+};
+
 const answerSchema = z.object({ text: z.string() });
 
 export type RegenerateInput = {
@@ -52,7 +66,7 @@ export type RegenerateInput = {
 export const regenerateUnit: Task<RegenerateInput, Unit> = async (provider, input, options) => {
   const { kind, unit, document, profile, extracted, tone, note, posting } = input;
   const isRole = isRoleUnit(unit.id);
-  const what = kind === DocumentKind.RESUME ? "resume" : "cover letter";
+  const what = DOCUMENT_NAMES[kind];
   const answer = await provider.complete({
     system: system(
       `You write a new version of one part of a candidate's ${what} for one job, as JSON with the new text.`,
@@ -61,8 +75,9 @@ export const regenerateUnit: Task<RegenerateInput, Unit> = async (provider, inpu
       }`,
       // The letter's greeting and address block aren't where its argument goes.
       kind === DocumentKind.COVER_LETTER && !isFrameUnit(unit.id) && COVER_LETTER_APPROACH,
-      kind === DocumentKind.COVER_LETTER && `Tone: ${TONES[tone].label}. ${TONES[tone].description}`,
+      kind !== DocumentKind.RESUME && `Tone: ${TONES[tone].label}. ${TONES[tone].description}`,
       kind === DocumentKind.COVER_LETTER && FRAME_PARTS[unit.id],
+      kind === DocumentKind.EMAIL && EMAIL_PARTS[unit.id],
       truthfulness(options.strict),
       CREATIVITY[options.creativity],
       languageRule(options.language),
@@ -94,7 +109,11 @@ export const regenerateUnit: Task<RegenerateInput, Unit> = async (provider, inpu
   const updated = { ...unit, text: unit.id === SIGN_OFF_UNIT && english ? TONES[tone].signOff : text || unit.text };
   return {
     // The letter's recipient and greeting aren't claims about the candidate.
-    data: options.strict && !isFrameUnit(unit.id) ? guardUnits([updated], guardSources(profile, extracted, posting))[0] : { ...updated, unverified: undefined },
+    data:
+      options.strict && !isFrameUnit(unit.id)
+        ? // The email's greeting names its recipient, from the posting or typed in by the user.
+          guardUnits([updated], guardSources(profile, extracted, kind === DocumentKind.EMAIL ? [posting, emailParts(document).to].join("\n") : posting))[0]
+        : { ...updated, unverified: undefined },
     promptVersion: REGENERATE_UNIT_VERSION,
   };
 };

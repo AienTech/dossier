@@ -19,6 +19,7 @@ import {
   type Tone,
 } from "@/generated/prisma/enums";
 import { type Match, type Requirement, type Unit } from "@/lib/application-data";
+import { EMAIL_UNITS, WRITTEN_EMAIL_UNITS } from "@/lib/application-email";
 import { englishFrame, isFrameUnit, isParagraph, withFrame, WRITTEN_FRAME_UNITS } from "@/lib/letter-frame";
 import type { ActivityEntry } from "@/lib/activity";
 import type { DocumentData } from "@/lib/application-documents";
@@ -26,6 +27,7 @@ import { retry } from "@/lib/jobs/actions";
 import type { RefineResult } from "@/lib/jobs/refine";
 import type { RegenerateUnitResult } from "@/lib/jobs/regenerate-unit";
 import type { JobView } from "@/lib/jobs/runner";
+import type { WriteEmailResult } from "@/lib/jobs/write-email";
 import type { ProfileData } from "@/lib/profile";
 import type { RefineSuggestions } from "@/lib/refine-suggestions";
 import { hasSidebar } from "@/lib/themes";
@@ -40,10 +42,13 @@ import {
   sendMessage,
   setFollowThemeLayout,
   startRegenerating,
+  startWritingEmail,
+  undoEmailRewrite,
   undoMessage,
 } from "./actions";
 import { ApplicationHeader } from "./application-header";
 import { ApplicationMenu } from "./application-menu";
+import { EmailTab, type Attachments } from "./email-tab";
 
 import { JobWatcher } from "./job-watcher";
 import { NotesTab } from "./notes-tab";
@@ -69,6 +74,9 @@ export const FLASH_MS = 1600;
 
 /** A background job being followed; `revision` goes up with each Retry. */
 type Rewrite = { jobId: string; revision: number };
+
+/** The tab each document is on. */
+const TAB_OF: Record<DocumentKind, Tab> = { RESUME: "resume", COVER_LETTER: "letter", EMAIL: "email" };
 
 /** The unit the next chat message is about ("Ask AI"). */
 type Target = { document: DocumentKind; unitId: string; label: string; name: string };
@@ -106,6 +114,12 @@ export type ApplicationViewProps = {
   meta: string[];
   resume: DocumentData | null;
   letter: DocumentData | null;
+  /** The email to send the application with (Email tab), once it's written. */
+  email: Unit[] | null;
+  /** The email being written, e.g. since before a reload. */
+  writingEmail: string | null;
+  /** The PDFs to attach to the email. */
+  attachments: Attachments;
   profile: ProfileData;
   paper: PaperSize;
   dateFormat: DateFormat;
@@ -142,6 +156,9 @@ export function ApplicationView({
   activity,
   resume,
   letter,
+  email,
+  writingEmail,
+  attachments,
   profile,
   paper,
   dateFormat,
@@ -180,6 +197,11 @@ export function ApplicationView({
   const [rewrites, setRewrites] = useState<Readonly<Record<string, Rewrite>>>(() =>
     Object.fromEntries(rewritingAtLoad.map(({ jobId, document, unitId }) => [keyOf(document, unitId), { jobId, revision: 0 }])),
   );
+  const [emailJob, setEmailJob] = useState<Rewrite | null>(writingEmail ? { jobId: writingEmail, revision: 0 } : null);
+
+  /** The document on screen, which a chat message without a target is most likely about. */
+  const onScreen = (): DocumentKind | null =>
+    tab === "resume" ? DocumentKind.RESUME : tab === "letter" ? DocumentKind.COVER_LETTER : tab === "email" && email ? DocumentKind.EMAIL : null;
 
   const selectTab = (value: string) => {
     const next = value as Tab;
@@ -235,7 +257,7 @@ export function ApplicationView({
 
   const rewriteChanged = (kind: DocumentKind, unitId: string, job: JobView<RegenerateUnitResult>) => {
     const key = keyOf(kind, unitId);
-    const units = kind === DocumentKind.RESUME ? resume?.units : letter?.units;
+    const units = { [DocumentKind.RESUME]: resume?.units, [DocumentKind.COVER_LETTER]: letter?.units, [DocumentKind.EMAIL]: email }[kind];
     const name = unitName(units?.find((entry) => entry.id === unitId) ?? { id: unitId, label: "" });
     if (job.status === "FAILED") {
       // Nothing was changed, so the unit is as it was.
@@ -292,7 +314,7 @@ export function ApplicationView({
   /** Sends a chat message (E8-5); resolves to whether it went. */
   const send = (text: string) =>
     new Promise<boolean>((resolve) => {
-      const viewing = tab === "resume" ? DocumentKind.RESUME : tab === "letter" ? DocumentKind.COVER_LETTER : null;
+      const viewing = onScreen();
       if ((viewing || target) && !aiReady) {
         needsAi();
         return resolve(false);
@@ -336,10 +358,57 @@ export function ApplicationView({
     const { edited } = job.result;
     flashing.start(edited.map(({ document, unitId }) => keyOf(document, unitId)));
     // Show the change, on the other document if that's where it is.
-    const viewing = tab === "resume" ? DocumentKind.RESUME : tab === "letter" ? DocumentKind.COVER_LETTER : null;
-    if (edited.length > 0 && !edited.some(({ document }) => document === viewing)) {
-      selectTab(edited[0].document === DocumentKind.RESUME ? "resume" : "letter");
+    const viewing = onScreen();
+    if (edited.length > 0 && !edited.some(({ document }) => document === viewing)) selectTab(TAB_OF[edited[0].document]);
+  };
+
+  /** "Write the email" and "Rewrite" on the Email tab: written in the background. */
+  const writeEmail = async () => {
+    if (!aiReady) return needsAi();
+    if (emailJob) return;
+    setEmailJob({ jobId: "", revision: 0 });
+    const result = await startWritingEmail({ id: application.id });
+    if (result.ok) setEmailJob({ jobId: result.data, revision: 0 });
+    else {
+      setEmailJob(null);
+      toast(result.error);
     }
+  };
+
+  const emailChanged = (job: JobView<WriteEmailResult>) => {
+    if (job.status === "FAILED") {
+      setEmailJob(null);
+      toast(job.error ?? "That didn't work. Try again.", {
+        action: {
+          label: "Retry",
+          onClick: () =>
+            void retry({ id: job.id }).then((retried) => {
+              if (retried.ok) setEmailJob((current) => ({ jobId: job.id, revision: (current?.revision ?? 0) + 1 }));
+              else toast(retried.error);
+            }),
+        },
+      });
+      return;
+    }
+    if (job.status !== "DONE" || !job.result) return;
+    setEmailJob(null);
+    startTransition(() => router.refresh());
+    const keys = EMAIL_UNITS.map((id) => keyOf(DocumentKind.EMAIL, id));
+    flashing.start(keys);
+    // The first email just appears; a rewrite can be undone.
+    if (!job.result.previous) return;
+    toast("Rewrote the email.", {
+      action: {
+        label: "Undo",
+        onClick: () =>
+          startTransition(async () => {
+            const undone = await undoEmailRewrite({ id: application.id, jobId: job.id });
+            if (!undone.ok) return toast(undone.error);
+            flashing.start(keys);
+            toast("Put the email back.");
+          }),
+      },
+    });
   };
 
   /** "+ Add to profile" on the Job posting tab (E8-7). */
@@ -385,7 +454,7 @@ export function ApplicationView({
       const unit = units.find((entry) => entry.id === id);
       if (!unit) return plainUnit({ id, className, head, children });
       const key = keyOf(kind, id);
-      const written = !isFrameUnit(id) || WRITTEN_FRAME_UNITS.has(id);
+      const written = kind === DocumentKind.EMAIL ? WRITTEN_EMAIL_UNITS.has(id) : !isFrameUnit(id) || WRITTEN_FRAME_UNITS.has(id);
       return (
         <UnitFrame
           id={id}
@@ -417,6 +486,7 @@ export function ApplicationView({
       englishFrame({ basics: profile.basics, company: application.company, location: application.location, date: letterDate, dateFormat }),
     );
   const letterStored = new Set(letter?.units.map((unit) => unit.id));
+  const emailUnits = email && shown(DocumentKind.EMAIL, email);
   const paragraphs = letterUnits?.filter(isParagraph).map((unit) => unit.text) ?? [];
   const hint = "Hover a section to edit or regenerate it";
 
@@ -473,6 +543,9 @@ export function ApplicationView({
         ) : null,
       )}
       {reply && <JobWatcher<RefineResult> key={reply.jobId} id={reply.jobId} revision={reply.revision} onChange={replyChanged} />}
+      {emailJob?.jobId && (
+        <JobWatcher<WriteEmailResult> key={emailJob.jobId} id={emailJob.jobId} revision={emailJob.revision} onChange={emailChanged} />
+      )}
       <ApplicationHeader
         title={application.title}
         company={application.company}
@@ -499,6 +572,7 @@ export function ApplicationView({
         <TabsList aria-label="Application" className="-mx-14 px-14">
           <TabsTrigger value="resume">Resume</TabsTrigger>
           <TabsTrigger value="letter">Cover letter</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="posting">{score ? `Job posting · ${score.hit}/${score.total} match` : "Job posting"}</TabsTrigger>
           <TabsTrigger value="notes">{notes > 0 ? `Notes · ${notes}` : "Notes"}</TabsTrigger>
         </TabsList>
@@ -571,6 +645,20 @@ export function ApplicationView({
           )}
         </TabsContent>
 
+        <TabsContent value="email" className="flex min-h-0 min-w-0 flex-[999_1_480px]">
+          <EmailTab
+            applicationId={application.id}
+            units={viewed(DocumentKind.EMAIL)?.units ?? emailUnits}
+            renderUnit={viewed(DocumentKind.EMAIL) || !emailUnits ? plainUnit : unitsOf(DocumentKind.EMAIL, emailUnits)}
+            history={historyButton(DocumentKind.EMAIL)}
+            hint={viewed(DocumentKind.EMAIL) ? undefined : "Hover a part to edit or regenerate it"}
+            notice={viewed(DocumentKind.EMAIL) ? versionBanner(viewed(DocumentKind.EMAIL)!) : undefined}
+            writing={emailJob !== null}
+            onWrite={() => void writeEmail()}
+            attachments={attachments}
+          />
+        </TabsContent>
+
         <TabsContent value="posting" className="flex min-h-0 min-w-0 flex-[999_1_480px]">
           <PostingTab posting={posting} match={match} requirements={requirements} onAddSkill={(index) => addSkill(index)} />
         </TabsContent>
@@ -592,7 +680,7 @@ export function ApplicationView({
           tab={tab}
           messages={[...messages, ...sending]}
           thinking={reply !== null}
-          suggestions={tab === "resume" ? suggestions.resume : tab === "letter" ? suggestions.letter : []}
+          suggestions={tab === "resume" ? suggestions.resume : tab === "letter" ? suggestions.letter : tab === "email" && email ? suggestions.email : []}
           target={target}
           onClearTarget={() => setTarget(null)}
           onSend={send}

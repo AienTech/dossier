@@ -350,9 +350,11 @@ model StatusEvent {
 enum DocumentKind {
   RESUME
   COVER_LETTER
+  /// The email that goes with the application, written on request.
+  EMAIL
 }
 
-/// A tailored resume or cover letter, split into editable units (unitsSchema).
+/// A tailored resume, cover letter or application email, split into editable units (unitsSchema).
 model Document {
   id            String       @id @default(cuid())
   applicationId String

@@ -27,6 +27,7 @@ import { RowMenu } from "./row-menu";
  * The board (LST-3, LST-4): a column per status in the filter, cards newest
  * first. Drag a card to another column to move it; each card also has a
  * "Move to…" menu for the keyboard and touch. Clicking a card opens it.
+ * It fills the height it's given: each column's cards scroll on their own.
  */
 export function Board({
   rows,
@@ -77,8 +78,8 @@ export function Board({
     >
       {/* Relative, so screen-reader-only text inside is clipped with the rest
           instead of widening the page. */}
-      <div className="relative overflow-x-auto px-14 pt-1.5 pb-16">
-        <div className="flex w-max items-stretch gap-3.5">
+      <div className="relative min-h-0 flex-1 scrollbar-subtle overflow-x-auto overflow-y-hidden px-14 pt-1.5 pb-5">
+        <div className="flex h-full w-max items-stretch gap-3.5">
           {statuses.map((status) => {
             const cards = byNewest.filter((row) => row.status === status);
             return (
@@ -110,7 +111,7 @@ function Column({ status, count, children }: { status: ApplicationStatus; count:
       ref={setNodeRef}
       aria-labelledby={headingId}
       className={cn(
-        "flex min-h-[440px] w-[252px] flex-none flex-col gap-2.5 rounded-panel p-3 outline-[1.5px] -outline-offset-2 motion-safe:transition-colors",
+        "flex min-h-0 w-[252px] flex-none flex-col gap-2.5 rounded-panel p-3 outline-[1.5px] -outline-offset-2 motion-safe:transition-colors",
         isOver ? "bg-[rgb(29_28_26/0.08)] outline-dashed outline-[rgb(29_28_26/0.35)]" : "bg-[rgb(29_28_26/0.035)] outline-transparent",
       )}
     >
@@ -123,7 +124,9 @@ function Column({ status, count, children }: { status: ApplicationStatus; count:
         </span>
       </h2>
       {count > 0 ? (
-        <ul className="flex flex-col gap-2.5">{children}</ul>
+        // Scrolls on its own, out to the column's edges so its scrollbar sits
+        // at the side and focus rings aren't cut off; the heading stays.
+        <ul className="-mx-3 -mt-1 -mb-3 flex min-h-0 flex-1 scrollbar-subtle flex-col gap-2.5 overflow-y-auto px-3 pt-1 pb-3">{children}</ul>
       ) : (
         <p className="px-2.5 py-5 text-center text-label text-muted">Nothing here yet</p>
       )}

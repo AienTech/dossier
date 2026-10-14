@@ -67,7 +67,7 @@ test.describe("signed out", () => {
 test("axe: an application, on every tab and with a part being edited", async ({ page }) => {
   await page.goto(application);
   await expectAccessible(page);
-  for (const tab of ["Cover letter", /^Job posting/, /^Notes/]) {
+  for (const tab of ["Cover letter", "Email", /^Job posting/, /^Notes/]) {
     await page.getByRole("tab", { name: tab }).click();
     await expectAccessible(page);
   }
@@ -75,6 +75,22 @@ test("axe: an application, on every tab and with a part being edited", async ({ 
   const summary = page.locator('[data-unit="summary"]');
   await summary.hover();
   await summary.getByRole("button", { name: "Edit" }).click();
+  await expectAccessible(page);
+});
+
+test("axe: an application's email, once it's written", async ({ page }) => {
+  const units = [
+    { id: "to", label: "Recipient", text: "" },
+    { id: "subject", label: "Subject", text: "Application: Senior Product Designer, Payments" },
+    { id: "body", label: "Message", text: "Dear Ledgerly team,\n\nI'm applying for the role.\n\nWarm regards,\nLena Hartmann" },
+  ];
+  await sql(
+    `INSERT INTO "Document" (id, "applicationId", kind, units, "updatedAt") VALUES ('a11y-email', $1, 'EMAIL', $2, now())
+     ON CONFLICT ("applicationId", kind) DO UPDATE SET units = EXCLUDED.units`,
+    [application.split("/").at(-1), JSON.stringify(units)],
+  );
+  await page.goto(`${application}?tab=email`);
+  await expect(page.getByRole("article", { name: "Email" })).toBeVisible();
   await expectAccessible(page);
 });
 

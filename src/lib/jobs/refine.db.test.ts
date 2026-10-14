@@ -63,11 +63,27 @@ describe("refineJob (E8-5)", () => {
     expect(saved).toMatchObject({
       role: "AI",
       text: "Trimmed your summary.",
-      writtenWith: "refine-chat@3",
+      writtenWith: "refine-chat@4",
       previousTone: null,
       edits: [{ document: "RESUME", unitId: "summary", text: "Designer of calm tools.", previousText: resume[0].text }],
     });
     expect((await units("RESUME"))[0].text).toBe("Designer of calm tools.");
+  });
+
+  it("edits the email, which the model sees once there is one", async () => {
+    const email = [
+      { id: "to", label: "Recipient", text: "Anna Berg <anna@ledgerly.eu>" },
+      { id: "subject", label: "Subject", text: "Application" },
+      { id: "body", label: "Message", text: "Dear Anna,\n\nHello." },
+    ];
+    await prisma().document.create({ data: { applicationId: "app-1", kind: "EMAIL", units: email } });
+    const mock = reply({ reply: "Shorter now.", edits: [{ document: "EMAIL", unitId: "body", text: "Dear Anna,\n\nHi." }] });
+    provider.current = mock;
+    expect(await ask("Make the email shorter")).toMatchObject({ edited: [{ document: "EMAIL", unitId: "body" }] });
+    expect(JSON.stringify(mock.calls[0])).toContain("The email's units");
+    const saved = await prisma().document.findUniqueOrThrow({ where: { applicationId_kind: { applicationId: "app-1", kind: "EMAIL" } } });
+    // The greeting's name is the recipient's, so the fact guard lets it be.
+    expect(saved.units).toEqual([email[0], email[1], { ...email[2], text: "Dear Anna,\n\nHi." }]);
   });
 
   it("changes the letter's tone and its sign-off, remembering the old tone", async () => {

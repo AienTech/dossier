@@ -72,6 +72,8 @@ export async function loadDocuments(id: string) {
     extracted,
     resume: documentData(DocumentKind.RESUME),
     letter: documentData(DocumentKind.COVER_LETTER),
+    /** The email's units, once it's been written (Email tab). */
+    email: documentData(DocumentKind.EMAIL)?.units ?? null,
     /** Settings → "Include references", when the posting asks for them (SET-9). */
     includeReferences: settings.includeRefs && extracted?.asksForReferences === true,
     /** Dated the day it was sent; until then, today. */

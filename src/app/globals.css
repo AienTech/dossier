@@ -125,6 +125,18 @@
   }
 }
 
+/* Thin scrollbars in the app's colours, for areas that scroll on their own
+   inside the page, such as the board's lanes. Browsers without
+   scrollbar-color (Safari) keep their own, which are thin already. */
+@utility scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(29 28 26 / 0.2) transparent;
+
+  &:hover {
+    scrollbar-color: rgb(29 28 26 / 0.36) transparent;
+  }
+}
+
 /* Fonts come from next/font (src/fonts), which sets the --typeface-* variables at runtime. */
 @theme inline {
   --font-sans: var(--typeface-geist);

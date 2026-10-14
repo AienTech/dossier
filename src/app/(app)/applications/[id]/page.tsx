@@ -5,9 +5,11 @@ import { isAiConfigured } from "@/lib/ai/config";
 import { editsSchema, matchSchema, matchScore } from "@/lib/application-data";
 import { loadApplication, loadDocuments, readJson } from "@/lib/application-documents";
 import { formatShortDate } from "@/lib/dates";
+import { resolveFileName } from "@/lib/file-name";
 import { refineJobKey } from "@/lib/jobs/refine";
 import { regenerateUnitJob, unitJobKey } from "@/lib/jobs/regenerate-unit";
 import { findUnfinishedJobs } from "@/lib/jobs/runner";
+import { emailJobKey } from "@/lib/jobs/write-email";
 import { refineSuggestions } from "@/lib/refine-suggestions";
 import { userTimeZone } from "@/lib/time-zone";
 
@@ -21,15 +23,16 @@ export async function generateMetadata({ params }: PageProps<"/applications/[id]
   return { title: application.title.trim() || "Untitled application" };
 }
 
-/** One application (PRD §6.5): its status, tailored documents, posting and notes. */
+/** One application (PRD §6.5): its status, tailored documents, email, posting and notes. */
 export default async function ApplicationPage({ params, searchParams }: PageProps<"/applications/[id]">) {
   const [{ id }, { tab }] = await Promise.all([params, searchParams]);
-  const [{ application, profile, settings, extracted, resume, letter, includeReferences, letterDate }, aiReady, unitJobs, refineJobs, timeZone] =
+  const [{ application, profile, settings, extracted, resume, letter, email, includeReferences, letterDate }, aiReady, unitJobs, refineJobs, emailJobs, timeZone] =
     await Promise.all([
       loadDocuments(id),
       isAiConfigured(),
       findUnfinishedJobs(unitJobKey(id)),
       findUnfinishedJobs(refineJobKey(id)),
+      findUnfinishedJobs(emailJobKey(id)),
       userTimeZone(),
     ]);
 
@@ -53,6 +56,9 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     const input = regenerateUnitJob.input.safeParse(job.input);
     return input.success ? [{ jobId: job.id, document: input.data.document, unitId: input.data.unitId }] : [];
   });
+  // The PDFs to attach to the email, named as they'll download (SET-8).
+  const fileName = (doc: "RESUME" | "COVER_LETTER") =>
+    resolveFileName(settings.fileNamePattern, { name: profile.basics.name, company: application.company, role: application.role, doc, date: new Date() });
 
   return (
     <ApplicationView
@@ -81,6 +87,9 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       meta={metaLine(application)}
       resume={resume}
       letter={letter}
+      email={email}
+      writingEmail={emailJobs.at(-1)?.id ?? null}
+      attachments={{ resume: resume ? fileName("RESUME") : null, letter: letter ? fileName("COVER_LETTER") : null }}
       profile={profile}
       paper={settings.paper}
       dateFormat={settings.dateFormat}

@@ -12,6 +12,7 @@ import { isoDate } from "./extract-posting";
 import { sameSkill } from "./match-requirements";
 import { COVER_LETTER_APPROACH } from "./prompt-parts";
 import { withoutFrame } from "./write-cover-letter";
+import { recipient } from "./write-email";
 import {
   extractPosting,
   matchRequirements,
@@ -19,6 +20,7 @@ import {
   regenerateUnit,
   tailorResume,
   writeCoverLetter,
+  writeEmail,
   type TaskOptions,
 } from "./index";
 
@@ -259,6 +261,62 @@ describe("writeCoverLetter", () => {
   });
 });
 
+describe("writeEmail", () => {
+  const withContact = `${posting}\n\nQuestions? Send your application to Anna Berg, anna.berg@ledgerly.eu.`;
+  const answer = {
+    contactName: "Anna Berg",
+    contactEmail: "anna.berg@ledgerly.eu",
+    subject: " Application:  Senior Product Designer,\nLena Hartmann ",
+    greeting: "Dear Anna,",
+    paragraphs: ["Dear Anna,\nI'm applying for the Senior Product Designer role.", "  ", "My resume and cover letter are attached.\n\nWarm regards,\nLena"],
+    signOff: "Cheers,",
+  };
+  const input = { profile, extracted, match: null, tone: "FORMAL" as const, note: "", posting: withContact, letter: ["Payments are where trust is won."] };
+
+  it("writes the recipient, subject and message, ending with the sign-off and name", async () => {
+    const provider = model(answer);
+    const { data, promptVersion } = await writeEmail(provider, input, options);
+    expect(promptVersion).toBe("write-email@1");
+    expect(data).toEqual([
+      { id: "to", label: "Recipient", text: "Anna Berg <anna.berg@ledgerly.eu>" },
+      { id: "subject", label: "Subject", text: "Application: Senior Product Designer, Lena Hartmann" },
+      {
+        id: "body",
+        label: "Message",
+        text: `Dear Anna,\n\nI'm applying for the Senior Product Designer role.\n\nMy resume and cover letter are attached.\n\nKind regards,\n${profile.basics.name}`,
+      },
+    ]);
+    expect(sent(provider).system).toMatch(/Tone: Formal\./);
+    // It reads the posting for where to send it, and the letter so it doesn't repeat it.
+    expect(prompt(provider)).toContain("Send your application to Anna Berg");
+    expect(prompt(provider)).toContain("The cover letter it goes with:\nPayments are where trust is won.");
+    expect(sent(provider).json?.name).toBe("application_email");
+  });
+
+  it("never uses an address the posting doesn't have", async () => {
+    const { data } = await writeEmail(model({ ...answer, contactEmail: "jobs@ledgerly.eu" }), input, options);
+    expect(data[0]).toEqual({ id: "to", label: "Recipient", text: "" });
+  });
+
+  it("keeps the model's sign-off in another language", async () => {
+    const { data } = await writeEmail(model({ ...answer, signOff: "Met vriendelijke groet," }), input, { ...options, language: "Dutch" });
+    expect(data[2].text).toMatch(new RegExp(`Met vriendelijke groet,\n${profile.basics.name}$`));
+  });
+
+  it("marks what the fact guard couldn't back in the message, never in the recipient", async () => {
+    const { data } = await writeEmail(model({ ...answer, paragraphs: ["I grew revenue by 40% at Stripe."] }), input, options);
+    expect(data[0].unverified).toBeUndefined();
+    expect(data[2].unverified).toEqual(expect.arrayContaining(["40%"]));
+  });
+
+  it("names the recipient as the posting gives them", () => {
+    expect(recipient(null, "jobs@ledgerly.eu", "Apply at JOBS@ledgerly.eu")).toBe("jobs@ledgerly.eu");
+    expect(recipient("Anna <Berg>", "mailto:anna@ledgerly.eu", "anna@ledgerly.eu")).toBe("Anna Berg <anna@ledgerly.eu>");
+    expect(recipient("Anna Berg", null, "anna@ledgerly.eu")).toBe("");
+    expect(recipient("Anna Berg", "not an address", "not an address")).toBe("");
+  });
+});
+
 describe("regenerateUnit", () => {
   it("writes one part again, cleaning up bullets (APP-5)", async () => {
     const resume = demoResumeUnits();
@@ -277,6 +335,17 @@ describe("regenerateUnit", () => {
     const { data } = await regenerateUnit(provider, { kind: "COVER_LETTER", unit, document: [unit], profile, extracted, tone: "DIRECT", note: "", posting }, options);
     expect(data.text).toBe("Best,");
     expect(sent(provider).system).toContain(COVER_LETTER_APPROACH);
+  });
+
+  it("tells the model what the email's message is, with the tone", async () => {
+    const unit = { id: "body", label: "Message", text: "Dear Anna,\n\nHello.\n\nWarm regards,\nLena" };
+    const provider = model({ text: "Dear Anna,\n\nHi again." });
+    const { data } = await regenerateUnit(provider, { kind: "EMAIL", unit, document: [unit], profile, extracted, tone: "DIRECT", note: "", posting }, options);
+    expect(data.text).toBe("Dear Anna,\n\nHi again.");
+    expect(sent(provider).system).toMatch(/one part of a candidate's application email/);
+    expect(sent(provider).system).toMatch(/It's the email's whole message/);
+    expect(sent(provider).system).toMatch(/Tone: Direct\./);
+    expect(sent(provider).system).not.toContain(COVER_LETTER_APPROACH);
   });
 
   it("tells the model what a letter's greeting is, without the letter's brief (E8-11)", async () => {
@@ -305,7 +374,7 @@ describe("refineChat", () => {
       declined: false,
     };
     const { data, promptVersion } = await refineChat(model(answer), input, options);
-    expect(promptVersion).toBe("refine-chat@3");
+    expect(promptVersion).toBe("refine-chat@4");
     expect(data).toEqual({
       reply: "I made the letter more formal.",
       tone: "FORMAL",
@@ -338,6 +407,25 @@ describe("refineChat", () => {
       { role: "assistant", content: "Hello!" },
       { role: "user", content: "About Summary: Make it more formal" },
     ]);
+  });
+
+  it("edits the email, which it sees when there is one", async () => {
+    const email = [
+      { id: "to", label: "Recipient", text: "anna@ledgerly.eu" },
+      { id: "subject", label: "Subject", text: "Application" },
+      { id: "body", label: "Message", text: "Dear Anna,\n\nHello." },
+    ];
+    const answer = { reply: "Shorter now.", edits: [{ document: "EMAIL", unitId: "body", text: "Dear Anna,\n\nHi." }], tone: null, declined: false };
+    const provider = model(answer);
+    const { data } = await refineChat(provider, { ...input, email, viewing: "EMAIL", request: "Shorter" }, options);
+    expect(data.edits).toEqual([{ document: "EMAIL", unitId: "body", text: "Dear Anna,\n\nHi.", previousText: "Dear Anna,\n\nHello." }]);
+    expect(prompt(provider)).toContain("The email's units:");
+    expect(sent(provider).messages.at(-1)).toEqual({ role: "user", content: "(I'm looking at the email.) Shorter" });
+
+    const without = model(answer);
+    const { data: none } = await refineChat(without, input, options);
+    expect(none.edits).toEqual([]);
+    expect(prompt(without)).not.toContain("The email's units:");
   });
 
   it("says which document is on screen when the request has no target", async () => {

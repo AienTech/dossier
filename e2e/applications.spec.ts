@@ -1,9 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { resetData } from "./support";
+import { resetData, sql } from "./support";
 
 // Moving applications through the pipeline (E9): dragging on the board, the
-// keyboard alternative, and the table's status select.
+// keyboard alternative, and the table's status select; and the board keeping
+// to the window.
 test.beforeEach(resetData);
 
 const column = (page: Page, name: string) =>
@@ -47,4 +48,25 @@ test("changes a status in the table", async ({ page }) => {
   await expect(page.getByText("In screening. They're taking a look.")).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("Status of Product Designer, Mobile, Kestrel Maps")).toHaveValue("SCREENING");
+});
+
+test("keeps the board to the window, each column scrolling on its own", async ({ page }) => {
+  await sql(
+    `INSERT INTO "Application" (id, title, company, role, status, "updatedAt")
+     SELECT 'filler-' || n, 'Designer · Filler ' || n, 'Filler ' || n, 'Designer', 'SENT', now() - n * interval '1 hour'
+     FROM generate_series(1, 14) AS n`,
+  );
+  await page.goto("/applications");
+  const cards = column(page, "Sent").getByRole("list");
+  await expect(cards).toContainText("Filler 14");
+  const last = cards.getByRole("listitem").last();
+
+  // The page doesn't scroll; the column does, and its heading stays.
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(0);
+  expect(await cards.evaluate((list) => list.scrollHeight - list.clientHeight)).toBeGreaterThan(0);
+  await expect(last).not.toBeInViewport();
+  await last.scrollIntoViewIfNeeded();
+  await expect(last).toBeInViewport();
+  await expect(column(page, "Sent").getByRole("heading", { name: /^Sent/ })).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });

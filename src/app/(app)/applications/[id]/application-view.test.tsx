@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { toast } from "@/components/toast";
+import { copyText } from "@/lib/copy-text";
 import { demoLetterUnits, demoProfile, demoResumeUnits } from "@/lib/demo-profile";
 import { BUILT_IN_THEMES } from "@/lib/themes";
 
@@ -23,6 +24,8 @@ import {
   sendMessage,
   setFollowThemeLayout,
   startRegenerating,
+  startWritingEmail,
+  undoEmailRewrite,
   undoMessage,
   updateNote,
 } from "./actions";
@@ -44,7 +47,10 @@ vi.mock("./actions", () => ({
   listVersions: vi.fn(async () => ({ ok: true, data: [] })),
   loadVersion: vi.fn(),
   restoreVersion: vi.fn(async () => ({ ok: true, data: null, toast: "Restored the resume as it was then." })),
+  startWritingEmail: vi.fn(async () => ({ ok: true, data: "email-1" })),
+  undoEmailRewrite: vi.fn(async () => ({ ok: true, data: null })),
 }));
+vi.mock("@/lib/copy-text", () => ({ copyText: vi.fn(async () => true) }));
 vi.mock("@/lib/jobs/actions", () => ({ retry: vi.fn(async () => ({ ok: true, data: null })) }));
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -94,6 +100,9 @@ const props: ApplicationViewProps = {
   meta: ["Amsterdam"],
   resume: { units: demoResumeUnits(), theme: theme("editorial") },
   letter: { units: demoLetterUnits(), theme: theme("editorial") },
+  email: null,
+  writingEmail: null,
+  attachments: { resume: "Lena Hartmann – Ledgerly – Resume.pdf", letter: "Lena Hartmann – Ledgerly – Cover letter.pdf" },
   profile: demoProfile(),
   paper: "A4",
   dateFormat: "DAY_MONTH_YEAR",
@@ -105,7 +114,7 @@ const props: ApplicationViewProps = {
   rewriting: [],
   messages: [],
   refining: null,
-  suggestions: { resume: ["Make the summary shorter"], letter: ["Make it more formal"] },
+  suggestions: { resume: ["Make the summary shorter"], letter: ["Make it more formal"], email: ["Shorter, under 100 words"] },
 };
 
 beforeEach(() => {
@@ -116,6 +125,8 @@ beforeEach(() => {
   vi.mocked(restoreUnit).mockClear();
   vi.mocked(sendMessage).mockClear();
   vi.mocked(undoMessage).mockClear();
+  vi.mocked(startWritingEmail).mockClear();
+  vi.mocked(undoEmailRewrite).mockClear();
   vi.mocked(toast).mockClear();
   router.refresh.mockClear();
   router.push.mockClear();
@@ -124,10 +135,10 @@ beforeEach(() => {
 const summary = demoResumeUnits()[0];
 
 describe("the document tabs (E8-2)", () => {
-  it("has Resume, Cover letter and the posting with its match", () => {
+  it("has Resume, Cover letter, Email and the posting with its match", () => {
     render(<ApplicationView {...props} />);
     const tabs = within(screen.getByRole("tablist", { name: "Application" })).getAllByRole("tab");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["Resume", "Cover letter", "Job posting · 5/7 match", "Notes"]);
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Resume", "Cover letter", "Email", "Job posting · 5/7 match", "Notes"]);
     expect(screen.getByRole("tab", { name: "Resume" })).toHaveAttribute("aria-selected", "true");
   });
 
@@ -414,7 +425,7 @@ describe("the Refine with AI panel (E8-5)", () => {
     expect(within(panel()).getByText(/^Ask for changes to your cover letter/)).toBeInTheDocument();
     expect(within(panel()).getByRole("button", { name: "Make it more formal" })).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: /Job posting/ }));
-    expect(within(panel()).getByText("Switch to the resume or cover letter to make changes.")).toBeInTheDocument();
+    expect(within(panel()).getByText("Switch to the resume, cover letter or email to make changes.")).toBeInTheDocument();
     expect(within(panel()).queryByRole("button", { name: /Make/ })).not.toBeInTheDocument();
   });
 
@@ -704,7 +715,7 @@ describe("notes and activity (E8-9)", () => {
 
   it("keeps the refine panel to the documents", () => {
     open();
-    expect(within(screen.getByRole("complementary", { name: "Refine with AI" })).getByText("Switch to the resume or cover letter to make changes.")).toBeInTheDocument();
+    expect(within(screen.getByRole("complementary", { name: "Refine with AI" })).getByText("Switch to the resume, cover letter or email to make changes.")).toBeInTheDocument();
   });
 });
 
@@ -779,3 +790,142 @@ describe("version history (E8-10)", () => {
   });
 });
 
+describe("the Email tab", () => {
+  const email = [
+    { id: "to", label: "Recipient", text: "Anna Berg <anna@ledgerly.eu>" },
+    { id: "subject", label: "Subject", text: "Application: Senior Product Designer, Lena Hartmann" },
+    { id: "body", label: "Message", text: "Dear Anna,\n\nI'd love to bring calm to Ledgerly's payments.\n\nWarm regards,\nLena Hartmann" },
+  ];
+  const toastAction = () => vi.mocked(toast).mock.lastCall?.[1]?.action;
+  const panel = () => screen.getByRole("complementary", { name: "Refine with AI" });
+
+  it("offers to write the email, then shows it", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<ApplicationView {...props} initialTab="email" />);
+    await user.click(screen.getByRole("button", { name: "Write the email" }));
+    expect(startWritingEmail).toHaveBeenCalledWith({ id: "app-1" });
+    expect(screen.getByRole("button", { name: "Writing the email…" })).toHaveAttribute("aria-disabled", "true");
+
+    report({ id: "email-1", type: "write-email", status: "DONE", result: { units: email, previous: null } });
+    expect(router.refresh).toHaveBeenCalled();
+    // The first email just appears.
+    expect(toast).not.toHaveBeenCalled();
+    rerender(<ApplicationView {...props} initialTab="email" email={email} />);
+    const article = screen.getByRole("article", { name: "Email" });
+    expect(within(article).getByRole("group", { name: "Recipient" })).toHaveTextContent("Anna Berg <anna@ledgerly.eu>");
+    expect(within(article).getByRole("group", { name: "Subject" })).toHaveTextContent("Application: Senior Product Designer, Lena Hartmann");
+    expect(within(article).getByRole("group", { name: "Message" })).toHaveTextContent("I'd love to bring calm to Ledgerly's payments.");
+  });
+
+  it("points to Settings without an AI provider", async () => {
+    const user = userEvent.setup();
+    render(<ApplicationView {...props} initialTab="email" aiReady={false} />);
+    await user.click(screen.getByRole("button", { name: "Write the email" }));
+    expect(startWritingEmail).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenLastCalledWith("That needs an AI provider. Choose one in Settings → AI provider.", {
+      action: expect.objectContaining({ label: "Open Settings" }),
+    });
+  });
+
+  it("keeps writing one started before a reload", () => {
+    render(<ApplicationView {...props} initialTab="email" writingEmail="email-7" />);
+    expect(screen.getByRole("button", { name: "Writing the email…" })).toBeInTheDocument();
+  });
+
+  it("copies each part and opens the email in the mail app", async () => {
+    const user = userEvent.setup();
+    render(<ApplicationView {...props} initialTab="email" email={email} />);
+    await user.click(screen.getByRole("button", { name: "Copy the recipient" }));
+    expect(copyText).toHaveBeenLastCalledWith("Anna Berg <anna@ledgerly.eu>");
+    await user.click(screen.getByRole("button", { name: "Copy the subject" }));
+    expect(copyText).toHaveBeenLastCalledWith("Application: Senior Product Designer, Lena Hartmann");
+    expect(toast).toHaveBeenLastCalledWith("Copied the subject.");
+    await user.click(screen.getByRole("button", { name: "Copy message" }));
+    expect(copyText).toHaveBeenLastCalledWith(email[2].text);
+
+    const mailto = screen.getByRole("link", { name: "Open in mail app" }).getAttribute("href")!;
+    expect(mailto).toMatch(/^mailto:anna@ledgerly\.eu\?subject=Application%3A%20Senior/);
+    expect(mailto).toContain("body=Dear%20Anna%2C%0D%0A%0D%0AI'd%20love");
+  });
+
+  it("lists the resume and cover letter to attach, each with its download", () => {
+    render(<ApplicationView {...props} initialTab="email" email={email} />);
+    expect(screen.getByRole("link", { name: "Download Lena Hartmann – Ledgerly – Resume.pdf" })).toHaveAttribute(
+      "href",
+      "/api/pdf?doc=resume&application=app-1",
+    );
+    expect(screen.getByRole("link", { name: "Download Lena Hartmann – Ledgerly – Cover letter.pdf" })).toHaveAttribute(
+      "href",
+      "/api/pdf?doc=letter&application=app-1",
+    );
+  });
+
+  it("says when the posting gives no address, and only edits the recipient", () => {
+    render(<ApplicationView {...props} initialTab="email" email={[{ ...email[0], text: "" }, email[1], email[2]]} />);
+    const recipient = screen.getByRole("group", { name: "Recipient" });
+    expect(recipient).toHaveTextContent("The posting doesn't give an address. Edit to add one.");
+    expect(within(recipient).getAllByRole("button").map((button) => button.textContent)).toEqual(["Edit"]);
+    expect(screen.queryByRole("button", { name: "Copy the recipient" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "Subject" })).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Edit",
+      "Regenerate",
+      "Ask AI",
+    ]);
+  });
+
+  it("rewrites it, with Undo on the toast", async () => {
+    const user = userEvent.setup();
+    render(<ApplicationView {...props} initialTab="email" email={email} />);
+    await user.click(screen.getByRole("button", { name: "Rewrite" }));
+    expect(startWritingEmail).toHaveBeenCalledWith({ id: "app-1" });
+    expect(screen.getByRole("article", { name: "Email" })).toHaveAttribute("aria-busy", "true");
+
+    report({ id: "email-1", type: "write-email", status: "DONE", result: { units: email, previous: email } });
+    expect(screen.getByRole("group", { name: "Message" }).className).toMatch(/flash/);
+    expect(toast).toHaveBeenLastCalledWith("Rewrote the email.", { action: expect.objectContaining({ label: "Undo" }) });
+    await act(async () => toastAction()?.onClick());
+    expect(undoEmailRewrite).toHaveBeenCalledWith({ id: "app-1", jobId: "email-1" });
+    expect(toast).toHaveBeenLastCalledWith("Put the email back.");
+  });
+
+  it("offers Retry when writing fails", async () => {
+    const user = userEvent.setup();
+    render(<ApplicationView {...props} initialTab="email" />);
+    await user.click(screen.getByRole("button", { name: "Write the email" }));
+    report({ id: "email-1", type: "write-email", status: "FAILED", error: "The AI server didn't answer in time." });
+    expect(screen.getByRole("button", { name: "Write the email" })).toBeInTheDocument();
+    expect(toast).toHaveBeenLastCalledWith("The AI server didn't answer in time.", { action: expect.objectContaining({ label: "Retry" }) });
+    await act(async () => toastAction()?.onClick());
+    expect(retry).toHaveBeenCalledWith({ id: "email-1" });
+    expect(screen.getByRole("button", { name: "Writing the email…" })).toBeInTheDocument();
+  });
+
+  it("refines the email from the chat once there is one", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<ApplicationView {...props} initialTab="email" />);
+    expect(within(panel()).queryByRole("button", { name: "Shorter, under 100 words" })).not.toBeInTheDocument();
+    unmount();
+
+    render(<ApplicationView {...props} initialTab="email" email={email} />);
+    expect(within(panel()).getByText(/^Ask for changes to your email/)).toBeInTheDocument();
+    await user.click(within(panel()).getByRole("button", { name: "Shorter, under 100 words" }));
+    expect(sendMessage).toHaveBeenCalledWith({ id: "app-1", text: "Shorter, under 100 words", viewing: "EMAIL", target: null });
+  });
+
+  it("switches to the email when a reply changed it", async () => {
+    const user = userEvent.setup();
+    render(<ApplicationView {...props} email={email} />);
+    await user.type(screen.getByRole("textbox", { name: "Ask for a change" }), "Make the email shorter{Enter}");
+    report({ id: "reply-1", type: "refine", status: "DONE", result: { messageId: "m9", edited: [{ document: "EMAIL", unitId: "body" }] } });
+    expect(screen.getByRole("tab", { name: "Email" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("group", { name: "Message" }).className).toMatch(/flash/);
+  });
+
+  it("has a history of its own", async () => {
+    const user = userEvent.setup();
+    render(<ApplicationView {...props} initialTab="email" email={email} />);
+    await user.click(screen.getByRole("button", { name: "History" }));
+    expect(await screen.findByRole("heading", { name: "History of the email" })).toBeInTheDocument();
+    expect(listVersions).toHaveBeenLastCalledWith({ id: "app-1", document: "EMAIL" });
+  });
+});

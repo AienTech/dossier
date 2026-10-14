@@ -15,6 +15,8 @@ export const FILE_NAME_TOKENS = [
 export const DOCUMENT_LABELS: Record<DocumentKind, string> = {
   [DocumentKind.RESUME]: "Resume",
   [DocumentKind.COVER_LETTER]: "Cover letter",
+  // Never a file, but named like the others (the history, toasts).
+  [DocumentKind.EMAIL]: "Email",
 };
 
 export type FileNameContext = {

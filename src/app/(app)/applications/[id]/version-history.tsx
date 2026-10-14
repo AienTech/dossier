@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import type { DocumentKind, VersionCause } from "@/generated/prisma/enums";
 import type { Unit } from "@/lib/application-data";
 import { formatShortDate } from "@/lib/dates";
+import { DOCUMENT_LABELS } from "@/lib/file-name";
 
 import { listVersions, loadVersion } from "./actions";
 
@@ -83,7 +84,7 @@ export function VersionHistory({
     onView({ document: result.data.document, id: version.id, units: result.data.units, label: versionLabel(version), when: versionTime(version.createdAt) });
   };
 
-  const name = document === "COVER_LETTER" ? "cover letter" : "resume";
+  const name = DOCUMENT_LABELS[document ?? "RESUME"].toLowerCase();
   return (
     <Dialog.Root open={document !== null} onOpenChange={onOpenChange}>
       <Dialog.Portal>

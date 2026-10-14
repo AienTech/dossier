@@ -80,6 +80,7 @@ export const refineJob = defineJob({
         viewing,
         resume,
         letter,
+        email: unitsOf(DocumentKind.EMAIL),
         profile,
         extracted: extractedOf(application),
         tone: application.tone,

@@ -9,6 +9,7 @@ It's a single-user web app for a small server: one password, your data in your o
 - **Find jobs:** search postings near your city, or anywhere you choose, through JSearch (LinkedIn, Indeed and more), Adzuna or Germany's Bundesagentur für Arbeit. Save the good ones, dismiss the rest, and start an application from a posting with one click.
 - **New application:** paste a posting; Dossier pulls out the details and requirements, matches them against your profile, and writes a tailored resume and cover letter in the tone you pick.
 - **Refine:** ask for changes in a chat, edit or regenerate any part (every part of the cover letter too: sender, date, recipient, greeting and sign-off, written in the letter's language), undo AI changes or go back to any earlier version, keep private notes.
+- **Send:** an email to go with each application, to whoever the posting says to send it to, ready to copy or open in your mail app, with the resume and cover letter PDFs to attach. Edit, rewrite or refine it like the documents.
 - **Track:** a board and a table of every application, and a dashboard with your funnel (last 30 days, 90 days or all time), a week-by-week chart and what's worth a look next, upcoming interviews included.
 - **Your data:** export and import everything as one file, nightly backups, and Delete everything.
 

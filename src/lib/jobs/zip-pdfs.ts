@@ -58,9 +58,12 @@ export async function deleteAllDownloads(): Promise<void> {
   await rm(downloadsDir(), { recursive: true, force: true });
 }
 
+/** The documents that are printed: an application's email isn't. */
+const PRINTED = [DocumentKind.RESUME, DocumentKind.COVER_LETTER];
+
 /** The tailored documents there are to zip. */
 export async function countTailoredDocuments(): Promise<number> {
-  return prisma.document.count();
+  return prisma.document.count({ where: { kind: { in: PRINTED } } });
 }
 
 /**
@@ -83,9 +86,9 @@ export const zipPdfsJob = defineJob({
     await removeOldZips(now.getTime());
     const [applications, name, settings] = await Promise.all([
       prisma.application.findMany({
-        where: { documents: { some: {} } },
+        where: { documents: { some: { kind: { in: PRINTED } } } },
         orderBy: { createdAt: "asc" },
-        select: { id: true, company: true, role: true, documents: { select: { kind: true }, orderBy: { kind: "asc" } } },
+        select: { id: true, company: true, role: true, documents: { where: { kind: { in: PRINTED } }, select: { kind: true }, orderBy: { kind: "asc" } } },
       }),
       loadProfileName(),
       loadSettings(),

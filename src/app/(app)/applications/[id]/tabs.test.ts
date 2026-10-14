@@ -5,6 +5,7 @@ import { aboutWords, tabFrom } from "./tabs";
 describe("tabFrom", () => {
   it("reads ?tab= and falls back to the resume", () => {
     expect(tabFrom("letter")).toBe("letter");
+    expect(tabFrom("email")).toBe("email");
     expect(tabFrom("posting")).toBe("posting");
     expect(tabFrom(undefined)).toBe("resume");
     expect(tabFrom("nope")).toBe("resume");

@@ -88,8 +88,12 @@ export function ApplicationsScreen({ params, rows, counts, summary, empty, archi
     typing.current = setTimeout(() => go({ q: value.trim() }, { replace: true }), SEARCH_DELAY_MS);
   };
 
+  // On the board the screen keeps to the window and each column scrolls on
+  // its own; the table scrolls with the page.
+  const board = !empty && rows.length > 0 && params.view === "board";
+
   return (
-    <>
+    <div className={cn("flex flex-col", board ? "h-screen min-h-[520px]" : "flex-1")}>
       <PageHeader
         title="Applications"
         description={summary}
@@ -157,10 +161,10 @@ export function ApplicationsScreen({ params, rows, counts, summary, empty, archi
             <span className="ml-auto text-meta text-muted">{HINTS[params.view]}</span>
           </div>
 
-          <div className={cn("flex flex-1 flex-col motion-safe:transition-opacity", pending && "opacity-60")} aria-busy={pending || undefined}>
+          <div className={cn("flex min-h-0 flex-1 flex-col motion-safe:transition-opacity", pending && "opacity-60")} aria-busy={pending || undefined}>
             {rows.length === 0 ? (
               <Nothing>{params.q ? `No applications match “${params.q}”.` : "Nothing in this view yet."}</Nothing>
-            ) : params.view === "board" ? (
+            ) : board ? (
               <Board rows={shown} statuses={statusesIn(params.filter)} onMove={move} />
             ) : (
               <Table rows={shown} sort={params.sort} onSort={(sort) => go({ sort })} onMove={move} />
@@ -168,7 +172,7 @@ export function ApplicationsScreen({ params, rows, counts, summary, empty, archi
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }
 

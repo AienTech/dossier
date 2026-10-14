@@ -17,6 +17,8 @@ import {
   setFollowThemeLayout,
   setInterviewDate,
   startRegenerating,
+  startWritingEmail,
+  undoEmailRewrite,
   undoMessage,
   updateNote,
 } from "./actions";
@@ -191,6 +193,11 @@ describe("startRegenerating (E8-4)", () => {
       expect(await startRegenerating({ id: "app-1", document: "COVER_LETTER", unitId })).toEqual({ ok: false, error: "This part isn't written by the AI. Edit it instead." });
     }
   });
+
+  it("leaves the email's recipient to editing", async () => {
+    await prisma().document.create({ data: { applicationId: "app-1", kind: "EMAIL", units: [{ id: "to", label: "Recipient", text: "anna@ledgerly.eu" }] } });
+    expect(await startRegenerating({ id: "app-1", document: "EMAIL", unitId: "to" })).toEqual({ ok: false, error: "This part isn't written by the AI. Edit it instead." });
+  });
 });
 
 describe("restoreUnit (E8-4)", () => {
@@ -231,7 +238,7 @@ describe("sendMessage (E8-5)", () => {
     expect(await sendMessage({ id: "app-1", text: "Change the salary", viewing: null, target: null })).toEqual({ ok: true, data: { jobId: null } });
     expect((await messages()).map(({ role, text }) => [role, text])).toEqual([
       ["USER", "Change the salary"],
-      ["AI", "I can change the resume or the cover letter. Switch to one of them, or hover a section and pick “Ask AI”."],
+      ["AI", "I can change the resume, the cover letter or the email. Switch to one of them, or hover a section and pick “Ask AI”."],
     ]);
   });
 
@@ -458,3 +465,55 @@ describe("versions (E8-10)", () => {
   });
 });
 
+describe("the email", () => {
+  const email = [
+    { id: "to", label: "Recipient", text: "anna@ledgerly.eu" },
+    { id: "subject", label: "Subject", text: "Application" },
+    { id: "body", label: "Message", text: "Dear Anna,\n\nHello." },
+  ];
+  const rewritten = email.map((unit) => (unit.id === "body" ? { ...unit, text: "Dear Anna,\n\nHi again." } : unit));
+  const saved = async () => (await prisma().document.findUniqueOrThrow({ where: { applicationId_kind: { applicationId: "app-1", kind: "EMAIL" } } })).units;
+  const finishedRewrite = (result: object) =>
+    prisma().job.create({ data: { type: "write-email", key: "email:app-1", status: "DONE", input: { applicationId: "app-1" }, result } });
+
+  it("is written in the background, following a job already under way", async () => {
+    const first = await startWritingEmail({ id: "app-1" });
+    expect(first.ok).toBe(true);
+    expect(await prisma().job.findUniqueOrThrow({ where: { id: first.ok ? first.data : "" } })).toMatchObject({
+      type: "write-email",
+      key: "email:app-1",
+      input: { applicationId: "app-1" },
+    });
+    expect(await startWritingEmail({ id: "app-1" })).toEqual(first);
+  });
+
+  it("needs an AI provider and the application", async () => {
+    expect(await startWritingEmail({ id: "gone" })).toEqual({ ok: false, error: "That application no longer exists." });
+    ai.ready = false;
+    expect(await startWritingEmail({ id: "app-1" })).toMatchObject({ ok: false, error: expect.stringMatching(/needs an AI provider/) });
+  });
+
+  it("lets the recipient be emptied, but nothing else", async () => {
+    await prisma().document.create({ data: { applicationId: "app-1", kind: "EMAIL", units: email } });
+    expect(await saveUnit({ id: "app-1", document: "EMAIL", unitId: "to", text: "  ", expected: "anna@ledgerly.eu" })).toMatchObject({ ok: true });
+    expect(await saved()).toMatchObject([{ id: "to", text: "" }, { id: "subject" }, { id: "body" }]);
+    expect(await saveUnit({ id: "app-1", document: "EMAIL", unitId: "subject", text: "", expected: "Application" })).toMatchObject({ ok: false });
+  });
+
+  it("puts back the email a rewrite replaced, with a version", async () => {
+    await prisma().document.create({ data: { applicationId: "app-1", kind: "EMAIL", units: rewritten } });
+    const job = await finishedRewrite({ units: rewritten, previous: email });
+    expect(await undoEmailRewrite({ id: "app-1", jobId: job.id })).toEqual({ ok: true, data: null });
+    expect(await saved()).toEqual(email);
+    expect(await prisma().documentVersion.findMany({ select: { cause: true } })).toEqual([{ cause: "UNDONE" }]);
+  });
+
+  it("never undoes over a change made since, or a first email", async () => {
+    await prisma().document.create({ data: { applicationId: "app-1", kind: "EMAIL", units: email } });
+    const changed = await finishedRewrite({ units: rewritten, previous: email });
+    expect(await undoEmailRewrite({ id: "app-1", jobId: changed.id })).toMatchObject({ ok: false, error: expect.stringMatching(/changed since/) });
+    const first = await finishedRewrite({ units: email, previous: null });
+    expect(await undoEmailRewrite({ id: "app-1", jobId: first.id })).toEqual({ ok: false, error: "There's nothing to undo." });
+    expect(await saved()).toEqual(email);
+  });
+});

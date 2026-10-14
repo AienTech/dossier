@@ -27,6 +27,9 @@ type Profile = {
 };
 type Unit = { id: string; label: string; text: string };
 
+/** Emails written so far, so writing again gives a different one. */
+let emails = 0;
+
 const answers: Record<string, (messages: Message[]) => unknown> = {
   extracted_posting: () => ({
     title: "Senior Product Designer, Payments · Ledgerly",
@@ -83,10 +86,32 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
     signOff: "Warm regards,",
   }),
 
+  application_email: () => ({
+    contactName: "Sanne de Vries",
+    contactEmail: "careers@ledgerly.eu",
+    subject: "Application: Senior Product Designer, Payments",
+    greeting: "Dear Sanne,",
+    paragraphs: [
+      emails++ === 0
+        ? "I'm applying for the Senior Product Designer role on your Payments team."
+        : "I'd love to help Ledgerly's customers feel calm about their payments as your Senior Product Designer.",
+      "I've designed complex operational tools end to end, from research to shipped flows.",
+      "My resume and cover letter are attached. I'd be glad to talk.",
+    ],
+    signOff: "Warm regards,",
+  }),
+
   refinement: (messages) => {
     const request = messages.at(-1)!.content;
     if (/kubernetes/i.test(request)) {
       return { reply: "Your profile doesn't mention Kubernetes, so I left it out. Add it to your profile first.", edits: [], tone: null, declined: true };
+    }
+    if (request.includes("(I'm looking at the email.)")) {
+      const email = section(messages[1].content, "The email's units:\n") as Unit[];
+      const body = email.find((unit) => unit.id === "body")!;
+      // Without the middle paragraph.
+      const shorter = body.text.split("\n\n").filter((_, index) => index !== 2).join("\n\n");
+      return { reply: "Done. I made the email shorter.", edits: [{ document: "EMAIL", unitId: "body", text: shorter }], tone: null, declined: false };
     }
     const resume = section(messages[1].content, "The resume's units:\n") as Unit[];
     const summary = resume.find((unit) => unit.id === "summary")!;

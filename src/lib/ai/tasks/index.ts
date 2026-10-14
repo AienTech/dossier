@@ -8,3 +8,4 @@ export { REFINE_CHAT_VERSION, refineChat, type ChatTurn, type Refinement } from 
 export { REGENERATE_UNIT_VERSION, regenerateUnit } from "./regenerate-unit";
 export { TAILOR_RESUME_VERSION, tailorResume } from "./tailor-resume";
 export { WRITE_COVER_LETTER_VERSION, writeCoverLetter } from "./write-cover-letter";
+export { WRITE_EMAIL_VERSION, writeEmail } from "./write-email";

@@ -6,5 +6,6 @@ import "./read-posting";
 import "./write-documents";
 import "./regenerate-unit";
 import "./refine";
+import "./write-email";
 import "./zip-pdfs";
 import "./import-profile";
