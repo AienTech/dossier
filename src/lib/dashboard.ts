@@ -24,11 +24,24 @@ export type DashboardApplication = {
   updatedAt: Date;
 };
 
+/**
+ * Where an application that went no further than a stage is now: still
+ * open, rejected, declined, or archived while it was still open.
+ */
+export type FunnelOutcome = "open" | "rejected" | "declined" | "archived";
+/** The outcomes, in the order the funnel draws them. */
+export const FUNNEL_OUTCOMES: readonly FunnelOutcome[] = ["open", "rejected", "declined", "archived"];
+
 export type FunnelStep = {
   stage: FunnelStage;
   count: number;
   /** Percent of the previous stage, rounded; null for Sent or when the previous stage is empty. */
   conversion: number | null;
+  /**
+   * The applications that got this far and no further, by outcome. Accepted
+   * is the end of the funnel, so it has none: they all count as accepted.
+   */
+  stopped: Record<FunnelOutcome, number>;
 };
 
 export type AttentionItem = {
@@ -71,7 +84,10 @@ export type DashboardFigures = {
   total: number;
   /** How many applications are in each status now, all eight. */
   byStatus: Record<ApplicationStatus, number>;
-  /** Sent → Accepted by the furthest stage reached, so closed applications count where they got to (DSH-3). */
+  /**
+   * Sent → Accepted by the furthest stage reached, so closed applications
+   * count where they got to (DSH-3), and how the ones that stopped ended.
+   */
   funnel: FunnelStep[];
   sent: number;
   heardBack: number;
@@ -100,6 +116,13 @@ export type DashboardOptions = {
 const DAY_MS = 86_400_000;
 const rank = (stage: FunnelStage | null) => (stage === null ? -1 : FUNNEL_STAGES.indexOf(stage));
 
+/** A closed status says how it ended; an open one archived means it was let go (decided 16 October 2026). */
+function outcome({ status, archived }: DashboardApplication): FunnelOutcome {
+  if (status === ApplicationStatus.REJECTED) return "rejected";
+  if (status === ApplicationStatus.DECLINED) return "declined";
+  return archived ? "archived" : "open";
+}
+
 /**
  * Counts and the "Worth a look" list (decided 28 September 2026): archived
  * applications count in the funnel and the status breakdown, but aren't
@@ -122,7 +145,11 @@ export function dashboardFigures(
   const funnel = FUNNEL_STAGES.map((stage, index): FunnelStep => {
     const count = reached(stage);
     const previous = index > 0 ? reached(FUNNEL_STAGES[index - 1]) : 0;
-    return { stage, count, conversion: index > 0 && previous > 0 ? Math.round((count / previous) * 100) : null };
+    const stopped = Object.fromEntries(FUNNEL_OUTCOMES.map((key) => [key, 0])) as Record<FunnelOutcome, number>;
+    if (index < FUNNEL_STAGES.length - 1) {
+      for (const application of applications) if (application.furthestStage === stage) stopped[outcome(application)] += 1;
+    }
+    return { stage, count, conversion: index > 0 && previous > 0 ? Math.round((count / previous) * 100) : null, stopped };
   });
   const sent = reached(FunnelStage.SENT);
   const heardBack = reached(FunnelStage.SCREENING);

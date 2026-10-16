@@ -16,11 +16,11 @@ const figures: DashboardFigures = {
   total: 9,
   byStatus: { DRAFT: 2, SENT: 2, SCREENING: 1, INTERVIEW: 1, OFFER: 1, ACCEPTED: 0, REJECTED: 1, DECLINED: 1 },
   funnel: [
-    { stage: "SENT", count: 7, conversion: null },
-    { stage: "SCREENING", count: 5, conversion: 71 },
-    { stage: "INTERVIEW", count: 3, conversion: 60 },
-    { stage: "OFFER", count: 2, conversion: 67 },
-    { stage: "ACCEPTED", count: 0, conversion: 0 },
+    { stage: "SENT", count: 7, conversion: null, stopped: { open: 2, rejected: 0, declined: 0, archived: 0 } },
+    { stage: "SCREENING", count: 5, conversion: 71, stopped: { open: 1, rejected: 1, declined: 0, archived: 0 } },
+    { stage: "INTERVIEW", count: 3, conversion: 60, stopped: { open: 1, rejected: 0, declined: 0, archived: 0 } },
+    { stage: "OFFER", count: 2, conversion: 67, stopped: { open: 1, rejected: 0, declined: 1, archived: 0 } },
+    { stage: "ACCEPTED", count: 0, conversion: 0, stopped: { open: 0, rejected: 0, declined: 0, archived: 0 } },
   ],
   sent: 7,
   heardBack: 5,
@@ -67,13 +67,8 @@ describe("the dashboard (E9-7)", () => {
       "Screening571% of sent",
       "Interview360% of screening",
       "Offer267% of interview",
-      "Accepted0Not yet, but there's an offer on the table",
+      "Accepted0None yet",
     ]);
-  });
-
-  it("says None yet for an empty stage with no offer open", () => {
-    render(<Dashboard {...props} figures={{ ...figures, byStatus: { ...figures.byStatus, OFFER: 0 } }} />);
-    expect(within(screen.getByRole("region", { name: "Your funnel" })).getByText("None yet")).toBeInTheDocument();
   });
 
   it("breaks down where things stand, with a link to the board", () => {

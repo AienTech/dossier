@@ -3,12 +3,13 @@ import type { ReactNode } from "react";
 
 import { buttonClassName } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
-import { ApplicationStatus } from "@/generated/prisma/enums";
+import type { ApplicationStatus } from "@/generated/prisma/enums";
 import { DASHBOARD_PERIODS, DEFAULT_QUIET_DAYS, type DashboardFigures, type DashboardPeriod } from "@/lib/dashboard";
 import type { DayPeriod } from "@/lib/greeting";
-import { STATUSES, statusInfo } from "@/lib/status";
+import { STATUSES } from "@/lib/status";
 
 import { ActivityChart } from "./activity-chart";
+import { FunnelChart } from "./funnel-chart";
 import { Greeting } from "./greeting";
 import { PeriodFilter } from "./period-filter";
 import { QuietDays } from "./quiet-days";
@@ -72,17 +73,9 @@ export function Dashboard({
   );
 }
 
-/** "Your funnel" (DSH-2): how far every sent application got, closed ones included. */
+/** "Your funnel" (DSH-2): how far every sent application got, closed ones included, as a Sankey diagram. */
 function Funnel({ figures }: { figures: DashboardFigures }) {
-  const { funnel, sent, heardBackPercent, reachedInterview, byStatus } = figures;
-  const note = (index: number) => {
-    const step = funnel[index];
-    if (index === 0) return "Everything you've sent";
-    if (step.count === 0) {
-      return step.stage === "ACCEPTED" && byStatus.OFFER > 0 ? "Not yet, but there's an offer on the table" : "None yet";
-    }
-    return `${step.conversion}% of ${statusInfo(funnel[index - 1].stage as ApplicationStatus).label.toLowerCase()}`;
-  };
+  const { funnel, sent, heardBackPercent, reachedInterview } = figures;
   return (
     <section aria-labelledby="funnel-heading" className={`${card} col-span-full gap-6 p-7`}>
       <div className="flex flex-wrap items-baseline justify-between gap-4">
@@ -90,7 +83,7 @@ function Funnel({ figures }: { figures: DashboardFigures }) {
           <h2 id="funnel-heading" className="font-serif text-section">
             Your funnel
           </h2>
-          <p className="text-control text-muted">How far each application you&apos;ve sent has made it, including ones that closed later.</p>
+          <p className="text-control text-muted">How far each application you&apos;ve sent has made it, and where the ones that stopped are now.</p>
         </div>
         <dl className="flex gap-7">
           <Figure value={String(sent)} label="sent" />
@@ -98,22 +91,7 @@ function Funnel({ figures }: { figures: DashboardFigures }) {
           <Figure value={String(reachedInterview)} label="reached interview" />
         </dl>
       </div>
-      <ol className="flex flex-col gap-1.5">
-        {funnel.map((step, index) => {
-          const width = sent > 0 && step.count > 0 ? Math.max((step.count / sent) * 100, 4) : 0;
-          const { label, color } = statusInfo(step.stage as ApplicationStatus);
-          return (
-            <li key={step.stage} className="grid grid-cols-[96px_minmax(0,1fr)_44px_minmax(0,150px)] items-center gap-4 py-1.5">
-              <span className="text-sm">{label}</span>
-              <span aria-hidden="true" className="h-[30px] overflow-hidden rounded-[6px] bg-hover">
-                <span className="block h-full rounded-[6px] motion-safe:transition-[width]" style={{ width: `${width}%`, backgroundColor: color }} />
-              </span>
-              <span className="text-right font-serif text-2xl leading-none tabular-nums">{step.count}</span>
-              <span className="text-label leading-[1.35] text-muted">{note(index)}</span>
-            </li>
-          );
-        })}
-      </ol>
+      <FunnelChart funnel={funnel} />
     </section>
   );
 }

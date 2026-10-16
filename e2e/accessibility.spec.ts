@@ -94,9 +94,10 @@ test("axe: an application's email, once it's written", async ({ page }) => {
   await expectAccessible(page);
 });
 
-test("axe: the dashboard for the last 30 days, with the chart's numbers showing", async ({ page }) => {
+test("axe: the dashboard for the last 30 days, with the charts' numbers showing", async ({ page }) => {
   await page.goto("/?period=30d");
-  await page.getByText("Show the numbers").click();
+  for (const chart of ["Your funnel", "Week by week"]) await page.getByRole("region", { name: chart }).getByText("Show the numbers").click();
+  await expect(page.getByRole("table", { name: /^How far your sent applications got/ })).toBeVisible();
   await expect(page.getByRole("table", { name: "Applications started and sent per week" })).toBeVisible();
   await expectAccessible(page);
 });

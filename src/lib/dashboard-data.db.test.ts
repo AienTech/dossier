@@ -29,6 +29,13 @@ describe("loadDashboard against the demo seed (E9-6)", () => {
     const figures = await loadDashboard({}, now);
     expect(figures).toMatchObject({ sent: 7, heardBack: 5, heardBackPercent: 71, reachedInterview: 3 });
     expect(figures.funnel.map((step) => step.count)).toEqual([7, 5, 3, 2, 0]);
+    expect(figures.funnel.map((step) => step.stopped)).toEqual([
+      { open: 2, rejected: 0, declined: 0, archived: 0 },
+      { open: 1, rejected: 1, declined: 0, archived: 0 },
+      { open: 1, rejected: 0, declined: 0, archived: 0 },
+      { open: 1, rejected: 0, declined: 1, archived: 0 },
+      { open: 0, rejected: 0, declined: 0, archived: 0 },
+    ]);
     expect(figures.byStatus).toEqual({ DRAFT: 2, SENT: 2, SCREENING: 1, INTERVIEW: 1, OFFER: 1, ACCEPTED: 0, REJECTED: 1, DECLINED: 1 });
   });
 
@@ -56,5 +63,13 @@ describe("loadDashboard against the demo seed (E9-6)", () => {
     const figures = await loadDashboard({}, now);
     expect(figures).toMatchObject({ sent: 7, heardBack: 5, reachedInterview: 3 });
     expect(figures.byStatus.DECLINED).toBe(1);
+    // Closed before it was archived, so it still counts as declined.
+    expect(figures.funnel[3].stopped).toMatchObject({ declined: 1, archived: 0 });
+  });
+
+  it("counts an application archived while still open apart (decided 16 October 2026)", async () => {
+    await prisma().application.updateMany({ where: { company: "Kestrel Maps" }, data: { archivedAt: now } });
+    const figures = await loadDashboard({}, now);
+    expect(figures.funnel[0].stopped).toEqual({ open: 1, rejected: 0, declined: 0, archived: 1 });
   });
 });

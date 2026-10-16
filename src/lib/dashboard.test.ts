@@ -31,15 +31,43 @@ describe("dashboardFigures (E9-6)", () => {
       ],
       now,
     );
+    const none = { open: 0, rejected: 0, declined: 0, archived: 0 };
     expect(figures.funnel).toEqual([
-      { stage: "SENT", count: 3, conversion: null },
-      { stage: "SCREENING", count: 2, conversion: 67 },
-      { stage: "INTERVIEW", count: 1, conversion: 50 },
-      { stage: "OFFER", count: 1, conversion: 100 },
-      { stage: "ACCEPTED", count: 0, conversion: 0 },
+      { stage: "SENT", count: 3, conversion: null, stopped: { ...none, open: 1 } },
+      { stage: "SCREENING", count: 2, conversion: 67, stopped: { ...none, rejected: 1 } },
+      { stage: "INTERVIEW", count: 1, conversion: 50, stopped: none },
+      { stage: "OFFER", count: 1, conversion: 100, stopped: { ...none, declined: 1 } },
+      { stage: "ACCEPTED", count: 0, conversion: 0, stopped: none },
     ]);
     expect(figures).toMatchObject({ sent: 3, heardBack: 2, heardBackPercent: 67, reachedInterview: 1 });
     expect(figures.byStatus).toEqual({ DRAFT: 1, SENT: 1, SCREENING: 0, INTERVIEW: 0, OFFER: 0, ACCEPTED: 0, REJECTED: 1, DECLINED: 1 });
+  });
+
+  it("says where the ones that went no further are now, archived open ones apart (decided 16 October 2026)", () => {
+    const figures = dashboardFigures(
+      [
+        app("waiting"),
+        app("let-go", { archived: true }),
+        app("rejected-archived", { status: "REJECTED", archived: true }),
+        app("withdrawn", { status: "DECLINED" }),
+        app("back-to-draft", { status: "DRAFT" }),
+        app("moved-back", { status: "SCREENING", furthestStage: "INTERVIEW" }),
+        app("offer-archived", { status: "OFFER", furthestStage: "OFFER", archived: true }),
+      ],
+      now,
+    );
+    const stopped = Object.fromEntries(figures.funnel.map((step) => [step.stage, step.stopped]));
+    expect(stopped.SENT).toEqual({ open: 2, rejected: 1, declined: 1, archived: 1 });
+    expect(stopped.SCREENING).toEqual({ open: 0, rejected: 0, declined: 0, archived: 0 });
+    expect(stopped.INTERVIEW).toEqual({ open: 1, rejected: 0, declined: 0, archived: 0 });
+    expect(stopped.OFFER).toEqual({ open: 0, rejected: 0, declined: 0, archived: 1 });
+  });
+
+  it("ends at Accepted, whatever happened after", () => {
+    const figures = dashboardFigures([app("accepted", { status: "ACCEPTED", furthestStage: "ACCEPTED" }), app("rescinded", { status: "REJECTED", furthestStage: "ACCEPTED" })], now);
+    expect(figures.funnel.at(-1)).toEqual({ stage: "ACCEPTED", count: 2, conversion: 100, stopped: { open: 0, rejected: 0, declined: 0, archived: 0 } });
+    // Each stage before it lost none.
+    expect(figures.funnel.map((step) => step.count)).toEqual([2, 2, 2, 2, 2]);
   });
 
   it("has no percentages before anything was sent", () => {
