@@ -181,6 +181,12 @@ With "Nightly backups" on (the default), the app writes the same export to `back
 
 Import files are capped at 10 MB, roughly 500 applications. The limit comes from Next.js, which buffers request bodies up to [`experimental.proxyClientMaxBodySize`](https://nextjs.org/docs/app/api-reference/config/next-config-js/proxyClientMaxBodySize) (10 MB by default) because `src/proxy.ts` runs on every request; larger bodies are cut off, so the app refuses them up front. To accept bigger files, raise that option in `next.config.ts` and `IMPORT_MAX_BYTES` in `src/lib/import-limits.ts`. Behind a reverse proxy, its own limit applies as well: on CapRover, raise nginx's `client_max_body_size` (see the README's CapRover guide).
 
+## Usage ping
+
+On each day someone signed in opens a page, a production server sends `https://telemetry.dossier.aien.me/ping` the install's random ID and the version, once (`src/lib/usage-ping.ts`, called with `after()` from the signed-in layout). The ID and the day of the last ping are the settings `usagePingId` and `usagePingDay`: exports leave them out and imports keep them (`INSTALL_SETTINGS` in `src/lib/data-export.ts`). Development servers and tests never send it (`NODE_ENV` isn't `production`), and the end-to-end run sets `DOSSIER_TELEMETRY=off`, since it runs a production build.
+
+The receiving end is a Cloudflare Worker that isn't published with the app. Change what the ping sends only together with it, the README's Privacy section and Settings → About.
+
 ## Tests and checks
 
 Tests use [Vitest](https://vitest.dev) and run inside the container like everything else:

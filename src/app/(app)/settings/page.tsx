@@ -13,6 +13,7 @@ import { appVersion } from "@/lib/version";
 import { prisma } from "@/lib/prisma";
 import { loadProfileName } from "@/lib/profile-data";
 import { loadSettings } from "@/lib/settings-data";
+import { USAGE_PING_HOST, usagePingEnabled } from "@/lib/usage-ping";
 
 import { AiBehaviour } from "./ai-behaviour";
 import { AiProviderSection } from "./ai-provider-section";
@@ -67,7 +68,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
           preview={await filePreview()}
         />
       ) : (
-        <AboutSection facts={await aboutFacts()} />
+        <AboutSection facts={await aboutFacts()} usagePingHost={USAGE_PING_HOST} />
       )}
     </SettingsScreen>
   );
@@ -113,10 +114,11 @@ function formatBytes(bytes: number): string {
 async function aboutFacts(): Promise<AboutFacts> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host")?.split(",")[0]?.trim() || requestHeaders.get("host") || "Unknown";
-  const [[database], ai, applications] = await Promise.all([
+  const [[database], ai, applications, settings] = await Promise.all([
     prisma.$queryRaw<{ size: bigint }[]>`SELECT pg_database_size(current_database()) AS size`,
     loadAiConfig(),
     prisma.application.count(),
+    loadSettings(),
   ]);
   return [
     { label: "Version", value: appVersion },
@@ -125,5 +127,16 @@ async function aboutFacts(): Promise<AboutFacts> {
     { label: "Sign-in", value: "set via DOSSIER_PASSWORD" },
     { label: "AI", value: [providerOption(ai.provider).name, ai.model].filter(Boolean).join(" · ") },
     { label: "Applications", value: String(applications) },
+    ...usagePingFacts(settings.usagePingId),
+  ];
+}
+
+/** Whether the usage ping is on, and the install ID it sends. */
+function usagePingFacts(id: string | null): AboutFacts {
+  if (process.env.NODE_ENV !== "production") return [{ label: "Usage ping", value: "off in development" }];
+  if (!usagePingEnabled()) return [{ label: "Usage ping", value: "off (DOSSIER_TELEMETRY=off)" }];
+  return [
+    { label: "Usage ping", value: "on" },
+    { label: "Install ID", value: id ?? "made with the first ping" },
   ];
 }

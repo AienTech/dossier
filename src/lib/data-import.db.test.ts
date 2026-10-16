@@ -77,6 +77,26 @@ describe("importExport (E10-6)", () => {
     expect(decryptApiKey(saved.value, secret)).toBe("sk-current");
   });
 
+  it("keeps this install's usage ping ID and day, whatever the file says", async () => {
+    const file = await asFile();
+    await prisma().setting.createMany({
+      data: [
+        { key: "usagePingId", value: "6f1c0e5a-9b1d-4c3e-8f2a-1d2e3f4a5b6c" },
+        { key: "usagePingDay", value: "2026-09-28" },
+      ],
+    });
+    const fromElsewhere = [
+      { key: "usagePingId", value: "00000000-0000-4000-8000-000000000000" },
+      { key: "usagePingDay", value: "2026-01-01" },
+    ];
+    await importExport(prisma(), { ...file, settings: [...file.settings, ...fromElsewhere] });
+    const kept = await prisma().setting.findMany({ where: { key: { startsWith: "usagePing" } }, orderBy: { key: "asc" } });
+    expect(kept.map(({ key, value }) => ({ key, value }))).toEqual([
+      { key: "usagePingDay", value: "2026-09-28" },
+      { key: "usagePingId", value: "6f1c0e5a-9b1d-4c3e-8f2a-1d2e3f4a5b6c" },
+    ]);
+  });
+
   it("saves the file's API key, encrypted for this server", async () => {
     const file = await asFile();
     await importExport(prisma(), { ...file, apiKey: "sk-from-file" });

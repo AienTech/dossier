@@ -58,6 +58,8 @@ describe("stored settings", () => {
       jsearchHost: "openwebninja",
       adzunaAppId: null,
       adzunaKeyEnc: null,
+      usagePingId: null,
+      usagePingDay: null,
     });
   });
 

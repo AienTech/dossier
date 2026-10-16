@@ -41,6 +41,8 @@ export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2];
 const API_KEY_SETTING = "apiKeyEnc";
 /** The settings that hold encrypted keys, which only this server can read: never exported as they are. */
 export const SECRET_SETTINGS: readonly string[] = [API_KEY_SETTING, "jsearchKeyEnc", "adzunaKeyEnc"];
+/** The settings that belong to this install rather than its data (the usage ping's): never exported, and kept by an import. */
+export const INSTALL_SETTINGS: readonly string[] = ["usagePingId", "usagePingDay"];
 
 const date = z.iso.datetime().transform((value) => new Date(value));
 const optionalDate = date.nullable();
@@ -304,7 +306,7 @@ export async function buildExport(
         references,
       },
       themes,
-      settings: settings.filter((setting) => !SECRET_SETTINGS.includes(setting.key)),
+      settings: settings.filter((setting) => !SECRET_SETTINGS.includes(setting.key) && !INSTALL_SETTINGS.includes(setting.key)),
       ...(apiKey ? { apiKey } : {}),
       ...(Object.keys(jobSourceKeys).length > 0 ? { jobSourceKeys } : {}),
       applications,

@@ -2,7 +2,7 @@ import "server-only";
 
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { encryptApiKey } from "@/lib/ai/api-key";
-import { EXPORT_FORMAT, EXPORT_SCHEMA_VERSION, EXPORT_SCHEMA_VERSIONS, exportSchema, SECRET_SETTINGS, type DossierExport } from "@/lib/data-export";
+import { EXPORT_FORMAT, EXPORT_SCHEMA_VERSION, EXPORT_SCHEMA_VERSIONS, exportSchema, INSTALL_SETTINGS, SECRET_SETTINGS, type DossierExport } from "@/lib/data-export";
 import { encryptSecret, JOB_SOURCE_KEY } from "@/lib/secrets";
 
 // Restoring from an export file (E10-6, SET-10): everything is replaced in
@@ -71,7 +71,8 @@ const json = (value: unknown) => (value === null || value === undefined ? Prisma
 /**
  * Replaces all user data with the export's, in one transaction. Each saved
  * key (the AI provider's, the job sources') stays as it is unless the file
- * carries one, which is then encrypted with this server's secret.
+ * carries one, which is then encrypted with this server's secret. The
+ * install's own settings (the usage ping's) stay as they are.
  */
 export async function importExport(db: PrismaClient, data: DossierExport): Promise<void> {
   const { profile, themes, settings, applications, postings, searches, apiKey, jobSourceKeys } = data;
@@ -80,7 +81,7 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
     jsearchKeyEnc: jobSourceKeys?.jsearch ? encryptSecret(JOB_SOURCE_KEY, jobSourceKeys.jsearch) : null,
     adzunaKeyEnc: jobSourceKeys?.adzuna ? encryptSecret(JOB_SOURCE_KEY, jobSourceKeys.adzuna) : null,
   };
-  const keptKeys = SECRET_SETTINGS.filter((key) => !fromFile[key]);
+  const keptKeys = [...SECRET_SETTINGS.filter((key) => !fromFile[key]), ...INSTALL_SETTINGS];
   await db.$transaction(
     async (tx) => {
       // Out with the old: applications take their history, documents, chat and notes along.
@@ -111,7 +112,7 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
       await tx.education.createMany({ data: profile.education });
       await tx.reference.createMany({ data: profile.references });
       await tx.theme.createMany({ data: themes.map((theme) => ({ ...theme, builtIn: false })) });
-      await tx.setting.createMany({ data: settings.filter((setting) => !SECRET_SETTINGS.includes(setting.key)) });
+      await tx.setting.createMany({ data: settings.filter((setting) => !SECRET_SETTINGS.includes(setting.key) && !INSTALL_SETTINGS.includes(setting.key)) });
       for (const [key, value] of Object.entries(fromFile)) if (value) await tx.setting.create({ data: { key, value } });
 
       const themeIds = new Set((await tx.theme.findMany({ select: { id: true } })).map((theme) => theme.id));

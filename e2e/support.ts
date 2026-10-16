@@ -45,6 +45,8 @@ export function appEnv(): Record<string, string> {
     DOSSIER_JOBS_SOURCE: "jsearch",
     DOSSIER_JSEARCH_KEY: "e2e-jsearch-key",
     DOSSIER_JOBS_TEST_BASE_URL: `http://localhost:${FAKE_JOBS_PORT}`,
+    // A production server, so it would send the usage ping.
+    DOSSIER_TELEMETRY: "off",
     PORT: String(APP_PORT),
   };
 }

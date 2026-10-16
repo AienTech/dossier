@@ -1,5 +1,8 @@
+import { after } from "next/server";
+
 import { verifySession } from "@/lib/auth/session";
 import { loadProfileName } from "@/lib/profile-data";
+import { notePageLoad } from "@/lib/usage-ping";
 
 import { Sidebar } from "./sidebar";
 
@@ -11,6 +14,8 @@ import { Sidebar } from "./sidebar";
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   // Proxy already redirects signed-out visitors; this is the check next to the data.
   await verifySession();
+  // The day's usage ping, if it hasn't gone yet: after the page, so it never slows one down.
+  after(notePageLoad);
 
   const userName = (await loadProfileName()).trim() || "New user";
 

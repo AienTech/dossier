@@ -54,6 +54,19 @@ describe("buildExport (E10-4)", () => {
     expect(withKey.settings.map((setting) => setting.key)).not.toContain("apiKeyEnc");
   });
 
+  it("leaves out the install's own settings: the usage ping's ID and day", async () => {
+    await prisma().setting.createMany({
+      data: [
+        { key: "usagePingId", value: "6f1c0e5a-9b1d-4c3e-8f2a-1d2e3f4a5b6c" },
+        { key: "usagePingDay", value: "2026-09-28" },
+      ],
+    });
+    const data = await buildExport(prisma(), { now, includeApiKey: true });
+    expect(data.settings.map((setting) => setting.key)).not.toContain("usagePingId");
+    expect(JSON.stringify(data)).not.toContain("6f1c0e5a");
+    expect(JSON.stringify(data)).not.toContain("usagePing");
+  });
+
   it("treats the job sources' keys like the API key, and has the postings (E14-9)", async () => {
     await prisma().setting.createMany({
       data: [

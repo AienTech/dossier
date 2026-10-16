@@ -13,7 +13,7 @@ export type AboutFacts = { label: string; value: string }[];
 type Check = { status: "idle" } | { status: "checking" } | { status: "latest" } | { status: "newer"; version: string; url: string } | { status: "unknown" };
 
 /** Settings → About (E10-9, SET-12): facts about this install, and an update check that runs only when asked. */
-export function AboutSection({ facts }: { facts: AboutFacts }) {
+export function AboutSection({ facts, usagePingHost }: { facts: AboutFacts; usagePingHost: string }) {
   const [check, setCheck] = useState<Check>({ status: "idle" });
 
   const run = async () => {
@@ -54,6 +54,9 @@ export function AboutSection({ facts }: { facts: AboutFacts }) {
         </p>
       </div>
       <p className="text-meta text-muted">Checking asks GitHub for the latest release and sends nothing about you or this install.</p>
+      <p className="text-meta text-muted">
+        While the usage ping is on, the server sends {usagePingHost} this install&apos;s ID and the version number once on each day Dossier is used, so the project knows how many installs are in use and how often. The ID is random and says nothing about you. Nothing else is sent. Set <code className="font-mono">DOSSIER_TELEMETRY=off</code> to stop it.
+      </p>
     </>
   );
 }

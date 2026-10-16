@@ -14,7 +14,7 @@ const facts = [
 
 describe("About (E10-9)", () => {
   it("lists the install's facts", () => {
-    render(<AboutSection facts={facts} />);
+    render(<AboutSection facts={facts} usagePingHost="telemetry.example.com" />);
     expect(screen.getByRole("heading", { name: "About this install" })).toBeInTheDocument();
     expect(screen.getByText("Free and open source. No accounts, no subscriptions.")).toBeInTheDocument();
     expect(screen.getAllByRole("definition").map((value) => value.textContent)).toEqual(["0.1.0", "PostgreSQL · 9.0 MB"]);
@@ -22,10 +22,17 @@ describe("About (E10-9)", () => {
     expect(checkUpdates).not.toHaveBeenCalled();
   });
 
+  it("says what the usage ping sends and how to stop it", () => {
+    render(<AboutSection facts={facts} usagePingHost="telemetry.example.com" />);
+    expect(screen.getByText(/the server sends telemetry\.example\.com this install's ID and the version number/)).toHaveTextContent(
+      "Nothing else is sent. Set DOSSIER_TELEMETRY=off to stop it.",
+    );
+  });
+
   it("checks for updates only when asked", async () => {
     const user = userEvent.setup();
     vi.mocked(checkUpdates).mockResolvedValueOnce({ ok: true, data: { status: "latest" } });
-    render(<AboutSection facts={facts} />);
+    render(<AboutSection facts={facts} usagePingHost="telemetry.example.com" />);
     await user.click(screen.getByRole("button", { name: "Check for updates" }));
     expect(screen.getByRole("status")).toHaveTextContent("You're on the latest version.");
   });
@@ -33,7 +40,7 @@ describe("About (E10-9)", () => {
   it("links a newer version", async () => {
     const user = userEvent.setup();
     vi.mocked(checkUpdates).mockResolvedValueOnce({ ok: true, data: { status: "newer", version: "0.2.0", url: "https://github.com/AienTech/dossier/releases/tag/v0.2.0" } });
-    render(<AboutSection facts={facts} />);
+    render(<AboutSection facts={facts} usagePingHost="telemetry.example.com" />);
     await user.click(screen.getByRole("button", { name: "Check for updates" }));
     expect(screen.getByRole("status")).toHaveTextContent("Version 0.2.0 is available.");
     expect(screen.getByRole("link", { name: "See what's new (opens in a new tab)" })).toHaveAttribute("rel", "noopener noreferrer");
@@ -42,7 +49,7 @@ describe("About (E10-9)", () => {
   it("says when it couldn't check", async () => {
     const user = userEvent.setup();
     vi.mocked(checkUpdates).mockResolvedValueOnce({ ok: true, data: { status: "unknown" } });
-    render(<AboutSection facts={facts} />);
+    render(<AboutSection facts={facts} usagePingHost="telemetry.example.com" />);
     await user.click(screen.getByRole("button", { name: "Check for updates" }));
     expect(screen.getByRole("status")).toHaveTextContent("Couldn't check for updates right now.");
   });

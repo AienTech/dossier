@@ -62,7 +62,7 @@ Dossier is published to GitHub's container registry as `ghcr.io/aientech/dossier
   docker run --rm -it ghcr.io/aientech/dossier hash-password
   ```
 
-  Optionally `TZ` (e.g. `Europe/Berlin`, so nightly backups run at 03:00 your time), `DOSSIER_AI_*` for the AI provider (you can also set it up in the app) and `DOSSIER_BACKUP_RETENTION_DAYS`. Keep `DOSSIER_SECRET` somewhere safe: saved API keys and every session depend on it.
+  Optionally `TZ` (e.g. `Europe/Berlin`, so nightly backups run at 03:00 your time), `DOSSIER_AI_*` for the AI provider (you can also set it up in the app), `DOSSIER_BACKUP_RETENTION_DAYS`, and `DOSSIER_TELEMETRY=off` to stop the usage ping (see [Privacy](#privacy)). Keep `DOSSIER_SECRET` somewhere safe: saved API keys and every session depend on it.
 - **App Configs → Persistent Directories:** path in app `/data`, label `dossier-data`. Nightly backups and zipped PDFs go there.
 - **HTTP Settings → Container HTTP Port:** `3000`.
 - **App Configs → Instance Count:** `1`. The nightly backup schedule, the AI job queue and the PDF browser live inside the app's process; two instances would run backups twice and could lose track of jobs.
@@ -173,6 +173,7 @@ Dossier is configured with environment variables; everything else is set in the 
 | `DOSSIER_SECRET` | required | At least 32 random characters. Signs sessions and encrypts saved API keys; changing it signs everyone out and API keys have to be entered again. |
 | `DOSSIER_DATA_DIR` | `/data` | Where nightly backups, the backups made before an import, and zipped PDFs go. Mount a volume here. |
 | `DOSSIER_BACKUP_RETENTION_DAYS` | `14` | How many days of nightly backups to keep. |
+| `DOSSIER_TELEMETRY` | `on` | `off` stops the usage ping, which sends a random install ID and the version number once on each day Dossier is used (see [Privacy](#privacy)). |
 | `DOSSIER_AI_PROVIDER` | none | `local` (Ollama or llama.cpp), `openai` (any OpenAI-compatible API) or `anthropic`. A default for Settings → AI provider; a choice saved there wins. |
 | `DOSSIER_AI_URL` | per provider | The AI server's address, e.g. `http://srv-captain--ollama:11434`. |
 | `DOSSIER_AI_MODEL` | per provider | The model to use, e.g. `qwen2.5:7b` or `claude-sonnet-5`. |
@@ -238,6 +239,8 @@ Take a backup first (an export, or a database dump). Then:
 
 The new version updates the database on start. Going back to an older version after that isn't supported: restore the backup you took instead.
 
+From 1.4, Dossier sends a usage ping (see [Privacy](#privacy)). If you'd rather it didn't, set `DOSSIER_TELEMETRY=off` before you deploy 1.4 or later.
+
 ### From 1.0: the password hash
 
 Dossier 1.0 took the password itself in `DOSSIER_PASSWORD`. Newer versions only take a hash of it, and don't start until it is one. When you upgrade:
@@ -264,7 +267,8 @@ Every browser is signed out once and signs in again with the same password.
 
 - Everything you enter stays in your PostgreSQL database and data directory.
 - With a **local model**, nothing leaves your server. With a **hosted provider**, Dossier sends it what the task needs: the job posting, your profile without contact details (no email, phone, address, date of birth or links), what you add when you create an application, and, when you refine, the drafts and your chat messages, though never a letter's sender or signature. Importing a resume sends its text, contact details included; the import page says so first. The notes you keep on an application are never sent.
-- No telemetry, analytics or tracking: Dossier loads nothing from other sites (its Content-Security-Policy forbids it), and Next.js telemetry is off in the image.
+- **Usage ping:** on each day you use Dossier, your server sends `telemetry.dossier.aien.me` a random install ID and the version number, once, so the project knows how many installs are in use and how often. The ID is made at random and kept in your database. It isn't derived from anything about you or your server, and exports leave it out. Nothing else is sent: no profile, documents, applications, settings, server address or time of day. The receiver, a Cloudflare Worker, keeps the ID, the day and the version, and deletes them after a year. It doesn't keep the address the ping came from, though Cloudflare sees it on the way, as with any request. Set `DOSSIER_TELEMETRY=off` to stop it. Settings → About shows whether it's on and the ID it sends.
+- No other tracking or analytics: Dossier loads nothing from other sites (its Content-Security-Policy forbids it, and the ping comes from your server, not your browser), and Next.js telemetry is off in the image.
 - **Check for updates** in Settings → About asks GitHub for the latest release, only when you press it, and sends nothing about you or your install.
 - **Fetch** on a new application asks the job site for the posting's page from your server, only when you press it. It never requests addresses on your own network.
 - **Find jobs** is off until you choose a source. Then it sends the source what you search for (keywords, place, country, radius and filters), from your server, and nothing from your profile: the profile only fills in the form. Each search is kept with what it found, until you remove it from Past searches. For a posting that came with only its start (Adzuna, sometimes the Arbeitsagentur), Dossier asks the posting's page for the rest, as Fetch does.

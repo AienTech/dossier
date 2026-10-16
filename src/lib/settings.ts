@@ -94,6 +94,11 @@ export const settingsSchema = z.object({
   jsearchHost: z.enum(JSEARCH_HOSTS).catch("openwebninja"),
   adzunaAppId: z.string().nullable().catch(null),
   adzunaKeyEnc: z.string().nullable().catch(null),
+  // The usage ping (usage-ping.ts): this install's random ID, made by its
+  // first ping, and the UTC day of the last one. They belong to the install,
+  // not its data, so exports leave them out (INSTALL_SETTINGS).
+  usagePingId: z.string().nullable().catch(null),
+  usagePingDay: z.string().nullable().catch(null),
 });
 export type SettingsData = z.output<typeof settingsSchema>;
 

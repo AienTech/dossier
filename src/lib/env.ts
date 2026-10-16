@@ -72,6 +72,14 @@ const schema = z.object({
         error: "DOSSIER_BACKUP_RETENTION_DAYS must be at least 1.",
       }),
     ),
+  // The daily usage ping (usage-ping.ts): on unless set to off.
+  DOSSIER_TELEMETRY: z
+    .preprocess(unsetIfEmpty, z.string().trim().toLowerCase().default("on"))
+    .pipe(
+      z.enum(["on", "off"], {
+        error: (issue) => `DOSSIER_TELEMETRY must be on or off (got "${String(issue.input)}").`,
+      }),
+    ),
   DOSSIER_AI_PROVIDER: optional(
     z.enum(AI_PROVIDERS, {
       error: (issue) =>

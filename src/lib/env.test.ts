@@ -29,7 +29,14 @@ describe("parseEnv", () => {
       ...valid,
       DOSSIER_DATA_DIR: "/data",
       DOSSIER_BACKUP_RETENTION_DAYS: 14,
+      DOSSIER_TELEMETRY: "on",
     });
+  });
+
+  it("reads whether the usage ping is on", () => {
+    expect(parseEnv({ ...valid, DOSSIER_TELEMETRY: "" }).DOSSIER_TELEMETRY).toBe("on");
+    expect(parseEnv({ ...valid, DOSSIER_TELEMETRY: " Off " }).DOSSIER_TELEMETRY).toBe("off");
+    expect(problems({ ...valid, DOSSIER_TELEMETRY: "false" })).toEqual(['DOSSIER_TELEMETRY must be on or off (got "false").']);
   });
 
   it("reads the optional variables", () => {
