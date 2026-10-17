@@ -1,17 +1,45 @@
-# Dossier
+<p align="center">
+  <img src="src/app/icon.svg" alt="" width="80" height="80">
+</p>
 
-Your job search, on your own server. Dossier keeps your career history in one profile, turns it into a clean resume, and, for every job you apply to, reads the posting, shows how you match and drafts a tailored resume and cover letter that only use facts from your profile. You refine them in a chat, download them as PDFs and track each application from draft to offer.
+<h1 align="center">Dossier</h1>
 
-It's a single-user web app for a small server: one password, your data in your own PostgreSQL database, and an AI model of your choice. That can be a local model through Ollama, so nothing leaves your server, or a hosted one (any OpenAI-compatible API, or Anthropic).
+<p align="center">
+  Your job search, on your own server: one profile, a tailored resume and cover letter for every job, and every application tracked from draft to offer.
+</p>
+
+<p align="center">
+  <a href="https://github.com/AienTech/dossier/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/AienTech/dossier?label=release"></a>
+  <a href="https://github.com/AienTech/dossier/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AienTech/dossier/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue"></a>
+  <a href="https://github.com/AienTech/dossier/pkgs/container/dossier"><img alt="Docker image: ghcr.io/aientech/dossier" src="https://img.shields.io/badge/image-ghcr.io%2Faientech%2Fdossier-2496ED?logo=docker&logoColor=white"></a>
+  <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs">
+  <img alt="PostgreSQL 18" src="https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white">
+</p>
+
+Dossier keeps your career history in one profile and turns it into a clean resume. For every job you apply to, it reads the posting, shows how you match, and drafts a tailored resume and cover letter that only use facts from your profile. You refine them in a chat, download them as PDFs and track each application from draft to offer.
+
+It's for one person on a small server: one password, your data in your own PostgreSQL database, and an AI model of your choice. That can be a local model through Ollama, so nothing leaves your server, or a hosted one (any OpenAI-compatible API, or Anthropic).
+
+## Demo
+
+![Dossier in use: the dashboard, dragging a card on the board, a new application from a pasted posting, refining the tailored resume in the chat, the cover letter, and switching resume themes](.github/images/demo.gif)
+
+<sub>Recorded with the demo data (Lena Hartmann is made up) and a stand-in AI server that answers at once, played at 1.2× speed. With a real model, reading a posting and writing the documents takes from a few seconds to a few minutes.</sub>
+
+## Features
 
 - **Profile:** basics, skills and languages, experience, education and references, in the order you choose, with a strength meter. Start it from an existing resume (PDF, Word or Markdown) if you like.
-- **Base resume:** six themes and a theme builder, previewed live and printed to PDF on the server. Duplicate themes, or share them as files.
+- **Base resume:** twelve themes and a theme builder, previewed live and printed to PDF on the server. Duplicate themes, or share them as files.
 - **Find jobs:** search postings near your city, or anywhere you choose, through JSearch (LinkedIn, Indeed and more), Adzuna or Germany's Bundesagentur für Arbeit. Save the good ones, dismiss the rest, and start an application from a posting with one click.
 - **New application:** paste a posting; Dossier pulls out the details and requirements, matches them against your profile, and writes a tailored resume and cover letter in the tone you pick.
+- **Never invents experience:** drafts only use facts from your profile. What the posting asks for and your profile doesn't have is shown as a gap, not made up.
 - **Refine:** ask for changes in a chat, edit or regenerate any part (every part of the cover letter too: sender, date, recipient, greeting and sign-off, written in the letter's language), undo AI changes or go back to any earlier version, keep private notes.
 - **Send:** an email to go with each application, to whoever the posting says to send it to, ready to copy or open in your mail app, with the resume and cover letter PDFs to attach. Edit, rewrite or refine it like the documents.
 - **Track:** a board and a table of every application, and a dashboard with your funnel (last 30 days, 90 days or all time), a week-by-week chart and what's worth a look next, upcoming interviews included.
 - **Your data:** export and import everything as one file, nightly backups, and Delete everything.
+
+## Screenshots
 
 ![The dashboard: your funnel, a week-by-week chart and what's worth a look next](.github/images/dashboard.png)
 
@@ -25,157 +53,125 @@ It's a single-user web app for a small server: one password, your data in your o
     <td><img src=".github/images/find-jobs.png" alt="Find jobs: postings near the profile's city, with one open"><br>Find jobs and start an application from a posting</td>
   </tr>
   <tr>
-    <td><img src=".github/images/resume.png" alt="The base resume next to its themes"><br>The base resume, with six themes and a theme builder</td>
+    <td><img src=".github/images/resume.png" alt="The base resume next to its themes"><br>The base resume, with twelve themes and a theme builder</td>
     <td><img src=".github/images/profile.png" alt="The profile editor, with its sections and strength meter"><br>One profile that every resume and letter comes from</td>
   </tr>
 </table>
 
 <sub>The screenshots show the demo data: Lena Hartmann is made up.</sub>
 
-## Install on CapRover
+## Self-hosting
 
-Dossier runs as one app on a [CapRover](https://caprover.com) server, next to a Postgres one-click app. Give the server at least 2 vCPUs and 2 GB of memory: Dossier needs about 768 MB, Postgres and CapRover the rest (see [Performance and sizing](#performance-and-sizing)).
+Dossier runs as two containers, the app and PostgreSQL, from one Compose file. These four steps take a fresh server to Dossier on your own domain, with HTTPS.
 
-### 1. The image
+### 1. Get a VPS
 
-Dossier is published to GitHub's container registry as `ghcr.io/aientech/dossier`, a public image, so CapRover pulls it without signing in. Each release is tagged with its version (e.g. `v1.0.0`), and `latest` is the newest release.
+Any Linux server you can reach over SSH works, from any provider. Give it:
 
-### 2. Create the database
+- **At least 2 vCPUs and 2 GB of memory.** Dossier uses up to about 1 GB, since it prints PDFs with a built-in Chromium; PostgreSQL and the system need the rest (see [Performance and sizing](#performance-and-sizing)).
+- **A few GB of disk.** The image is about 1.7 GB; your data takes far less.
+- **More for a local model:** about 6 GB of extra memory and 4 or more cores for `qwen2.5:7b` (see [Local model with Ollama](#local-model-with-ollama)). With a hosted AI provider, you don't need any of that.
+- **A domain name** for HTTPS, such as `dossier.example.com`, with a DNS `A` record pointing at the server.
 
-**Apps → One-Click Apps/Databases → PostgreSQL.** Name it `dossier-db`, pick version 18, and set a user, a long random password and the database name `dossier`. Other apps reach it at `srv-captain--dossier-db:5432`; leave its port unmapped, so it's not reachable from outside.
+The commands below are for Debian or Ubuntu. Only SSH (port 22) and the web (80 and 443) need to be open to the internet.
 
-### 3. Create the app
+### 2. Install Docker and Docker Compose
 
-**Apps → Create a New App**, named `dossier`, with **Has Persistent Data** ticked. Then, in the app's settings:
-
-- **App Configs → Environment Variables:**
-
-  ```
-  DATABASE_URL=postgresql://<user>:<password>@srv-captain--dossier-db:5432/dossier
-  DOSSIER_PASSWORD=<a hash of the password you'll sign in with: see below>
-  DOSSIER_SECRET=<32 or more random characters: openssl rand -base64 32>
-  ```
-
-  `DOSSIER_PASSWORD` holds a hash of your password, never the password itself, so reading the app's settings doesn't reveal it. To make the hash, run this on the server (or any machine with Docker), type the password twice, and paste the line it prints, which starts with `argon2id:`:
-
-  ```bash
-  docker run --rm -it ghcr.io/aientech/dossier hash-password
-  ```
-
-  Optionally `TZ` (e.g. `Europe/Berlin`, so nightly backups run at 03:00 your time), `DOSSIER_AI_*` for the AI provider (you can also set it up in the app), `DOSSIER_BACKUP_RETENTION_DAYS`, and `DOSSIER_TELEMETRY=off` to stop the usage ping (see [Privacy](#privacy)). Keep `DOSSIER_SECRET` somewhere safe: saved API keys and every session depend on it.
-- **App Configs → Persistent Directories:** path in app `/data`, label `dossier-data`. Nightly backups and zipped PDFs go there.
-- **HTTP Settings → Container HTTP Port:** `3000`.
-- **App Configs → Instance Count:** `1`. The nightly backup schedule, the AI job queue and the PDF browser live inside the app's process; two instances would run backups twice and could lose track of jobs.
-- **App Configs → Service Update Override:** a memory limit that leaves room for Chromium, and updates that start the new version before stopping the old one, going back to it if the new one doesn't come up healthy (for example when a migration fails):
-
-  ```yaml
-  TaskTemplate:
-    Resources:
-      Limits:
-        MemoryBytes: 1073741824
-  UpdateConfig:
-    Order: start-first
-    FailureAction: rollback
-  ```
-
-Save and update.
-
-### 4. Deploy
-
-- **From the published image (recommended):** the app's **Deployment** tab → **Deploy via ImageName** → `ghcr.io/aientech/dossier:latest`, or a version such as `ghcr.io/aientech/dossier:v1.0.0`.
-- **From a checkout:** `caprover deploy` uses `captain-definition` and builds the image on the server, which takes a while because of Chromium.
-
-On every start the container applies database migrations and loads the built-in themes before it serves; the **Deployment** tab's app logs show each step. When it's up, `/api/health` answers `{"status":"ok", …}`.
-
-### 5. Turn on HTTPS
-
-In the app's **HTTP Settings**, connect a domain if you like, then **Enable HTTPS** (Let's Encrypt) and tick **Force HTTPS by redirecting all HTTP traffic to HTTPS**.
-
-Dossier then relies on the headers CapRover's nginx sets for every request:
-
-- `X-Forwarded-Proto: https` makes the session cookie `Secure` and adds `upgrade-insecure-requests` to the Content-Security-Policy.
-- `X-Forwarded-For` gets the visitor's address appended by nginx, and Dossier takes the last entry as the client for the sign-in rate limit, so a made-up header can't dodge it.
-- The `Host` header is what the origin checks on Server Actions and file routes compare against.
-
-So never map the app's container port to the server (**Port Mapping** stays empty): requests that skip nginx could set those headers themselves.
-
-Imports upload an export file of up to 10 MB, and nginx's default limit is 1 MB. In **HTTP Settings → Edit Default Nginx Configurations**, add this line inside the `server { … }` block, next to the other `client_max_body_size` if there is one:
-
-```nginx
-client_max_body_size 12m;
-```
-
-### 6. Optional: a local model with Ollama
-
-With a local model, nothing you write leaves your server. Ollama can run as a second CapRover app:
-
-1. **Apps → Create a New App** named `ollama`, with **Has Persistent Data** ticked.
-2. **App Configs → Persistent Directories:** path in app `/root/.ollama`, label `ollama-models`, so models survive updates. Set **Instance Count** to `1`, and give it room with a Service Update Override (8 GB for the model below):
-
-   ```yaml
-   TaskTemplate:
-     Resources:
-       Limits:
-         MemoryBytes: 8589934592
-   ```
-
-3. **HTTP Settings:** tick **Do not expose as web-app**. Dossier reaches it inside CapRover; nothing else should.
-4. **Deployment → Deploy via ImageName:** `ollama/ollama:0.34.4`.
-5. Pull a model. CapRover has no shell, so on the server run:
-
-   ```bash
-   docker exec -it $(docker ps -q -f name=srv-captain--ollama) ollama pull qwen2.5:7b
-   ```
-
-6. In Dossier, open **Settings → AI provider → Local model**, set the server address to `http://srv-captain--ollama:11434`, pick the model and press **Test connection**. Or set `DOSSIER_AI_PROVIDER=local`, `DOSSIER_AI_URL=http://srv-captain--ollama:11434` and `DOSSIER_AI_MODEL=qwen2.5:7b` on the Dossier app.
-
-**Which model:** `qwen2.5:7b` is a good start: a 4.7 GB download that needs about 6 GB of memory with Dossier's 16k-token context. On a smaller server, `qwen2.5:3b` (2 GB, about 3 GB of memory) works, with plainer writing. These are suggestions, not yet benchmarked. On a CPU, reading a posting takes a minute or two and a whole new application several minutes, so the local timeout is 5 minutes per request (`DOSSIER_AI_TIMEOUT_SECONDS`); 4 or more cores help, a GPU much more.
-
-**Ollama elsewhere:** on another machine in your network, use `http://<its address>:11434` and start Ollama there with `OLLAMA_HOST=0.0.0.0` so it listens beyond localhost. On the same host as a Docker install of Dossier (not CapRover), use `http://host.docker.internal:11434`. Docker Desktop provides that name; on Linux, add `extra_hosts: ["host.docker.internal:host-gateway"]` to the app's service. Inside a container, `localhost` is the container itself, never the host.
-
-## Install with Docker Compose
-
-On any server with Docker, [`compose.production.yml`](compose.production.yml) runs Dossier and PostgreSQL, with Ollama as an option. Next to it, create a `.env` file:
+Docker's install script sets up Docker Engine and the Compose plugin:
 
 ```bash
-POSTGRES_PASSWORD=<random: openssl rand -hex 24>
-DOSSIER_PASSWORD=<a hash of the password you'll sign in with: see below>
-DOSSIER_SECRET=<32 or more random characters: openssl rand -base64 32>
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
 ```
 
-For `DOSSIER_PASSWORD`, run `docker run --rm -it ghcr.io/aientech/dossier hash-password`, type the password you'll sign in with twice, and paste the line it prints. Dossier only takes the hash, never the password itself.
-
-Then start it, and sign in at http://localhost:3000 on the server:
+The last line lets you run `docker` without `sudo` (membership in the `docker` group is as good as root, so only add accounts you trust). Log out and back in for it to apply, then check:
 
 ```bash
-docker compose -f compose.production.yml up -d
+docker compose version
 ```
 
-The app only listens on the server itself (`127.0.0.1:3000`). Before you use it from other machines, put a reverse proxy with HTTPS in front of it, such as [Caddy](https://caddyserver.com) (`reverse_proxy localhost:3000`), Traefik or nginx. The proxy has to set `X-Forwarded-Proto` and append the client's address to `X-Forwarded-For`: Caddy and Traefik do that by default, and with nginx add `proxy_set_header X-Forwarded-Proto $scheme;` and `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`. For a home network without HTTPS, change the app's `ports` entry to `"3000:3000"`: everything works, but the session cookie can't be marked `Secure`.
+To install by hand instead, follow [Docker's guide for your distribution](https://docs.docker.com/engine/install/).
 
-For a local model, start the Ollama service too and pull a model (see [Which model](#6-optional-a-local-model-with-ollama)):
+### 3. Set up the database
+
+Dossier keeps everything in PostgreSQL 18, which runs in its own container next to the app. Nothing outside can reach it, only the app, and its data lives in a Docker volume that survives restarts and upgrades.
+
+Make a folder for Dossier, fetch the Compose file into it, and give the database a random password:
 
 ```bash
-docker compose -f compose.production.yml --profile ai up -d
-docker compose -f compose.production.yml exec ollama ollama pull qwen2.5:7b
+mkdir ~/dossier && cd ~/dossier
+curl -fsSL -o compose.yml https://raw.githubusercontent.com/AienTech/dossier/main/compose.production.yml
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
+chmod 600 .env
 ```
 
-In **Settings → AI provider → Local model**, use the address `http://ollama:11434`.
+`.env` holds your secrets, so it's readable only by you. The database starts with the app in the next step; Compose waits until it's ready before it starts Dossier.
 
-## Configuration
+### 4. Set up the app
 
-Dossier is configured with environment variables; everything else is set in the app. The server doesn't start while a required variable is missing or invalid, and the log says which one and how to fix it.
+Dossier needs two more secrets in `.env`:
+
+- **`DOSSIER_SECRET`:** 32 or more random characters. It signs sessions and encrypts saved API keys.
+- **`DOSSIER_PASSWORD`:** a hash of the password you'll sign in with. Dossier only takes the hash, never the password itself, so reading the server's settings doesn't reveal it.
+
+```bash
+echo "DOSSIER_SECRET=$(openssl rand -base64 32)" >> .env
+docker run --rm -it ghcr.io/aientech/dossier hash-password
+```
+
+Type your password twice. The command prints one line that starts with `argon2id:`; add it to `.env` as `DOSSIER_PASSWORD=argon2id:…` (for example with `nano .env`). Then start Dossier and watch it come up:
+
+```bash
+docker compose up -d
+docker compose logs -f app
+```
+
+On every start, Dossier applies the database migrations and loads its built-in themes before it serves, and the log shows each step. Press Ctrl+C to stop following it. `curl -s localhost:3000/api/health` answers `{"status":"ok", …}` once it's up.
+
+**HTTPS.** Dossier only listens on the server itself (`127.0.0.1:3000`), so put a reverse proxy with HTTPS in front of it. [Caddy](https://caddyserver.com) gets and renews the certificate on its own. Install it (on older releases, see [Caddy's install guide](https://caddyserver.com/docs/install)) and replace its default configuration with your domain:
+
+```bash
+sudo apt install -y caddy
+sudo tee /etc/caddy/Caddyfile > /dev/null <<'EOF'
+dossier.example.com {
+    reverse_proxy localhost:3000
+}
+EOF
+sudo systemctl reload caddy
+```
+
+Open `https://dossier.example.com` and sign in. Then pick an AI model in **Settings → AI provider** (see [Choosing an AI provider](#choosing-an-ai-provider)) and, if you like, a job source in **Settings → Job search**.
+
+<details>
+<summary>Another proxy, or no HTTPS at home</summary>
+
+- **Traefik, nginx or another proxy:** it has to set `X-Forwarded-Proto` and append the client's address to `X-Forwarded-For`. Caddy and Traefik do both by default; with nginx, add `proxy_set_header X-Forwarded-Proto $scheme;` and `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`, and raise `client_max_body_size` to `12m` so imports of up to 10 MB get through. Dossier relies on these headers: `X-Forwarded-Proto: https` makes the session cookie `Secure`, and the last address in `X-Forwarded-For` is the client the sign-in rate limit counts. So never expose port 3000 itself to the internet: requests that skip the proxy could set those headers themselves.
+- **A home network without a domain:** change the app's `ports` entry in `compose.yml` to `"3000:3000"`, run `docker compose up -d`, and open `http://<the server's address>:3000`. Everything works, but the session cookie can't be marked `Secure`.
+
+</details>
+
+## Environment variables
+
+Dossier is configured with environment variables; everything else is set in the app. Put them in `.env` next to `compose.yml`, then run `docker compose up -d` to apply them (a plain restart keeps the old values). The server doesn't start while a required variable is missing or invalid, and its log says which one and how to fix it.
+
+**Required:**
+
+| Variable | What it's for |
+|---|---|
+| `POSTGRES_PASSWORD` | The database's password. `compose.yml` builds the app's `DATABASE_URL` from it. |
+| `DOSSIER_PASSWORD` | A hash of the password you sign in with, made with `hash-password` (see [step 4](#4-set-up-the-app)); the password itself isn't accepted. It's only read from here, never stored. Changing it signs every session out. |
+| `DOSSIER_SECRET` | At least 32 random characters. Signs sessions and encrypts saved API keys; changing it signs everyone out, and API keys have to be entered again. |
+
+**Optional:**
 
 | Variable | Default | What it's for |
 |---|---|---|
-| `DATABASE_URL` | required | PostgreSQL connection string, `postgresql://user:password@host:5432/database`. |
-| `DOSSIER_PASSWORD` | required | A hash of the password you sign in with, made with `hash-password` (see [step 3](#3-create-the-app)); the password itself isn't accepted. It's only read from here, never stored. Changing it signs every session out. |
-| `DOSSIER_SECRET` | required | At least 32 random characters. Signs sessions and encrypts saved API keys; changing it signs everyone out and API keys have to be entered again. |
-| `DOSSIER_DATA_DIR` | `/data` | Where nightly backups, the backups made before an import, and zipped PDFs go. Mount a volume here. |
+| `TZ` | `UTC` | The server's time zone, e.g. `Europe/Berlin`. Nightly backups run at 03:00 in it, and dates the server writes (a letter's date, "today") follow it. |
 | `DOSSIER_BACKUP_RETENTION_DAYS` | `14` | How many days of nightly backups to keep. |
 | `DOSSIER_TELEMETRY` | `on` | `off` stops the usage ping, which sends a random install ID and the version number once on each day Dossier is used (see [Privacy](#privacy)). |
 | `DOSSIER_AI_PROVIDER` | none | `local` (Ollama or llama.cpp), `openai` (any OpenAI-compatible API) or `anthropic`. A default for Settings → AI provider; a choice saved there wins. |
-| `DOSSIER_AI_URL` | per provider | The AI server's address, e.g. `http://srv-captain--ollama:11434`. |
+| `DOSSIER_AI_URL` | per provider | The AI server's address, e.g. `http://ollama:11434`. |
 | `DOSSIER_AI_MODEL` | per provider | The model to use, e.g. `qwen2.5:7b` or `claude-sonnet-5`. |
 | `DOSSIER_AI_KEY` | none | The API key for a hosted provider. |
 | `DOSSIER_AI_TIMEOUT_SECONDS` | `300` local, `120` hosted | How long one AI request may take. |
@@ -183,18 +179,37 @@ Dossier is configured with environment variables; everything else is set in the 
 | `DOSSIER_JSEARCH_KEY` | none | A JSearch key, from OpenWeb Ninja or RapidAPI. |
 | `DOSSIER_JSEARCH_HOST` | `openwebninja` | Where that key is from: `openwebninja` or `rapidapi`. |
 | `DOSSIER_ADZUNA_APP_ID`, `DOSSIER_ADZUNA_KEY` | none | Adzuna's app ID and key. |
-| `TZ` | `UTC` | The server's time zone, e.g. `Europe/Berlin`. Nightly backups run at 03:00 in it, and dates the server writes (a letter's date, "today") follow it. |
-| `PORT` | `3000` | The port the server listens on inside the container. |
+| `DOSSIER_IMAGE` | `ghcr.io/aientech/dossier:latest` | The image to run. Set a version, e.g. `ghcr.io/aientech/dossier:v1.4.1`, to upgrade only when you choose. |
+| `DOSSIER_PORT` | `3000` | The port on the server (`127.0.0.1`) that Dossier listens on, for the reverse proxy. |
+| `COMPOSE_PROFILES` | none | `ai` runs Ollama as well (see [Local model with Ollama](#local-model-with-ollama)). |
+
+Running the image without the Compose file? Set `DATABASE_URL` (`postgresql://user:password@host:5432/database`) instead of `POSTGRES_PASSWORD`, and mount a volume at `/data`, where nightly backups and zipped PDFs go.
 
 ## Choosing an AI provider
 
 Open **Settings → AI provider**, pick one, and press **Test connection**:
 
-- **Local model:** Ollama or llama.cpp on your own hardware. Private and free, but slower; see [the Ollama guide](#6-optional-a-local-model-with-ollama) for setup and model sizes. Inside Docker, `localhost` is Dossier's own container: use the Ollama service's name (`http://ollama:11434` with Compose, `http://srv-captain--ollama:11434` on CapRover) or `http://host.docker.internal:11434` for Ollama on the host.
+- **Local model:** Ollama or llama.cpp on your own hardware. Private and free, but slower; see [below](#local-model-with-ollama) for setup and model sizes.
 - **OpenAI-compatible:** OpenAI itself or any server that speaks its API (OpenRouter, vLLM, LM Studio and others). Enter its address, your API key and the model.
 - **Anthropic:** Claude models with your own API key.
 
 API keys are stored encrypted with `DOSSIER_SECRET` and never sent back to the browser. **Never invent experience** (on by default) keeps drafts to facts from your profile and flags anything it can't find there.
+
+### Local model with Ollama
+
+With a local model, nothing you write leaves your server. The Compose file can run Ollama next to Dossier. Switch it on, start it, and pull a model:
+
+```bash
+echo "COMPOSE_PROFILES=ai" >> .env
+docker compose up -d
+docker compose exec ollama ollama pull qwen2.5:7b
+```
+
+Then, in **Settings → AI provider → Local model**, set the server address to `http://ollama:11434`, pick the model and press **Test connection**. Or set `DOSSIER_AI_PROVIDER=local`, `DOSSIER_AI_URL=http://ollama:11434` and `DOSSIER_AI_MODEL=qwen2.5:7b` in `.env`.
+
+**Which model:** `qwen2.5:7b` is a good start: a 4.7 GB download that needs about 6 GB of memory with Dossier's 16k-token context. On a smaller server, `qwen2.5:3b` (2 GB, about 3 GB of memory) works, with plainer writing. These are suggestions, not yet benchmarked. On a CPU, reading a posting takes a minute or two and a whole new application several minutes, so the local timeout is 5 minutes per request (`DOSSIER_AI_TIMEOUT_SECONDS`); 4 or more cores help, a GPU much more.
+
+**Ollama elsewhere:** on another machine in your network, use `http://<its address>:11434`, and start Ollama there with `OLLAMA_HOST=0.0.0.0` so it listens beyond localhost. For Ollama installed on the same server outside Docker, use `http://host.docker.internal:11434`, which `compose.yml` points at the server; Ollama then has to listen beyond localhost too, so make sure your firewall keeps port 11434 closed to the internet. Inside a container, `localhost` is the container itself, never the server.
 
 ## Choosing a job source
 
@@ -210,57 +225,57 @@ The search starts from your profile's city, country and current role; change the
 
 ## Backups and restore
 
+Run these from your Dossier folder (`~/dossier`).
+
 - **Export:** **Settings → Your data → Export** downloads everything (profile, themes, settings, applications with their documents, chat, notes and history) as one JSON file. Your API key is left out unless you tick the box.
-- **Import:** importing such a file replaces all data in one step, after saving a backup of what was there to `backups` in the data directory.
-- **Nightly backups** (on by default) write the same export to `DOSSIER_DATA_DIR/backups` at 03:00 server time, keeping `DOSSIER_BACKUP_RETENTION_DAYS` days of them.
-- **Database dumps:** back up PostgreSQL itself too. On CapRover:
+- **Import:** importing such a file replaces all data in one step, after saving a backup of what was there to the data directory's `backups` folder.
+- **Nightly backups** (on by default) write the same export to `/data/backups` in the app's volume at 03:00 server time, keeping `DOSSIER_BACKUP_RETENTION_DAYS` days of them. Copy them off the server now and then: `docker compose cp app:/data/backups ./backups`.
+- **Database dumps:** back up PostgreSQL itself too:
 
   ```bash
-  docker exec $(docker ps -q -f name=srv-captain--dossier-db) pg_dump -U <user> -Fc dossier > dossier.dump
+  docker compose exec -T db pg_dump -U dossier -Fc dossier > dossier.dump
   ```
 
-  With Compose: `docker compose -f compose.production.yml exec -T db pg_dump -U dossier -Fc dossier > dossier.dump`.
-
-  To restore a dump, stop Dossier (on CapRover: `docker service scale srv-captain--dossier=0`, and `=1` afterwards), load the dump, and start Dossier again:
+  To restore a dump, stop Dossier, load the dump, and start Dossier again:
 
   ```bash
-  docker exec -i $(docker ps -q -f name=srv-captain--dossier-db) pg_restore --clean --if-exists -U <user> -d dossier < dossier.dump
-  docker compose -f compose.production.yml exec -T db pg_restore --clean --if-exists -U dossier -d dossier < dossier.dump   # with Compose
+  docker compose stop app
+  docker compose exec -T db pg_restore --clean --if-exists -U dossier -d dossier < dossier.dump
+  docker compose start app
   ```
 
-Keep `DOSSIER_SECRET` with your backups: saved API keys can't be read without it (an export with the key included carries it in plain text instead).
+Keep a copy of `.env` with your backups: saved API keys can't be read without its `DOSSIER_SECRET` (an export with the key included carries it in plain text instead).
 
 ## Upgrading
 
-Take a backup first (an export, or a database dump). Then:
+Take a backup first (an export, or a database dump). Then, in your Dossier folder:
 
-- **CapRover:** deploy the newer image by name (**Deploy via ImageName**), e.g. `ghcr.io/aientech/dossier:v1.1.0`.
-- **Compose:** `docker compose -f compose.production.yml pull && docker compose -f compose.production.yml up -d`.
+```bash
+docker compose pull
+docker compose up -d
+```
+
+`latest` is always the newest release. If you've pinned a version with `DOSSIER_IMAGE`, change it to the new one first. When a release's notes say `compose.yml` changed, fetch it again with the `curl` line from [step 3](#3-set-up-the-database).
 
 The new version updates the database on start. Going back to an older version after that isn't supported: restore the backup you took instead.
 
-From 1.4, Dossier sends a usage ping (see [Privacy](#privacy)). If you'd rather it didn't, set `DOSSIER_TELEMETRY=off` before you deploy 1.4 or later.
+From 1.4, Dossier sends a usage ping (see [Privacy](#privacy)). If you'd rather it didn't, set `DOSSIER_TELEMETRY=off` before you upgrade to 1.4 or later.
 
-### From 1.0: the password hash
-
-Dossier 1.0 took the password itself in `DOSSIER_PASSWORD`. Newer versions only take a hash of it, and don't start until it is one. When you upgrade:
-
-1. Make the hash with the newer image: `docker run --rm -it ghcr.io/aientech/dossier hash-password`. Type your current password to keep it.
-2. **CapRover:** set `DOSSIER_PASSWORD` to the hash in **App Configs**, save, and deploy the newer image straight away: until then, 1.0 takes the hash itself as the password. **Compose:** put the hash in `.env`, then pull and start as above.
-
-Every browser is signed out once and signs in again with the same password.
+**From 1.0:** Dossier 1.0 took the password itself in `DOSSIER_PASSWORD`; newer versions only take a hash of it, and don't start until it is one. Make the hash with the newer image (`docker run --rm -it ghcr.io/aientech/dossier hash-password`, typing your current password to keep it), put it in `.env`, then pull and start as above. Every browser is signed out once and signs in again with the same password.
 
 ## Troubleshooting
 
-- **"Dossier didn't start: applying the database migrations failed."** The error above that line says why. `P1001` means the database isn't reachable: check `DATABASE_URL` and that PostgreSQL is running. If a migration failed halfway, the database needs repairing before the next start: restore the dump you took before upgrading, or ask for help with the log. On CapRover with the update override from step 3, the previous version keeps running meanwhile.
-- **"… is not set" or "DOSSIER_SECRET is too short":** set the variable the log names and restart.
-- **"DOSSIER_PASSWORD must be a hash of your password":** it's set to the password itself, which Dossier 1.0 took. Make a hash with `docker run --rm -it ghcr.io/aientech/dossier hash-password`, set `DOSSIER_PASSWORD` to it and restart.
-- **PDFs fail or time out:** Chromium needs memory; give the app at least 768 MB (1 GB is comfortable). Fonts are bundled with Dossier, so documents look the same everywhere; a custom document language in a script Dossier has no font for may show empty boxes.
-- **The AI times out:** local models on a CPU are slow. Try a smaller model, or raise `DOSSIER_AI_TIMEOUT_SECONDS`. **Test connection** in Settings shows whether Dossier reaches the server at all; inside Docker, `localhost` isn't the host.
-- **An import fails with "413" or "Request Entity Too Large":** the reverse proxy's upload limit is below 10 MB; on CapRover, see [Turn on HTTPS](#5-turn-on-https).
+`docker compose logs app` shows the app's log (add `-f` to follow it). After changing `.env`, run `docker compose up -d` again.
+
+- **"Dossier didn't start: applying the database migrations failed."** The error above that line says why. `P1001` means the database isn't reachable: check that the `db` container is running (`docker compose ps`). If a migration failed halfway, the database needs repairing before the next start: restore the dump you took before upgrading, or ask for help with the log.
+- **"… is not set" or "DOSSIER_SECRET is too short":** set the variable the log names in `.env`.
+- **"DOSSIER_PASSWORD must be a hash of your password":** it's set to the password itself, which Dossier 1.0 took. Make a hash with `docker run --rm -it ghcr.io/aientech/dossier hash-password` and set `DOSSIER_PASSWORD` to it.
+- **PDFs fail or time out:** Chromium needs memory; give the app at least 768 MB (`compose.yml` gives it 1 GB). Fonts are bundled with Dossier, so documents look the same everywhere; a custom document language in a script Dossier has no font for may show empty boxes.
+- **The AI times out:** local models on a CPU are slow. Try a smaller model, or raise `DOSSIER_AI_TIMEOUT_SECONDS`. **Test connection** in Settings shows whether Dossier reaches the server at all; inside Docker, `localhost` isn't the server.
+- **An import fails with "413" or "Request Entity Too Large":** the reverse proxy's upload limit is below 10 MB. Caddy has none by default; with nginx, set `client_max_body_size 12m;`.
 - **"That file is over 10 MB":** imports are capped at 10 MB, roughly 500 applications. Raising the cap means changing two settings in the code (see [Import size limit](DEVELOPMENT.md#import-size-limit)).
 - **"Too many attempts":** after five wrong passwords in a minute, sign-in pauses for 30 seconds, then longer each time, up to 15 minutes. The count is kept in the database, so restarting doesn't reset it: wait it out.
-- **Forgot the password:** make a hash of a new one with `hash-password` (see [step 3](#3-create-the-app)), set it as `DOSSIER_PASSWORD` and restart.
+- **Forgot the password:** make a hash of a new one with `hash-password` (see [step 4](#4-set-up-the-app)) and set it as `DOSSIER_PASSWORD` in `.env`.
 - **Is it up?** `/api/health` answers `{"status":"ok"}` when the app and its database are fine, and 503 when the database isn't reachable.
 
 ## Privacy
@@ -278,7 +293,7 @@ Every browser is signed out once and signs in again with the same password.
 - **Desktop only:** made for a laptop or desktop browser, not for phones.
 - **Single user:** one password and one profile; there are no accounts.
 - **English interface:** documents can be written in other languages, but the app itself is in English.
-- **One instance:** run a single copy of the app per database.
+- **One instance:** run a single copy of the app per database. The nightly backups, the AI job queue and the PDF browser live inside the app's process.
 
 ## Performance and sizing
 
