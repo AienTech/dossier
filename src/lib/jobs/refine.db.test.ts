@@ -72,18 +72,18 @@ describe("refineJob (E8-5)", () => {
 
   it("edits the email, which the model sees once there is one", async () => {
     const email = [
-      { id: "to", label: "Recipient", text: "Anna Berg <anna@ledgerly.eu>" },
+      { id: "to", label: "Recipient", text: "John Doe <john@example.com>" },
       { id: "subject", label: "Subject", text: "Application" },
-      { id: "body", label: "Message", text: "Dear Anna,\n\nHello." },
+      { id: "body", label: "Message", text: "Dear John,\n\nHello." },
     ];
     await prisma().document.create({ data: { applicationId: "app-1", kind: "EMAIL", units: email } });
-    const mock = reply({ reply: "Shorter now.", edits: [{ document: "EMAIL", unitId: "body", text: "Dear Anna,\n\nHi." }] });
+    const mock = reply({ reply: "Shorter now.", edits: [{ document: "EMAIL", unitId: "body", text: "Dear John,\n\nHi." }] });
     provider.current = mock;
     expect(await ask("Make the email shorter")).toMatchObject({ edited: [{ document: "EMAIL", unitId: "body" }] });
     expect(JSON.stringify(mock.calls[0])).toContain("The email's units");
     const saved = await prisma().document.findUniqueOrThrow({ where: { applicationId_kind: { applicationId: "app-1", kind: "EMAIL" } } });
     // The greeting's name is the recipient's, so the fact guard lets it be.
-    expect(saved.units).toEqual([email[0], email[1], { ...email[2], text: "Dear Anna,\n\nHi." }]);
+    expect(saved.units).toEqual([email[0], email[1], { ...email[2], text: "Dear John,\n\nHi." }]);
   });
 
   it("changes the letter's tone and its sign-off, remembering the old tone", async () => {
@@ -139,10 +139,10 @@ describe("refineJob (E8-5)", () => {
 describe("the letter's contact details (E8-11)", () => {
   it("never sends the sender or signature to the model, and won't edit them", async () => {
     const framed = [
-      { id: "sender", label: "Sender", text: "Lena Hartmann\nsecret-mail@example.com · +31 6 1234 5678" },
+      { id: "sender", label: "Sender", text: "Jane Doe\nsecret-mail@example.com · +31 6 1234 5678" },
       { id: "greeting", label: "Greeting", text: "Dear Ledgerly team," },
       ...letter,
-      { id: "signature", label: "Signature", text: "Lena Hartmann" },
+      { id: "signature", label: "Signature", text: "Jane Doe" },
     ];
     await prisma().document.update({ where: { applicationId_kind: { applicationId: "app-1", kind: "COVER_LETTER" } }, data: { units: framed } });
     const mock = reply({

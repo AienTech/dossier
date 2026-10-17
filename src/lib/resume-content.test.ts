@@ -12,11 +12,11 @@ describe("contactItems", () => {
 
   it("lists email, phone, city and country, website and LinkedIn", () => {
     expect(contactItems(basics, today)).toEqual([
-      "lena@hartmann.studio",
+      "jane.doe@example.com",
       "+31 6 1234 5678",
       "Rotterdam, Netherlands",
-      "hartmann.studio",
-      "linkedin.com/in/lenahartmann",
+      "example.com",
+      "linkedin.com/in/janedoe-example",
     ]);
   });
 
@@ -27,9 +27,9 @@ describe("contactItems", () => {
 
   it("skips what's empty", () => {
     expect(contactItems({ ...basics, phone: " ", city: "", website: "" }, today)).toEqual([
-      "lena@hartmann.studio",
+      "jane.doe@example.com",
       "Netherlands",
-      "linkedin.com/in/lenahartmann",
+      "linkedin.com/in/janedoe-example",
     ]);
   });
 });
@@ -39,7 +39,7 @@ describe("resumeContent", () => {
 
   it("builds the base resume from the profile", () => {
     const content = resumeContent(profile, { today });
-    expect(content.name).toBe("Lena Hartmann");
+    expect(content.name).toBe("Jane Doe");
     expect(content.experience.map((role) => [role.company, role.dates])).toEqual([
       ["Northwind Logistics", "Mar 2021 – Present"],
       ["Fieldnote", "Jun 2018 – Feb 2021"],
@@ -58,9 +58,9 @@ describe("resumeContent", () => {
     expect(resumeContent(profile).references).toEqual([]);
     expect(resumeContent(profile, { includeReferences: true }).references[0]).toEqual({
       id: "r1",
-      name: "Joris van Dam",
+      name: "John Doe",
       role: "Former manager, Northwind Logistics",
-      contact: "joris@northwind.example",
+      contact: "john.doe@example.com",
     });
   });
 

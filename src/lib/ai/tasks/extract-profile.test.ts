@@ -6,7 +6,7 @@ import { MockProvider } from "../providers/mock";
 
 import { extractProfile } from "./extract-profile";
 
-const RESUME = `Robin Vermeer
+const RESUME = `John Doe
 Senior Product Designer · Utrecht, Netherlands · robin@example.com · +31 6 1234 5678
 Born 12 March 1990
 
@@ -26,7 +26,7 @@ const options = { creativity: "BALANCED" as const, strict: true, language: null 
 
 const answer = {
   basics: {
-    name: "Robin Vermeer",
+    name: "John Doe",
     headline: "Senior Product Designer",
     email: "robin@example.com",
     phone: "+31 6 1234 5678",
@@ -61,7 +61,7 @@ const answer = {
     { role: "", company: "", location: null, startYear: null, startMonth: null, endYear: null, endMonth: null, current: false, bullets: [], skills: [] },
   ],
   education: [{ degree: "MSc Interaction Design", school: "TU Delft", startYear: 2015, startMonth: null, endYear: 2017, endMonth: null, current: false, notes: null }],
-  references: [{ name: "Amira Haddad", relation: "Former manager", company: "Fieldnote", email: null, phone: null }],
+  references: [{ name: "Jane Doe", relation: "Former manager", company: "Fieldnote", email: null, phone: null }],
 };
 
 describe("extractProfile (E4-10)", () => {
@@ -82,7 +82,7 @@ describe("extractProfile (E4-10)", () => {
     const { data, promptVersion } = await extractProfile(provider, { resume: RESUME, today: new Date("2026-09-29") }, options);
     expect(promptVersion).toBe("extract-profile@1");
     expect(data.basics).toEqual({
-      name: "Robin Vermeer",
+      name: "John Doe",
       headline: "Senior Product Designer",
       email: "robin@example.com",
       phone: "+31 6 1234 5678",
@@ -132,7 +132,7 @@ describe("extractProfile (E4-10)", () => {
     ]);
     expect(data.education[0]).toMatchObject({ degree: "MSc Interaction Design", school: "TU Delft", unverified: [] });
     // Not in the resume: marked for checking.
-    expect(data.references).toEqual([{ name: "Amira Haddad", relation: "Former manager", company: "Fieldnote", email: "", phone: "", unverified: ["Amira Haddad"] }]);
+    expect(data.references).toEqual([{ name: "Jane Doe", relation: "Former manager", company: "Fieldnote", email: "", phone: "", unverified: ["Jane Doe"] }]);
   });
 
   it("drops a date of birth that isn't a whole, real date", async () => {

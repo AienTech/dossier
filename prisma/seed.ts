@@ -27,7 +27,7 @@ async function main() {
 
     if (flags.has("--demo")) {
       const { applications } = await seedDemo(db, { reset: flags.has("--reset") });
-      console.log(`Loaded the demo data: Lena Hartmann's profile and ${applications} applications.`);
+      console.log(`Loaded the demo data: Jane Doe's profile and ${applications} applications.`);
     }
   } finally {
     await db.$disconnect();

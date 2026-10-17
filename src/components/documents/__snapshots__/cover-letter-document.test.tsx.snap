@@ -14,7 +14,7 @@ exports[`CoverLetterDocument > renders the prototype's letter 1`] = `
     <p
       class="_senderName_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </p>
     <p
       class="_contactLine_fa1ef7"
@@ -22,7 +22,7 @@ exports[`CoverLetterDocument > renders the prototype's letter 1`] = `
       <bdi
         dir="ltr"
       >
-        lena@hartmann.studio
+        jane.doe@example.com
       </bdi>
         ·  
       <bdi
@@ -40,13 +40,13 @@ exports[`CoverLetterDocument > renders the prototype's letter 1`] = `
       <bdi
         dir="ltr"
       >
-        hartmann.studio
+        example.com
       </bdi>
         ·  
       <bdi
         dir="ltr"
       >
-        linkedin.com/in/lenahartmann
+        linkedin.com/in/janedoe-example
       </bdi>
     </p>
   </div>
@@ -112,7 +112,7 @@ exports[`CoverLetterDocument > renders the prototype's letter 1`] = `
     <div
       data-unit="signature"
     >
-      Lena Hartmann
+      Jane Doe
     </div>
   </div>
 </article>

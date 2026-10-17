@@ -45,9 +45,9 @@ const pad = (value: number) => String(value).padStart(2, "0");
 const cleanUp = (text: string) => text.replace(INVALID, " ").replace(/\s+/g, " ").replace(DANGLING, "");
 
 /**
- * "{name} – {company} – {doc}" → "Lena Hartmann – Ledgerly – Resume.pdf".
+ * "{name} – {company} – {doc}" → "Jane Doe – Ledgerly – Resume.pdf".
  * Unknown tokens stay as typed; a token without a value takes one of its
- * separators with it, so the base resume gives "Lena Hartmann – Resume.pdf".
+ * separators with it, so the base resume gives "Jane Doe – Resume.pdf".
  */
 export function resolveFileName(pattern: string, context: FileNameContext): string {
   const name = context.name.trim();

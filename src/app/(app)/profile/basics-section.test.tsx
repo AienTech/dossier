@@ -42,11 +42,11 @@ describe("BasicsSection", () => {
 
   it("autosaves 500 ms after typing stops", async () => {
     render(<Harness />);
-    fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Lena Hartmann" } });
+    fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Jane Doe" } });
     await act(async () => vi.advanceTimersByTimeAsync(499));
     expect(saveBasics).not.toHaveBeenCalled();
     await act(async () => vi.advanceTimersByTimeAsync(1));
-    expect(saveBasics).toHaveBeenCalledWith({ ...empty, name: "Lena Hartmann" });
+    expect(saveBasics).toHaveBeenCalledWith({ ...empty, name: "Jane Doe" });
   });
 
   it("saves right away when leaving a field", async () => {
@@ -69,18 +69,18 @@ describe("BasicsSection", () => {
   it("hints at malformed email and web addresses once you leave the field, without blocking the save", async () => {
     render(<Harness />);
     const email = screen.getByLabelText("Email");
-    fireEvent.change(email, { target: { value: "lena@" } });
+    fireEvent.change(email, { target: { value: "jane@" } });
     expect(email).not.toHaveAccessibleDescription();
 
     await act(async () => fireEvent.blur(email));
     expect(email).toHaveAccessibleDescription("That doesn't look like an email address yet.");
-    expect(saveBasics).toHaveBeenCalledWith({ ...empty, email: "lena@" });
+    expect(saveBasics).toHaveBeenCalledWith({ ...empty, email: "jane@" });
 
-    fireEvent.change(email, { target: { value: "lena@hartmann.studio" } });
+    fireEvent.change(email, { target: { value: "jane.doe@example.com" } });
     expect(email).not.toHaveAccessibleDescription();
 
     const website = screen.getByLabelText("Website");
-    fireEvent.change(website, { target: { value: "hartmann.studio" } });
+    fireEvent.change(website, { target: { value: "example.com" } });
     await act(async () => fireEvent.blur(website));
     expect(website).not.toHaveAccessibleDescription();
     fireEvent.change(website, { target: { value: "my site" } });

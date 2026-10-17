@@ -11,8 +11,8 @@ vi.mock("@/components/toast", () => ({ toast: vi.fn() }));
 describe("fileNameFrom", () => {
   it("prefers the UTF-8 name", () => {
     expect(
-      fileNameFrom("attachment; filename=\"Lena - Resume.pdf\"; filename*=UTF-8''Lena%20%E2%80%93%20Resume.pdf"),
-    ).toBe("Lena – Resume.pdf");
+      fileNameFrom("attachment; filename=\"Jane - Resume.pdf\"; filename*=UTF-8''Jane%20%E2%80%93%20Resume.pdf"),
+    ).toBe("Jane – Resume.pdf");
   });
 
   it("falls back to the plain name", () => {
@@ -55,7 +55,7 @@ describe("DownloadPdfButton", () => {
       "fetch",
       vi.fn(async () =>
         new Response(new Blob(["{}"]), {
-          headers: { "content-disposition": "attachment; filename*=UTF-8''Lena%20%E2%80%93%20Dossier.json" },
+          headers: { "content-disposition": "attachment; filename*=UTF-8''Jane%20%E2%80%93%20Dossier.json" },
         }),
       ),
     );
@@ -66,7 +66,7 @@ describe("DownloadPdfButton", () => {
     );
     await userEvent.click(screen.getByRole("link", { name: "Export" }));
     expect(fetch).toHaveBeenCalledWith("/api/export", undefined);
-    expect(click).toHaveBeenCalledWith("Lena – Dossier.json", expect.stringMatching(/^blob:/));
+    expect(click).toHaveBeenCalledWith("Jane – Dossier.json", expect.stringMatching(/^blob:/));
   });
 
   it("keeps the file while a Save dialog is open, however long, and frees it on the next download", async () => {

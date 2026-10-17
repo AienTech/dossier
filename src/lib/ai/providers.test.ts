@@ -55,9 +55,9 @@ describe("OllamaProvider", () => {
   });
 
   it("asks for JSON with the schema and validates the answer", async () => {
-    const requests = stubFetch(() => ollamaChat('{"name":"Lena","years":9}'));
+    const requests = stubFetch(() => ollamaChat('{"name":"Jane","years":9}'));
     const provider = new OllamaProvider("http://ollama:11434", "qwen2.5:3b", 60_000);
-    expect(await provider.complete({ ...ask, schema: Person })).toEqual({ name: "Lena", years: 9 });
+    expect(await provider.complete({ ...ask, schema: Person })).toEqual({ name: "Jane", years: 9 });
     expect(requests[0].body).toMatchObject({ format: { type: "object", required: ["name", "years"] } });
   });
 
@@ -84,9 +84,9 @@ describe("OpenAICompatibleProvider", () => {
   });
 
   it("asks for a strict JSON schema", async () => {
-    const requests = stubFetch(() => openaiChat('{"name":"Lena","years":9}'));
+    const requests = stubFetch(() => openaiChat('{"name":"Jane","years":9}'));
     const provider = new OpenAICompatibleProvider("OPENAI", "https://api.example.com/v1", "sk-test", "gpt-x", 60_000);
-    expect(await provider.complete({ ...ask, schema: Person, schemaName: "person" })).toEqual({ name: "Lena", years: 9 });
+    expect(await provider.complete({ ...ask, schema: Person, schemaName: "person" })).toEqual({ name: "Jane", years: 9 });
     expect(requests[0].body).toMatchObject({ response_format: { type: "json_schema", json_schema: { name: "person", strict: true } } });
   });
 
@@ -152,10 +152,10 @@ describe("AnthropicProvider", () => {
   it("asks for an effort where the model takes one, looking that up once", async () => {
     const baseUrl = `https://claude-${Math.random()}.example`;
     const requests = stubFetch(({ url }) =>
-      url.pathname === "/v1/models/claude-sonnet-5" ? anthropicModel("claude-sonnet-5", true) : anthropicMessage('{"name":"Lena","years":9}'),
+      url.pathname === "/v1/models/claude-sonnet-5" ? anthropicModel("claude-sonnet-5", true) : anthropicMessage('{"name":"Jane","years":9}'),
     );
     const provider = new AnthropicProvider(baseUrl, "sk-ant", "claude-sonnet-5", 60_000);
-    expect(await provider.complete({ ...ask, schema: Person, effort: "low" })).toEqual({ name: "Lena", years: 9 });
+    expect(await provider.complete({ ...ask, schema: Person, effort: "low" })).toEqual({ name: "Jane", years: 9 });
     await provider.complete({ ...ask, schema: Person, effort: "low" });
     const messages = requests.filter((request) => request.url.pathname === "/v1/messages");
     expect(messages.map((request) => request.body)).toMatchObject([
@@ -182,9 +182,9 @@ describe("AnthropicProvider", () => {
   });
 
   it("asks for structured output through output_config", async () => {
-    const requests = stubFetch(() => anthropicMessage('{"name":"Lena","years":9}'));
+    const requests = stubFetch(() => anthropicMessage('{"name":"Jane","years":9}'));
     const provider = new AnthropicProvider("https://api.anthropic.com", "sk-ant", "claude-sonnet-5", 60_000);
-    expect(await provider.complete({ ...ask, schema: Person })).toEqual({ name: "Lena", years: 9 });
+    expect(await provider.complete({ ...ask, schema: Person })).toEqual({ name: "Jane", years: 9 });
     expect(requests[0].body).toMatchObject({ output_config: { format: { type: "json_schema" } } });
   });
 
@@ -261,11 +261,11 @@ describe("test()", () => {
 
 describe("MockProvider", () => {
   it("answers from code, records calls and validates JSON like a real provider", async () => {
-    const provider = new MockProvider({ reply: (call) => (call.json ? { name: "Lena", years: 9 } : "plain") });
+    const provider = new MockProvider({ reply: (call) => (call.json ? { name: "Jane", years: 9 } : "plain") });
     expect(await provider.complete(ask)).toBe("plain");
-    expect(await provider.complete({ ...ask, schema: Person })).toEqual({ name: "Lena", years: 9 });
+    expect(await provider.complete({ ...ask, schema: Person })).toEqual({ name: "Jane", years: 9 });
     expect(provider.calls).toHaveLength(2);
-    const wrong = new MockProvider({ reply: () => ({ name: "Lena" }) });
+    const wrong = new MockProvider({ reply: () => ({ name: "Jane" }) });
     expect(await failure(wrong.complete({ ...ask, schema: Person }))).toMatchObject({ kind: "invalid-output" });
   });
 });

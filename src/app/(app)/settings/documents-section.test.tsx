@@ -23,7 +23,7 @@ const initial: DocumentSettings = {
   includeRefs: false,
   onePage: true,
 };
-const preview = { name: "Lena Hartmann", company: "Ledgerly", role: "Senior Product Designer" };
+const preview = { name: "Jane Doe", company: "Ledgerly", role: "Senior Product Designer" };
 const open = () => render(<DocumentsSection initial={initial} preview={preview} />);
 
 beforeEach(() => {
@@ -91,11 +91,11 @@ describe("Documents settings (E10-3)", () => {
   it("inserts file name tokens at the cursor and previews the name", async () => {
     const user = userEvent.setup();
     open();
-    expect(screen.getByRole("status")).toHaveTextContent("Lena Hartmann – Ledgerly – Resume.pdf");
+    expect(screen.getByRole("status")).toHaveTextContent("Jane Doe – Ledgerly – Resume.pdf");
     const input = screen.getByLabelText("PDF file name") as HTMLInputElement;
     input.setSelectionRange(0, 0);
     await user.click(screen.getByRole("button", { name: "{date} Download date" }));
     expect(input).toHaveValue("{date}{name} – {company} – {doc}");
-    expect(screen.getByRole("status").textContent).toMatch(/^\d{4}-\d{2}-\d{2}Lena Hartmann – Ledgerly – Resume\.pdf$/);
+    expect(screen.getByRole("status").textContent).toMatch(/^\d{4}-\d{2}-\d{2}Jane Doe – Ledgerly – Resume\.pdf$/);
   });
 });

@@ -8,7 +8,7 @@ const never = () => () => {};
 const YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 /**
- * "Good afternoon, Lena" (DSH-1) in the browser's local time. The server
+ * "Good afternoon, Jane" (DSH-1) in the browser's local time. The server
  * greets from the time zone it was told last time; the browser corrects it
  * if needed and remembers its zone for next time.
  */

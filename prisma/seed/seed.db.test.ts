@@ -48,10 +48,10 @@ describe("built-in seed", () => {
 });
 
 describe("demo seed", () => {
-  it("loads Lena Hartmann's profile", async () => {
+  it("loads Jane Doe's profile", async () => {
     await seedDemo(db, { now });
     expect(await basics()).toMatchObject({
-      name: "Lena Hartmann",
+      name: "Jane Doe",
       headline: "Senior Product Designer",
       dob: "1992-04-18",
       city: "Rotterdam",
@@ -64,7 +64,7 @@ describe("demo seed", () => {
       db.language.count(),
       db.reference.count(),
     ]);
-    expect(counts).toEqual([3, 2, 7, 3, 2]);
+    expect(counts).toEqual([3, 2, 7, 3, 1]);
 
     const northwind = await db.experience.findFirstOrThrow({
       where: { company: "Northwind Logistics" },
@@ -158,6 +158,6 @@ describe("demo seed", () => {
     await seedDemo(db, { now, reset: true });
     expect(await db.application.count()).toBe(9);
     expect(await db.skill.count()).toBe(7);
-    expect((await basics()).name).toBe("Lena Hartmann");
+    expect((await basics()).name).toBe("Jane Doe");
   });
 });

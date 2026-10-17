@@ -4,7 +4,7 @@ import { contentDisposition, resolveFileName, type FileNameContext } from "./fil
 
 const DEFAULT = "{name} – {company} – {doc}";
 const ledgerly: FileNameContext = {
-  name: "Lena Hartmann",
+  name: "Jane Doe",
   company: "Ledgerly",
   role: "Senior Product Designer",
   doc: "RESUME",
@@ -13,38 +13,38 @@ const ledgerly: FileNameContext = {
 
 describe("resolveFileName", () => {
   it("fills in the default pattern", () => {
-    expect(resolveFileName(DEFAULT, ledgerly)).toBe("Lena Hartmann – Ledgerly – Resume.pdf");
+    expect(resolveFileName(DEFAULT, ledgerly)).toBe("Jane Doe – Ledgerly – Resume.pdf");
     expect(resolveFileName(DEFAULT, { ...ledgerly, doc: "COVER_LETTER" })).toBe(
-      "Lena Hartmann – Ledgerly – Cover letter.pdf",
+      "Jane Doe – Ledgerly – Cover letter.pdf",
     );
   });
 
   it("knows every token", () => {
-    expect(resolveFileName("{first} {role} {date}", ledgerly)).toBe("Lena Senior Product Designer 2026-09-27.pdf");
+    expect(resolveFileName("{first} {role} {date}", ledgerly)).toBe("Jane Senior Product Designer 2026-09-27.pdf");
   });
 
   it("keeps unknown tokens as typed", () => {
-    expect(resolveFileName("{name} {team}", ledgerly)).toBe("Lena Hartmann {team}.pdf");
+    expect(resolveFileName("{name} {team}", ledgerly)).toBe("Jane Doe {team}.pdf");
   });
 
   it("collapses a missing value with its separator", () => {
     const base = { ...ledgerly, company: "", role: "" };
-    expect(resolveFileName(DEFAULT, base)).toBe("Lena Hartmann – Resume.pdf");
-    expect(resolveFileName("{company}_{name}_{doc}", base)).toBe("Lena Hartmann_Resume.pdf");
-    expect(resolveFileName("{name}, {role}", base)).toBe("Lena Hartmann.pdf");
+    expect(resolveFileName(DEFAULT, base)).toBe("Jane Doe – Resume.pdf");
+    expect(resolveFileName("{company}_{name}_{doc}", base)).toBe("Jane Doe_Resume.pdf");
+    expect(resolveFileName("{name}, {role}", base)).toBe("Jane Doe.pdf");
     expect(resolveFileName(DEFAULT, { ...base, name: "" })).toBe("Resume.pdf");
   });
 
   it("removes characters file systems don't allow", () => {
     expect(resolveFileName(DEFAULT, { ...ledgerly, company: 'AC/DC: "Live" <Tour>?*|\\' })).toBe(
-      "Lena Hartmann – AC DC Live Tour – Resume.pdf",
+      "Jane Doe – AC DC Live Tour – Resume.pdf",
     );
-    expect(resolveFileName("{name}\u0000\n{doc}", ledgerly)).toBe("Lena Hartmann Resume.pdf");
+    expect(resolveFileName("{name}\u0000\n{doc}", ledgerly)).toBe("Jane Doe Resume.pdf");
   });
 
   it("collapses whitespace and trims dangling separators and dots", () => {
-    expect(resolveFileName("  {name}   –  {doc} – ", ledgerly)).toBe("Lena Hartmann – Resume.pdf");
-    expect(resolveFileName("...{name}...", ledgerly)).toBe("Lena Hartmann.pdf");
+    expect(resolveFileName("  {name}   –  {doc} – ", ledgerly)).toBe("Jane Doe – Resume.pdf");
+    expect(resolveFileName("...{name}...", ledgerly)).toBe("Jane Doe.pdf");
   });
 
   it("falls back to untitled", () => {
@@ -73,8 +73,8 @@ describe("resolveFileName", () => {
 
 describe("contentDisposition", () => {
   it("sends an ASCII name and the full UTF-8 one", () => {
-    expect(contentDisposition("Lena Hartmann – Ledgerly – Resume.pdf")).toBe(
-      "attachment; filename=\"Lena Hartmann - Ledgerly - Resume.pdf\"; filename*=UTF-8''Lena%20Hartmann%20%E2%80%93%20Ledgerly%20%E2%80%93%20Resume.pdf",
+    expect(contentDisposition("Jane Doe – Ledgerly – Resume.pdf")).toBe(
+      "attachment; filename=\"Jane Doe - Ledgerly - Resume.pdf\"; filename*=UTF-8''Jane%20Doe%20%E2%80%93%20Ledgerly%20%E2%80%93%20Resume.pdf",
     );
   });
 
@@ -83,6 +83,6 @@ describe("contentDisposition", () => {
   });
 
   it("encodes the characters RFC 5987 reserves", () => {
-    expect(contentDisposition("Lena's (draft)*.pdf")).toContain("filename*=UTF-8''Lena%27s%20%28draft%29%2A.pdf");
+    expect(contentDisposition("Jane's (draft)*.pdf")).toContain("filename*=UTF-8''Jane%27s%20%28draft%29%2A.pdf");
   });
 });

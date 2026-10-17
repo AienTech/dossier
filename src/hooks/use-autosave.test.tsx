@@ -22,7 +22,7 @@ function controlledSave() {
 
 function setup(save: (value: string) => Promise<unknown>) {
   return renderHook(({ value }) => useAutosave(value, save, 500), {
-    initialProps: { value: "Lena" },
+    initialProps: { value: "Jane" },
   });
 }
 
@@ -47,14 +47,14 @@ describe("useAutosave", () => {
     const { save, calls } = controlledSave();
     const { result, rerender } = setup(save);
 
-    rerender({ value: "Lena H" });
+    rerender({ value: "Jane H" });
     act(() => vi.advanceTimersByTime(300));
-    rerender({ value: "Lena Hartmann" });
+    rerender({ value: "Jane Doe" });
     expect(result.current.status).toBe("saving");
     act(() => vi.advanceTimersByTime(499));
     expect(save).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(1));
-    expect(save).toHaveBeenCalledExactlyOnceWith("Lena Hartmann");
+    expect(save).toHaveBeenCalledExactlyOnceWith("Jane Doe");
 
     await act(async () => calls[0].resolve());
     expect(result.current.status).toBe("saved");
@@ -87,9 +87,9 @@ describe("useAutosave", () => {
   it("saves right away on flush, e.g. on blur", () => {
     const { save } = controlledSave();
     const { result, rerender } = setup(save);
-    rerender({ value: "Lena Hartmann" });
+    rerender({ value: "Jane Doe" });
     act(() => result.current.flush());
-    expect(save).toHaveBeenCalledExactlyOnceWith("Lena Hartmann");
+    expect(save).toHaveBeenCalledExactlyOnceWith("Jane Doe");
     act(() => vi.advanceTimersByTime(1000));
     expect(save).toHaveBeenCalledTimes(1);
   });
@@ -121,7 +121,7 @@ describe("useAutosave", () => {
   it("retries a failed save once", async () => {
     const { save, calls } = controlledSave();
     const { result, rerender } = setup(save);
-    rerender({ value: "Lena Hartmann" });
+    rerender({ value: "Jane Doe" });
     act(() => vi.advanceTimersByTime(500));
 
     await act(async () => calls[0].reject());
@@ -134,7 +134,7 @@ describe("useAutosave", () => {
   it("shows an error toast after the retry fails, and tries again on the next flush", async () => {
     const { save, calls } = controlledSave();
     const { result, rerender } = setup(save);
-    rerender({ value: "Lena Hartmann" });
+    rerender({ value: "Jane Doe" });
     act(() => vi.advanceTimersByTime(500));
 
     await act(async () => calls[0].reject());
@@ -144,13 +144,13 @@ describe("useAutosave", () => {
 
     act(() => result.current.flush());
     expect(save).toHaveBeenCalledTimes(3);
-    expect(save).toHaveBeenLastCalledWith("Lena Hartmann");
+    expect(save).toHaveBeenLastCalledWith("Jane Doe");
   });
 
   it("treats a failed action result as a failure and shows its error", async () => {
     const save = vi.fn(async () => ({ ok: false, error: "Enter a valid email." }));
     const { result, rerender } = setup(save);
-    rerender({ value: "lena@" });
+    rerender({ value: "jane@" });
     await act(async () => vi.advanceTimersByTimeAsync(500));
     expect(save).toHaveBeenCalledTimes(2);
     expect(result.current.status).toBe("error");

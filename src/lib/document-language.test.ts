@@ -27,14 +27,14 @@ describe("documentLanguage", () => {
 
   it("goes by most of the text, not a stray name", () => {
     expect(documentLanguage(undefined, "Designer at 阿里巴巴 and Northwind Logistics")).toEqual({ lang: undefined, dir: "ltr" });
-    expect(documentLanguage(undefined, "Lena Hartmann, designer in Rotterdam")).toEqual({ lang: undefined, dir: "ltr" });
+    expect(documentLanguage(undefined, "Jane Doe, designer in Rotterdam")).toEqual({ lang: undefined, dir: "ltr" });
   });
 });
 
 describe("text direction", () => {
   it("counts letters, ignoring digits and punctuation", () => {
     expect(detectDirection("ليلى حداد, 2021")).toBe("rtl");
-    expect(detectDirection("Lena, ليلى")).toBe("ltr");
+    expect(detectDirection("Jane, ليلى")).toBe("ltr");
     expect(detectDirection("+1 555 010 0000")).toBe("ltr");
   });
 

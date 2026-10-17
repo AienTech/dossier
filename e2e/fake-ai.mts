@@ -87,10 +87,10 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
   }),
 
   application_email: () => ({
-    contactName: "Sanne de Vries",
-    contactEmail: "careers@ledgerly.eu",
+    contactName: "John Doe",
+    contactEmail: "careers@example.com",
     subject: "Application: Senior Product Designer, Payments",
-    greeting: "Dear Sanne,",
+    greeting: "Dear John,",
     paragraphs: [
       emails++ === 0
         ? "I'm applying for the Senior Product Designer role on your Payments team."
@@ -121,7 +121,7 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
 
   extracted_profile: () => ({
     basics: {
-      name: "Robin Vermeer",
+      name: "John Doe",
       headline: "Design Lead",
       email: "robin@example.com",
       phone: null,

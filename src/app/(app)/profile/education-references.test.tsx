@@ -30,7 +30,7 @@ const profile: ProfileData = {
     { id: "d1", degree: "MSc Design for Interaction", school: "TU Delft", notes: "", startYear: 2013, startMonth: null, endYear: 2015, endMonth: null, current: false },
   ],
   references: [
-    { id: "r1", name: "Joris van Dam", relation: "Former manager", company: "Northwind Logistics", email: "joris@northwind.example", phone: "" },
+    { id: "r1", name: "John Doe", relation: "Former manager", company: "Northwind Logistics", email: "john.doe@example.com", phone: "" },
   ],
 };
 
@@ -75,9 +75,9 @@ describe("References", () => {
 
   it("summarises a reference: name, relation · company and email", () => {
     render(<Harness section="references" />);
-    const card = screen.getByRole("button", { name: /Joris van Dam/ });
+    const card = screen.getByRole("button", { name: /John Doe/ });
     expect(card).toHaveTextContent("Former manager · Northwind Logistics");
-    expect(card).toHaveTextContent("joris@northwind.example");
+    expect(card).toHaveTextContent("john.doe@example.com");
   });
 
   it("adds a reference and saves what you type", async () => {
@@ -90,7 +90,7 @@ describe("References", () => {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
     expect(screen.getByLabelText("Name")).toHaveFocus();
-    await user.type(screen.getByLabelText("Name"), "Amira Haddad");
-    await waitFor(() => expect(saveReference).toHaveBeenLastCalledWith(expect.objectContaining({ id: "r2", name: "Amira Haddad" })), { timeout: 2000 });
+    await user.type(screen.getByLabelText("Name"), "Jane Doe");
+    await waitFor(() => expect(saveReference).toHaveBeenLastCalledWith(expect.objectContaining({ id: "r2", name: "Jane Doe" })), { timeout: 2000 });
   });
 });

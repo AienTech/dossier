@@ -31,7 +31,7 @@ const getHeld = (url: string) => {
 beforeEach(() => {
   vi.mocked(getSession).mockResolvedValue({ persistent: false, issuedAt: new Date(), expiresAt: new Date() });
   vi.mocked(renderPdf).mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
-  vi.mocked(loadProfileName).mockResolvedValue("Lena Hartmann");
+  vi.mocked(loadProfileName).mockResolvedValue("Jane Doe");
   // The defaults, with the pattern "{name} – {company} – {doc}".
   vi.mocked(loadSettings).mockResolvedValue(settingsFromRows([]));
   vi.mocked(renderPdf).mockClear();
@@ -50,7 +50,7 @@ describe("GET /api/pdf", () => {
     expect(renderPdf).toHaveBeenCalledWith("/print/base");
     expect(response.headers.get("content-type")).toBe("application/pdf");
     expect(response.headers.get("content-disposition")).toBe(
-      "attachment; filename=\"Lena Hartmann - Resume.pdf\"; filename*=UTF-8''Lena%20Hartmann%20%E2%80%93%20Resume.pdf",
+      "attachment; filename=\"Jane Doe - Resume.pdf\"; filename*=UTF-8''Jane%20Doe%20%E2%80%93%20Resume.pdf",
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([37, 80, 68, 70]));
@@ -78,7 +78,7 @@ describe("GET /api/pdf", () => {
   it("downloads an application's tailored resume and cover letter (APP-12)", async () => {
     const resume = await get("?doc=resume&application=app1");
     expect(renderPdf).toHaveBeenLastCalledWith("/print/resume/app1");
-    expect(resume.headers.get("content-disposition")).toContain("filename*=UTF-8''Lena%20Hartmann%20%E2%80%93%20Ledgerly%20%E2%80%93%20Resume.pdf");
+    expect(resume.headers.get("content-disposition")).toContain("filename*=UTF-8''Jane%20Doe%20%E2%80%93%20Ledgerly%20%E2%80%93%20Resume.pdf");
 
     const letter = await get("?doc=letter&application=app1");
     expect(renderPdf).toHaveBeenLastCalledWith("/print/letter/app1");
@@ -117,7 +117,7 @@ describe("POST /api/pdf, then GET /api/pdf/{id}", () => {
     const download = await getHeld(url);
     expect(download.status).toBe(200);
     expect(download.headers.get("content-type")).toBe("application/pdf");
-    expect(download.headers.get("content-disposition")).toContain("Lena%20Hartmann%20%E2%80%93%20Ledgerly%20%E2%80%93%20Resume.pdf");
+    expect(download.headers.get("content-disposition")).toContain("Jane%20Doe%20%E2%80%93%20Ledgerly%20%E2%80%93%20Resume.pdf");
     expect(download.headers.get("cache-control")).toBe("private, no-store");
     expect(new Uint8Array(await download.arrayBuffer())).toEqual(new Uint8Array([37, 80, 68, 70]));
     expect(renderPdf).toHaveBeenCalledTimes(1);

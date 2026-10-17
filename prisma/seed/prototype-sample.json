@@ -1,17 +1,17 @@
 {
   "_source": "Taken verbatim from the clickable prototype, design/Dossier.dc.html (SAMPLE, SEED_APPS, JD_SAMPLE, EXTRACT, REQS, COPY). Fictional data for development and demos.",
   "profile": {
-    "name": "Lena Hartmann",
+    "name": "Jane Doe",
     "headline": "Senior Product Designer",
-    "email": "lena@hartmann.studio",
+    "email": "jane.doe@example.com",
     "phone": "+31 6 1234 5678",
     "dob": "1992-04-18",
     "showAge": false,
     "address": "Westersingel 42",
     "city": "Rotterdam",
     "country": "Netherlands",
-    "website": "hartmann.studio",
-    "linkedin": "linkedin.com/in/lenahartmann",
+    "website": "example.com",
+    "linkedin": "linkedin.com/in/janedoe-example",
     "summary": "Product designer with nine years of experience turning complicated operational tools into calm, usable software. I like working close to engineering and closer to the people who use what we build.",
     "experience": [
       {
@@ -101,18 +101,10 @@
     "references": [
       {
         "id": "r1",
-        "name": "Joris van Dam",
+        "name": "John Doe",
         "relation": "Former manager",
         "company": "Northwind Logistics",
-        "email": "joris@northwind.example",
-        "phone": ""
-      },
-      {
-        "id": "r2",
-        "name": "Amira Haddad",
-        "relation": "Design lead",
-        "company": "Fieldnote",
-        "email": "amira@fieldnote.example",
+        "email": "john.doe@example.com",
         "phone": ""
       }
     ]

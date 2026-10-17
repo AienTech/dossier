@@ -32,7 +32,7 @@ const figures: DashboardFigures = {
   ],
   weeks: [],
 };
-const props = { figures, firstName: "Lena", period: "afternoon" as const, empty: false };
+const props = { figures, firstName: "Jane", period: "afternoon" as const, empty: false };
 
 afterEach(() => vi.useRealTimers());
 
@@ -40,7 +40,7 @@ describe("the dashboard (E9-7)", () => {
   it("greets by the local time and sums up the search", () => {
     vi.useFakeTimers({ now: new Date(2026, 8, 28, 9), toFake: ["Date"] });
     render(<Dashboard {...props} />);
-    expect(screen.getByRole("heading", { level: 1, name: "Good morning, Lena" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Good morning, Jane" })).toBeInTheDocument();
     expect(screen.getByText("You've sent 7 applications and heard back from 5. That's a solid run. Keep it going.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "+ New application" })).toHaveAttribute("href", "/new?fresh=1");
     expect(document.cookie).toMatch(/dossier-tz=/);

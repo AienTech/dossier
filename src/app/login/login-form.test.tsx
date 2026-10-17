@@ -71,7 +71,7 @@ describe("LoginForm", () => {
     expect(screen.getByRole("button", { name: "Signing in…" })).toBeDisabled();
     expect(signIn).toHaveBeenCalledWith({ password: "correct horse", remember: true, next: "/profile" });
 
-    const result = { ok: true as const, data: { redirectTo: "/profile" }, toast: "Welcome back, Lena." };
+    const result = { ok: true as const, data: { redirectTo: "/profile" }, toast: "Welcome back, Jane." };
     finish(result);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/profile"));
     expect(toastResult).toHaveBeenCalledWith(result);

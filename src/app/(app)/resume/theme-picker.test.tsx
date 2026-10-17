@@ -15,7 +15,7 @@ function renderPicker(activeId = "editorial") {
     <ThemePicker
       themes={[...BUILT_IN_THEMES, mine]}
       activeId={activeId}
-      userName="Lena Hartmann"
+      userName="Jane Doe"
       onSelect={onSelect}
       onCustomize={onCustomize}
     />,
@@ -30,13 +30,13 @@ describe("ThemePicker", () => {
     for (const name of ["Classic", "Modern", "Minimal", "Technical", "Ledger", "Signal", "Studio", "Chronicle", "Folio", "Console", "Atlas"]) {
       expect(screen.getByRole("button", { name: `${name} theme` })).toBeInTheDocument();
     }
-    expect(screen.getAllByText("Lena Hartmann")).toHaveLength(12);
+    expect(screen.getAllByText("Jane Doe")).toHaveLength(12);
   });
 
   it("sketches a banner theme's name on its accent, in the color that reads on it", () => {
     renderPicker();
     const signal = screen.getByRole("button", { name: "Signal theme" });
-    const name = within(signal).getByText("Lena Hartmann");
+    const name = within(signal).getByText("Jane Doe");
     expect(name).toHaveStyle({ color: "#ffffff" });
     expect(name.parentElement).toHaveStyle({ background: "#1f3a5f" });
   });

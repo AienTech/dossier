@@ -29,7 +29,7 @@ describe("signIn", () => {
     vi.clearAllMocks();
     vi.mocked(passwordMatches).mockImplementation(async (candidate) => candidate === "correct horse");
     vi.mocked(loginWaitMs).mockResolvedValue(0);
-    vi.mocked(loadProfileName).mockResolvedValue("Lena Hartmann");
+    vi.mocked(loadProfileName).mockResolvedValue("Jane Doe");
   });
 
   it("asks for a password when none was entered, without counting it as a failure", async () => {
@@ -66,7 +66,7 @@ describe("signIn", () => {
     ).resolves.toEqual({
       ok: true,
       data: { redirectTo: "/applications/abc" },
-      toast: "Welcome back, Lena.",
+      toast: "Welcome back, Jane.",
     });
     expect(recordLoginSuccess).toHaveBeenCalledWith(prisma, "203.0.113.7");
     expect(startSession).toHaveBeenCalledWith({ persistent: true });

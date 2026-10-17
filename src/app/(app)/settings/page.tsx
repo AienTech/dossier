@@ -81,7 +81,7 @@ async function filePreview() {
     prisma.application.findFirst({ orderBy: { createdAt: "desc" }, select: { company: true, role: true } }),
   ]);
   return {
-    name: name.trim() || "Lena Hartmann",
+    name: name.trim() || "Jane Doe",
     company: latest?.company.trim() || "Ledgerly",
     role: latest?.role.trim() || "Senior Product Designer",
   };

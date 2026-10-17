@@ -15,23 +15,23 @@ describe("the email's parts", () => {
 
 describe("email addresses", () => {
   it("finds the addresses in a recipient line", () => {
-    expect(emailAddresses("Anna Berg <anna.berg@ledgerly.eu>")).toEqual(["anna.berg@ledgerly.eu"]);
-    expect(emailAddresses("jobs@ledgerly.eu, Anna <anna@ledgerly.eu>; jobs@ledgerly.eu")).toEqual(["jobs@ledgerly.eu", "anna@ledgerly.eu"]);
+    expect(emailAddresses("John Doe <john.doe@example.com>")).toEqual(["john.doe@example.com"]);
+    expect(emailAddresses("jobs@example.com, John <john@example.com>; jobs@example.com")).toEqual(["jobs@example.com", "john@example.com"]);
     expect(emailAddresses("The hiring team")).toEqual([]);
   });
 
   it("tells an address from anything else", () => {
-    expect(isEmailAddress("anna@ledgerly.eu")).toBe(true);
-    expect(isEmailAddress("Anna <anna@ledgerly.eu>")).toBe(false);
-    expect(isEmailAddress("anna@ledgerly")).toBe(false);
-    expect(isEmailAddress("anna@ledgerly.eu.")).toBe(false);
+    expect(isEmailAddress("john@example.com")).toBe(true);
+    expect(isEmailAddress("John <john@example.com>")).toBe(false);
+    expect(isEmailAddress("john@example")).toBe(false);
+    expect(isEmailAddress("john@example.com.")).toBe(false);
   });
 });
 
 describe("mailtoHref", () => {
   it("fills in the addresses, subject and message, with CRLF line breaks (RFC 6068)", () => {
-    expect(mailtoHref({ to: "Anna Berg <anna+jobs@ledgerly.eu>", subject: "Application: Designer & more", body: "Dear Anna,\n\nHello." })).toBe(
-      "mailto:anna%2Bjobs@ledgerly.eu?subject=Application%3A%20Designer%20%26%20more&body=Dear%20Anna%2C%0D%0A%0D%0AHello.",
+    expect(mailtoHref({ to: "John Doe <john+jobs@example.com>", subject: "Application: Designer & more", body: "Dear John,\n\nHello." })).toBe(
+      "mailto:john%2Bjobs@example.com?subject=Application%3A%20Designer%20%26%20more&body=Dear%20John%2C%0D%0A%0D%0AHello.",
     );
   });
 

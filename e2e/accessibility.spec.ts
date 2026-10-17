@@ -82,7 +82,7 @@ test("axe: an application's email, once it's written", async ({ page }) => {
   const units = [
     { id: "to", label: "Recipient", text: "" },
     { id: "subject", label: "Subject", text: "Application: Senior Product Designer, Payments" },
-    { id: "body", label: "Message", text: "Dear Ledgerly team,\n\nI'm applying for the role.\n\nWarm regards,\nLena Hartmann" },
+    { id: "body", label: "Message", text: "Dear Ledgerly team,\n\nI'm applying for the role.\n\nWarm regards,\nJane Doe" },
   ];
   await sql(
     `INSERT INTO "Document" (id, "applicationId", kind, units, "updatedAt") VALUES ('a11y-email', $1, 'EMAIL', $2, now())

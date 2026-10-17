@@ -156,9 +156,9 @@ export function Gallery({ application }: { application: DemoApplication | null }
 
       <Section title="Form controls">
         <div className="grid grid-cols-2 gap-x-[18px] gap-y-5">
-          <Input label="Full name" placeholder="Lena Hartmann" />
-          <Input label="Email" hint="Shown at the top of your resume." defaultValue="lena@example.com" />
-          <Input label="Website" error="Enter a full address, like https://lena.design." defaultValue="lena.design" />
+          <Input label="Full name" placeholder="Jane Doe" />
+          <Input label="Email" hint="Shown at the top of your resume." defaultValue="jane@example.com" />
+          <Input label="Website" error="Enter a full address, like https://example.com." defaultValue="example.com" />
           <Input label="Date of birth" disabled defaultValue="12 March 1990" />
           <Textarea
             className="col-span-2"

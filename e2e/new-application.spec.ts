@@ -30,7 +30,7 @@ test("reads a posting, shows the match and writes tailored documents", async ({ 
   await page.waitForURL(/\/applications\/c/, { timeout: 30_000 });
 
   await expect(page.getByRole("heading", { level: 1, name: "Senior Product Designer, Payments · Ledgerly" })).toBeVisible();
-  await expect(page.getByRole("article", { name: "Resume" })).toContainText("Lena Hartmann");
+  await expect(page.getByRole("article", { name: "Resume" })).toContainText("Jane Doe");
   await page.getByRole("tab", { name: "Cover letter" }).click();
   await expect(page.getByText("Payments are where trust is won or lost")).toBeVisible();
 });

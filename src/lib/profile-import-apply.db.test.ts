@@ -19,7 +19,7 @@ afterAll(() => prisma().$disconnect());
 
 const noDates = { startYear: null, startMonth: null, endYear: null, endMonth: null, current: false };
 const imported: ImportedProfile = {
-  basics: { name: "Robin Vermeer", city: "Utrecht" },
+  basics: { name: "John Doe", city: "Utrecht" },
   skills: [
     { name: "figma", found: true },
     { name: "User research", found: true },
@@ -33,19 +33,19 @@ const imported: ImportedProfile = {
     { role: "Product designer", company: "fieldnote", location: "Amsterdam", bullets: "", skills: ["figma"], ...noDates, unverified: [] },
   ],
   education: [{ degree: "MSc Interaction Design", school: "TU Delft", notes: "", startYear: 2015, startMonth: null, endYear: 2017, endMonth: null, current: false, unverified: [] }],
-  references: [{ name: "Amira Haddad", relation: "Manager", company: "", email: "amira@example.com", phone: "", unverified: [] }],
+  references: [{ name: "Jane Doe", relation: "Manager", company: "", email: "jane.doe@example.com", phone: "", unverified: [] }],
 };
 
 /** A profile with a name, email, two skills, Dutch at C1, the Fieldnote role and a reference. */
 async function existingProfile() {
-  await prisma().profileField.createMany({ data: [{ key: "name", value: "Robin V." }, { key: "email", value: "robin@old.example" }] });
+  await prisma().profileField.createMany({ data: [{ key: "name", value: "John D." }, { key: "email", value: "john@example.com" }] });
   const figma = await prisma().skill.create({ data: { name: "Figma", sort: 0 } });
   await prisma().skill.create({ data: { name: "Prototyping", sort: 1 } });
   await prisma().language.create({ data: { name: "Dutch", level: LanguageLevel.C1, sort: 0 } });
   await prisma().experience.create({
     data: { role: "Product Designer", company: "Fieldnote", bullets: "My own bullets", startYear: 2018, sort: 0, skills: { create: [{ skillId: figma.id }] } },
   });
-  await prisma().reference.create({ data: { name: "amira haddad", relation: "", company: "Fieldnote", sort: 0 } });
+  await prisma().reference.create({ data: { name: "jane doe", relation: "", company: "Fieldnote", sort: 0 } });
 }
 
 describe("applyImportedProfile (E4-10)", () => {
@@ -54,7 +54,7 @@ describe("applyImportedProfile (E4-10)", () => {
     await applyImportedProfile(prisma(), imported, "merge");
 
     const fields = Object.fromEntries((await prisma().profileField.findMany()).map((field) => [field.key, field.value]));
-    expect(fields).toEqual({ name: "Robin Vermeer", email: "robin@old.example", city: "Utrecht" });
+    expect(fields).toEqual({ name: "John Doe", email: "john@example.com", city: "Utrecht" });
     expect((await prisma().skill.findMany({ orderBy: { sort: "asc" } })).map((skill) => skill.name)).toEqual(["Figma", "Prototyping", "User research"]);
     expect(await prisma().language.findMany({ orderBy: { sort: "asc" }, select: { name: true, level: true } })).toEqual([
       { name: "Dutch", level: LanguageLevel.NATIVE },
@@ -76,7 +76,7 @@ describe("applyImportedProfile (E4-10)", () => {
     expect(await prisma().education.count()).toBe(1);
     const references = await prisma().reference.findMany();
     expect(references).toHaveLength(1);
-    expect(references[0]).toMatchObject({ relation: "Manager", company: "Fieldnote", email: "amira@example.com" });
+    expect(references[0]).toMatchObject({ relation: "Manager", company: "Fieldnote", email: "jane.doe@example.com" });
   });
 
   it("puts new entries first in a section ordered by hand", async () => {
@@ -94,7 +94,7 @@ describe("applyImportedProfile (E4-10)", () => {
     await applyImportedProfile(prisma(), imported, "replace");
 
     const fields = Object.fromEntries((await prisma().profileField.findMany()).map((field) => [field.key, field.value]));
-    expect(fields).toEqual({ name: "Robin Vermeer", city: "Utrecht", showAge: "false" });
+    expect(fields).toEqual({ name: "John Doe", city: "Utrecht", showAge: "false" });
     expect((await prisma().skill.findMany()).map((skill) => skill.name).sort()).toEqual(["User research", "figma"]);
     expect((await prisma().experience.findMany()).map((role) => role.company).sort()).toEqual(["Acme Payments", "fieldnote"]);
     expect((await prisma().setting.findUnique({ where: { key: "experienceOrder" } }))?.value).toBe("date");

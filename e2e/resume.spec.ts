@@ -24,5 +24,5 @@ test("builds a theme, makes it the base theme and downloads the resume as a PDF"
   expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
   // Chromium's headless shell names every blob download "download", so the name is checked at the source.
   const response = await page.request.get("/api/pdf?doc=base");
-  expect(response.headers()["content-disposition"]).toContain("filename*=UTF-8''Lena%20Hartmann%20%E2%80%93%20Resume.pdf");
+  expect(response.headers()["content-disposition"]).toContain("filename*=UTF-8''Jane%20Doe%20%E2%80%93%20Resume.pdf");
 });

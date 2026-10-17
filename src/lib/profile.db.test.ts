@@ -10,7 +10,7 @@ afterAll(() => db.$disconnect());
 
 describe("profile schema", () => {
   it("keeps one value per profile key", async () => {
-    await db.profileField.create({ data: { key: "name", value: "Lena Hartmann" } });
+    await db.profileField.create({ data: { key: "name", value: "Jane Doe" } });
     await expect(db.profileField.create({ data: { key: "name", value: "Someone else" } })).rejects.toSatisfy(
       (error) => error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002",
     );

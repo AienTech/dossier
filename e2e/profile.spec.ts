@@ -8,7 +8,7 @@ test.beforeAll(resetData);
 
 test("fills in the profile, keeps it and shows it on the base resume", async ({ page }) => {
   await page.goto("/profile");
-  await page.getByLabel("Full name").fill("Robin Vermeer");
+  await page.getByLabel("Full name").fill("John Doe");
   await page.getByLabel("City").fill("Utrecht");
   await page.getByLabel("City").blur();
   await expect(page.getByText("Saved just now")).toBeVisible();
@@ -34,11 +34,11 @@ test("fills in the profile, keeps it and shows it on the base resume", async ({ 
   await page.reload();
   await expect(page.getByRole("button", { name: /Design Lead.*Acme Payments/ })).toBeVisible();
   await page.getByRole("navigation", { name: "Profile sections" }).getByRole("link", { name: /Basics/ }).click();
-  await expect(page.getByLabel("Full name")).toHaveValue("Robin Vermeer");
+  await expect(page.getByLabel("Full name")).toHaveValue("John Doe");
 
   await page.goto("/resume");
   const resume = page.getByRole("article", { name: "Resume" });
-  await expect(resume).toContainText("Robin Vermeer");
+  await expect(resume).toContainText("John Doe");
   await expect(resume).toContainText("Acme Payments");
   await expect(resume).toContainText("Led the redesign of the payout flow");
 });

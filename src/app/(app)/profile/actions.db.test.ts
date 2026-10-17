@@ -47,7 +47,7 @@ beforeEach(() => resetDatabase(prisma()));
 afterAll(() => prisma().$disconnect());
 
 const basics = {
-  name: "Lena Hartmann", headline: "", email: "", phone: "", dob: "1992-04-18", website: "",
+  name: "Jane Doe", headline: "", email: "", phone: "", dob: "1992-04-18", website: "",
   address: "", city: "", country: "", linkedin: "", summary: "", showAge: true,
 };
 
@@ -57,13 +57,13 @@ describe("profile actions", () => {
     await expect(saveBasics(basics)).resolves.toEqual({ ok: true, data: null });
     expect(await fields()).toEqual([
       { key: "dob", value: "1992-04-18" },
-      { key: "name", value: "Lena Hartmann" },
+      { key: "name", value: "Jane Doe" },
       { key: "showAge", value: "true" },
     ]);
     expect((await loadProfile()).basics).toEqual(basics);
 
     await saveBasics({ ...basics, dob: "", showAge: false });
-    expect(await fields()).toEqual([{ key: "name", value: "Lena Hartmann" }]);
+    expect(await fields()).toEqual([{ key: "name", value: "Jane Doe" }]);
   });
 
   it("adds skills in order and ignores duplicates in any case", async () => {
@@ -162,7 +162,7 @@ describe("profile actions", () => {
     if (!school.ok || !person.ok) throw new Error("create failed");
 
     const degree = { ...school.data, degree: "MSc", school: "TU Delft", startYear: 2013, endYear: 2015 };
-    const reference = { ...person.data, name: "Amira Haddad", email: "amira@fieldnote.example" };
+    const reference = { ...person.data, name: "Jane Doe", email: "jane.doe@example.com" };
     await saveEducation(degree);
     await saveReference(reference);
     expect(await prisma().education.findUniqueOrThrow({ where: { id: degree.id } })).toMatchObject({ school: "TU Delft", endYear: 2015 });
@@ -172,8 +172,8 @@ describe("profile actions", () => {
     expect(await prisma().education.count() + await prisma().reference.count()).toBe(0);
 
     await expect(restoreEducation(degree)).resolves.toMatchObject({ ok: true, data: { degree: "MSc" } });
-    await expect(restoreReference(reference)).resolves.toMatchObject({ ok: true, data: { name: "Amira Haddad" } });
-    expect(await prisma().reference.findUniqueOrThrow({ where: { id: reference.id } })).toMatchObject({ email: "amira@fieldnote.example" });
+    await expect(restoreReference(reference)).resolves.toMatchObject({ ok: true, data: { name: "Jane Doe" } });
+    expect(await prisma().reference.findUniqueOrThrow({ where: { id: reference.id } })).toMatchObject({ email: "jane.doe@example.com" });
   });
 });
 
@@ -241,7 +241,7 @@ describe("ordering experience and education (E4-9)", () => {
 describe("applying a profile read from a resume (E4-10)", () => {
   const result = {
     profile: {
-      basics: { name: "Robin Vermeer" },
+      basics: { name: "John Doe" },
       skills: [{ name: "Figma", found: true }],
       languages: [],
       experience: [],
@@ -258,7 +258,7 @@ describe("applying a profile read from a resume (E4-10)", () => {
       data: null,
       toast: "Added to your profile: 0 roles, 0 degrees, 1 skill, 0 languages, 0 references.",
     });
-    expect((await loadProfile()).basics.name).toBe("Robin Vermeer");
+    expect((await loadProfile()).basics.name).toBe("John Doe");
   });
 
   it("refuses a reading that isn't done, or another kind of job", async () => {

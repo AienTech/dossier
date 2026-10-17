@@ -68,17 +68,17 @@ afterAll(() => prisma().$disconnect());
 describe("the job runner", () => {
   it("runs a job in the background with named steps and keeps its result (E6-7)", async () => {
     const seen: string[] = [];
-    const id = await startJob(gated, { name: "Lena", fail: "no" }, { key: "application:1" });
+    const id = await startJob(gated, { name: "Jane", fail: "no" }, { key: "application:1" });
     const stop = subscribeJob(id, (job) => seen.push(`${job.status}${job.step ? ` · ${job.step}` : ""}`));
     await eventually(async () => (await status(id)).toBe("RUNNING"));
-    await release("Lena");
+    await release("Jane");
     await eventually(async () => (await status(id)).toBe("DONE"));
     stop();
-    expect(await getJob(id)).toMatchObject({ step: "Greeting", error: null, result: { greeting: "Hello, Lena" } });
+    expect(await getJob(id)).toMatchObject({ step: "Greeting", error: null, result: { greeting: "Hello, Jane" } });
     expect(seen).toContain("RUNNING · Waiting");
     expect(seen.at(-1)).toBe("DONE · Greeting");
     const row = await prisma().job.findUniqueOrThrow({ where: { id } });
-    expect(row).toMatchObject({ type: "test-gated", key: "application:1", input: { name: "Lena", fail: "no" } });
+    expect(row).toMatchObject({ type: "test-gated", key: "application:1", input: { name: "Jane", fail: "no" } });
     expect(row.startedAt).not.toBeNull();
     expect(row.finishedAt).not.toBeNull();
   });

@@ -24,7 +24,7 @@ type Sample = {
 export const LANGUAGE_SAMPLES: readonly Sample[] = [
   {
     language: "English",
-    name: "Alex Morgan",
+    name: "John Doe",
     headline: "Senior Product Designer",
     summary: "Product designer with nine years of experience turning complicated tools into calm, clear software.",
     bullet: "Led the redesign of a portal used by 4,000 dispatchers every day",
@@ -37,7 +37,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Dutch",
-    name: "Sanne de Vries",
+    name: "Jane Doe",
     headline: "Senior productontwerper",
     summary: "Productontwerper met negen jaar ervaring in het rustig en overzichtelijk maken van complexe software.",
     bullet: "Leidde het herontwerp van een portaal dat dagelijks door 4.000 planners wordt gebruikt",
@@ -50,7 +50,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "German",
-    name: "Jonas Müller",
+    name: "John Doe",
     headline: "Senior Produktdesigner",
     summary: "Produktdesigner mit neun Jahren Erfahrung darin, komplexe Software ruhig und verständlich zu gestalten.",
     bullet: "Leitete die Neugestaltung eines Portals, das täglich von 4.000 Disponenten genutzt wird",
@@ -63,7 +63,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "French",
-    name: "Camille Lefèvre",
+    name: "Jane Doe",
     headline: "Designer produit senior",
     summary: "Designer produit avec neuf ans d’expérience à rendre des logiciels complexes clairs et sereins.",
     bullet: "A dirigé la refonte d’un portail utilisé chaque jour par 4 000 répartiteurs",
@@ -76,7 +76,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Spanish",
-    name: "Lucía Fernández",
+    name: "Jane Doe",
     headline: "Diseñadora de producto sénior",
     summary: "Diseñadora de producto con nueve años de experiencia haciendo que el software complejo sea claro y sereno.",
     bullet: "Dirigió el rediseño de un portal que usan a diario 4.000 despachadores",
@@ -89,7 +89,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Italian",
-    name: "Giulia Rossi",
+    name: "Jane Doe",
     headline: "Product designer senior",
     summary: "Product designer con nove anni di esperienza nel rendere chiaro e sereno un software complesso.",
     bullet: "Ha guidato la riprogettazione di un portale usato ogni giorno da 4.000 operatori",
@@ -102,7 +102,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Portuguese",
-    name: "João Silva",
+    name: "John Doe",
     headline: "Designer de produto sénior",
     summary: "Designer de produto com nove anos de experiência a tornar software complexo claro e tranquilo.",
     bullet: "Liderou o redesenho de um portal usado diariamente por 4000 despachantes",
@@ -115,7 +115,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Polish",
-    name: "Zofia Wójcik",
+    name: "Jane Doe",
     headline: "Starsza projektantka produktu",
     summary: "Projektantka produktu z dziewięcioletnim doświadczeniem w upraszczaniu złożonego oprogramowania.",
     bullet: "Kierowała przeprojektowaniem portalu, z którego codziennie korzysta 4000 dyspozytorów",
@@ -128,7 +128,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Swedish",
-    name: "Linnéa Åström",
+    name: "Jane Doe",
     headline: "Senior produktdesigner",
     summary: "Produktdesigner med nio års erfarenhet av att göra komplex programvara lugn och tydlig.",
     bullet: "Ledde omdesignen av en portal som 4 000 trafikledare använder varje dag",
@@ -141,7 +141,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Danish",
-    name: "Søren Kjær",
+    name: "John Doe",
     headline: "Senior produktdesigner",
     summary: "Produktdesigner med ni års erfaring i at gøre kompleks software rolig og overskuelig.",
     bullet: "Stod for redesignet af en portal, som 4.000 disponenter bruger hver dag",
@@ -154,7 +154,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Norwegian",
-    name: "Ingrid Østby",
+    name: "Jane Doe",
     headline: "Senior produktdesigner",
     summary: "Produktdesigner med ni års erfaring med å gjøre kompleks programvare rolig og oversiktlig.",
     bullet: "Ledet redesignet av en portal som 4 000 disponenter bruker hver dag",
@@ -167,7 +167,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Finnish",
-    name: "Aino Mäkinen",
+    name: "Jane Doe",
     headline: "Vanhempi tuotesuunnittelija",
     summary: "Tuotesuunnittelija, jolla on yhdeksän vuoden kokemus monimutkaisen ohjelmiston selkeyttämisestä.",
     bullet: "Johti portaalin uudistusta, jota 4 000 ajojärjestelijää käyttää päivittäin",
@@ -180,7 +180,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Czech",
-    name: "Tereza Dvořáková",
+    name: "Jane Doe",
     headline: "Seniorní produktová designérka",
     summary: "Produktová designérka s devítiletou zkušeností se zjednodušováním složitého softwaru.",
     bullet: "Vedla redesign portálu, který denně používá 4 000 dispečerů",
@@ -193,7 +193,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Greek",
-    name: "Ελένη Παπαδοπούλου",
+    name: "Τζέιν Ντόου",
     headline: "Ανώτερη σχεδιάστρια προϊόντων",
     summary: "Σχεδιάστρια προϊόντων με εννέα χρόνια εμπειρίας στο να κάνει σύνθετο λογισμικό ήρεμο και κατανοητό.",
     bullet: "Ηγήθηκε του επανασχεδιασμού μιας πλατφόρμας που χρησιμοποιούν καθημερινά 4.000 άτομα",
@@ -206,7 +206,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Turkish",
-    name: "Elif Şahin",
+    name: "Jane Doe",
     headline: "Kıdemli ürün tasarımcısı",
     summary: "Karmaşık yazılımları sade ve anlaşılır hâle getirmede dokuz yıllık deneyime sahip ürün tasarımcısı.",
     bullet: "Her gün 4.000 sevk görevlisinin kullandığı bir portalın yeniden tasarımına liderlik etti",
@@ -219,7 +219,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Arabic",
-    name: "ليلى حداد",
+    name: "جين دو",
     headline: "مصممة منتجات أولى",
     summary: "مصممة منتجات بخبرة تسع سنوات في جعل البرمجيات المعقدة هادئة وواضحة.",
     bullet: "قادت إعادة تصميم بوابة يستخدمها ٤٠٠٠ موظف يوميًا",
@@ -232,7 +232,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Persian",
-    name: "سارا احمدی",
+    name: "جین دو",
     headline: "طراح ارشد محصول",
     summary: `طراح محصول با نُه سال تجربه در ساده و روشن کردن نرم${ZWNJ}افزارهای پیچیده.`,
     bullet: `بازطراحی درگاهی را رهبری کرد که هر روز ۴۰۰۰ نفر از آن استفاده می${ZWNJ}کنند`,
@@ -245,7 +245,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Hindi",
-    name: "अनन्या शर्मा",
+    name: "जेन डो",
     headline: "वरिष्ठ प्रोडक्ट डिज़ाइनर",
     summary: "जटिल सॉफ़्टवेयर को सरल और स्पष्ट बनाने में नौ वर्षों का अनुभव रखने वाली प्रोडक्ट डिज़ाइनर।",
     bullet: "एक पोर्टल के नए डिज़ाइन का नेतृत्व किया, जिसे हर दिन 4,000 लोग इस्तेमाल करते हैं",
@@ -258,7 +258,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Chinese (Simplified)",
-    name: "王晓明",
+    name: "约翰·多伊",
     headline: "资深产品设计师",
     summary: "拥有九年经验的产品设计师，擅长让复杂的软件变得简洁清晰。",
     bullet: "主导了一个每天有四千名调度员使用的门户网站的重新设计",
@@ -271,7 +271,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Japanese",
-    name: "佐藤 花子",
+    name: "ジョン・ドウ",
     headline: "シニアプロダクトデザイナー",
     summary: "複雑なソフトウェアを落ち着いた分かりやすいものにしてきた、経験9年のプロダクトデザイナーです。",
     bullet: "毎日4,000人の配車担当者が使うポータルのリニューアルを主導",
@@ -284,7 +284,7 @@ export const LANGUAGE_SAMPLES: readonly Sample[] = [
   },
   {
     language: "Korean",
-    name: "김지현",
+    name: "존 도",
     headline: "시니어 프로덕트 디자이너",
     summary: "복잡한 소프트웨어를 차분하고 명확하게 만드는 일에 9년의 경험을 가진 프로덕트 디자이너입니다.",
     bullet: "매일 4,000명의 배차 담당자가 사용하는 포털의 리디자인을 이끌었습니다",

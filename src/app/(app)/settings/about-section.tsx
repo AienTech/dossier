@@ -55,7 +55,11 @@ export function AboutSection({ facts, usagePingHost }: { facts: AboutFacts; usag
       </div>
       <p className="text-meta text-muted">Checking asks GitHub for the latest release and sends nothing about you or this install.</p>
       <p className="text-meta text-muted">
-        While the usage ping is on, the server sends {usagePingHost} this install&apos;s ID and the version number once on each day Dossier is used, so the project knows how many installs are in use and how often. The ID is random and says nothing about you. Nothing else is sent. Set <code className="font-mono">DOSSIER_TELEMETRY=off</code> to stop it.
+        While the usage ping is on, the server sends {usagePingHost} this install&apos;s ID and the version number once on each day Dossier is used, so the project knows how many installs are in use and how often. The ID is random and says nothing about you. Nothing else is sent. Set <code className="font-mono">DOSSIER_TELEMETRY=off</code> to stop it. To have the rows already kept for this install removed too, send its ID to{" "}
+        <a href="mailto:dossier.app@pm.me" className="font-medium text-ink underline underline-offset-2">
+          dossier.app@pm.me
+        </a>
+        , with the ping switched off so nothing new arrives; you get a confirmation once they&apos;re gone.
       </p>
     </>
   );

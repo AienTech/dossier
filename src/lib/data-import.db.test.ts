@@ -31,7 +31,7 @@ beforeEach(async () => {
   await prisma().theme.create({ data: { id: "mine", name: "Mine", headFont: "GEIST", bodyFont: "GEIST", accent: "#224466" } });
   const ledgerly = await prisma().application.findFirstOrThrow({ where: { documents: { some: {} } } });
   await prisma().document.updateMany({ where: { applicationId: ledgerly.id, kind: "RESUME" }, data: { themeId: "mine" } });
-  await prisma().note.create({ data: { applicationId: ledgerly.id, body: "Called Sarah." } });
+  await prisma().note.create({ data: { applicationId: ledgerly.id, body: "Called John." } });
   // A version, so the round trip covers document history (E8-10).
   const resume = await prisma().document.findFirstOrThrow({ where: { applicationId: ledgerly.id, kind: "RESUME" } });
   await prisma().documentVersion.create({ data: { documentId: resume.id, units: resume.units ?? [], cause: "WRITTEN", createdAt: now } });

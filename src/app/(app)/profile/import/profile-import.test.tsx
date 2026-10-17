@@ -29,7 +29,7 @@ vi.mock("@/components/toast", () => {
 });
 
 const profile: ImportedProfile = {
-  basics: { name: "Robin Vermeer", city: "Utrecht" },
+  basics: { name: "John Doe", city: "Utrecht" },
   skills: [
     { name: "Figma", found: true },
     { name: "Service design", found: false },
@@ -98,7 +98,7 @@ describe("ProfileImport (E4-10)", () => {
     render(<ProfileImport aiReady provider="LOCAL" initialJobId="job-1" />);
     expect(screen.getByRole("heading", { name: "Here's what your resume says" })).toBeInTheDocument();
     expect(screen.getByText(/^1 role, 0 degrees, 2 skills, 1 language, 0 references\./)).toBeInTheDocument();
-    expect(screen.getByText("Robin Vermeer")).toBeInTheDocument();
+    expect(screen.getByText("John Doe")).toBeInTheDocument();
     expect(screen.getByText("Service design")).toHaveTextContent("Service design check: not in the file");
     expect(screen.getByText("Design Lead · Acme Payments")).toHaveTextContent("check: “Acme Payments” not in the file");
     expect(screen.getByText(/^German/)).toHaveTextContent("(no level given; change it any time)");

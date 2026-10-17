@@ -22,8 +22,8 @@ describe("ResumeDocument", () => {
 
   it("puts contact details in the header of single-column layouts", () => {
     render(<ResumeDocument theme={theme("editorial")} profile={profile} paper="A4" today={today} />);
-    expect(screen.getByText("lena@hartmann.studio").parentElement?.textContent).toBe(
-      "lena@hartmann.studio  ·  +31 6 1234 5678  ·  Rotterdam, Netherlands  ·  hartmann.studio  ·  linkedin.com/in/lenahartmann",
+    expect(screen.getByText("jane.doe@example.com").parentElement?.textContent).toBe(
+      "jane.doe@example.com  ·  +31 6 1234 5678  ·  Rotterdam, Netherlands  ·  example.com  ·  linkedin.com/in/janedoe-example",
     );
     expect(sectionTitles()).toEqual(["Profile", "Experience", "Education", "Skills", "Languages"]);
   });
@@ -32,7 +32,7 @@ describe("ResumeDocument", () => {
     render(<ResumeDocument theme={theme("modern")} profile={profile} paper="A4" today={today} />);
     expect(sectionTitles()).toEqual(["Contact", "Skills", "Languages", "Profile", "Experience", "Education"]);
     const contact = screen.getByRole("heading", { name: "Contact" }).parentElement!;
-    expect(within(contact).getAllByRole("listitem").map((item) => item.textContent)).toContain("hartmann.studio");
+    expect(within(contact).getAllByRole("listitem").map((item) => item.textContent)).toContain("example.com");
   });
 
   it("renders a sidebar theme in a single column when asked", () => {

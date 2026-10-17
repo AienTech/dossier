@@ -19,7 +19,7 @@ vi.mock("@/lib/prisma", async () => {
 const dataDir = vi.hoisted(() => ({ path: "" }));
 vi.mock("@/lib/env", () => ({ env: { get DOSSIER_DATA_DIR() { return dataDir.path; } } }));
 vi.mock("@/lib/pdf/render", () => ({ renderPdf: vi.fn(async (page: string) => new TextEncoder().encode(`%PDF ${page}`)) }));
-vi.mock("@/lib/profile-data", () => ({ loadProfileName: async () => "Lena Hartmann" }));
+vi.mock("@/lib/profile-data", () => ({ loadProfileName: async () => "Jane Doe" }));
 vi.mock("./runner", () => ({ defineJob: <T,>(definition: T) => definition }));
 
 const prisma = () => db.client!;
@@ -54,13 +54,13 @@ describe("zipPdfsJob (E10-5)", () => {
 
     const zip = unzipSync(await readFile(path.join(dataDir.path, "downloads", result.file)));
     expect(Object.keys(zip).sort()).toEqual([
-      "Ledgerly/Lena Hartmann – Ledgerly – Cover letter.pdf",
-      "Ledgerly/Lena Hartmann – Ledgerly – Resume (2).pdf",
-      "Ledgerly/Lena Hartmann – Ledgerly – Resume.pdf",
-      "Oaken Studio/Lena Hartmann – Oaken Studio – Cover letter.pdf",
-      "Oaken Studio/Lena Hartmann – Oaken Studio – Resume.pdf",
+      "Ledgerly/Jane Doe – Ledgerly – Cover letter.pdf",
+      "Ledgerly/Jane Doe – Ledgerly – Resume (2).pdf",
+      "Ledgerly/Jane Doe – Ledgerly – Resume.pdf",
+      "Oaken Studio/Jane Doe – Oaken Studio – Cover letter.pdf",
+      "Oaken Studio/Jane Doe – Oaken Studio – Resume.pdf",
     ]);
-    expect(new TextDecoder().decode(zip["Ledgerly/Lena Hartmann – Ledgerly – Resume.pdf"])).toBe("%PDF /print/resume/a1");
+    expect(new TextDecoder().decode(zip["Ledgerly/Jane Doe – Ledgerly – Resume.pdf"])).toBe("%PDF /print/resume/a1");
     expect(steps).toEqual(["Rendering 5 documents", ...[1, 2, 3, 4, 5].map((n) => `Rendered ${n} of 5`), "Zipping"]);
     expect(await countTailoredDocuments()).toBe(5);
   });

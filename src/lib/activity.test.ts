@@ -8,7 +8,7 @@ describe("activityTimeline (E8-9)", () => {
   it("merges notes and status changes, newest first, with the creation last", () => {
     const timeline = activityTimeline({
       notes: [
-        { id: "n1", body: "Called Sarah.", createdAt: at(3, 15), updatedAt: at(3, 15) },
+        { id: "n1", body: "Called John.", createdAt: at(3, 15), updatedAt: at(3, 15) },
         { id: "n2", body: "Sent a thank-you.", createdAt: at(1), updatedAt: at(2) },
       ],
       events: [
@@ -19,7 +19,7 @@ describe("activityTimeline (E8-9)", () => {
       now: at(5),
     });
     expect(timeline).toEqual([
-      { kind: "note", id: "n1", body: "Called Sarah.", date: "3 Oct", edited: false },
+      { kind: "note", id: "n1", body: "Called John.", date: "3 Oct", edited: false },
       { kind: "status", id: "e2", status: "INTERVIEW", date: "3 Oct" },
       { kind: "note", id: "n2", body: "Sent a thank-you.", date: "1 Oct", edited: true },
       { kind: "status", id: "e1", status: "SENT", date: "1 Oct" },

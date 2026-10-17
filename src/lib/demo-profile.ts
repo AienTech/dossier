@@ -4,7 +4,7 @@ import { LANGUAGE_LEVELS, type DateSpan, type ProfileData } from "@/lib/profile"
 
 import sample from "../../prisma/seed/prototype-sample.json";
 
-// The prototype's sample profile (Lena Hartmann), shared by the demo seed
+// The prototype's sample profile (Jane Doe), shared by the demo seed
 // (prisma/seed/demo.ts), document previews on /dev/documents and tests.
 
 /** "Mar 2021" → 2021/3, "2013" → 2013/null, "Present" or "" → null. */

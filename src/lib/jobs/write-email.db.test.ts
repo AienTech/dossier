@@ -24,15 +24,15 @@ const prisma = () => db.client!;
 const context = { step: async () => {}, signal: new AbortController().signal };
 const where = { applicationId_kind: { applicationId: "app-1", kind: "EMAIL" as const } };
 const letter = [
-  { id: "sender", label: "Sender", text: "Lena Hartmann\nlena@example.com · +31 6 1234 5678" },
+  { id: "sender", label: "Sender", text: "Jane Doe\njane@example.com · +31 6 1234 5678" },
   { id: "paragraph:1", label: "Opening", text: "Payments are where trust is won." },
 ];
 
 const answer = (extra: object = {}) => ({
-  contactName: "Anna Berg",
-  contactEmail: "anna@ledgerly.eu",
+  contactName: "John Doe",
+  contactEmail: "john@example.com",
   subject: "Application: Senior Product Designer",
-  greeting: "Dear Anna,",
+  greeting: "Dear John,",
   paragraphs: ["I'm applying for the Senior Product Designer role. My resume and cover letter are attached."],
   signOff: "Warm regards,",
   ...extra,
@@ -46,7 +46,7 @@ beforeEach(async () => {
       company: "Ledgerly",
       role: "Senior Product Designer",
       language: "Dutch",
-      postingText: "Ledgerly is hiring a Senior Product Designer. Send your application to anna@ledgerly.eu.",
+      postingText: "Ledgerly is hiring a Senior Product Designer. Send your application to john@example.com.",
       documents: { create: [{ kind: "COVER_LETTER", units: letter }] },
     },
   });
@@ -62,9 +62,9 @@ describe("writeEmailJob", () => {
     const document = await prisma().document.findUniqueOrThrow({ where, include: { versions: true } });
     expect(result).toEqual({ units: document.units, previous: null });
     expect(document.units).toMatchObject([
-      { id: "to", text: "Anna Berg <anna@ledgerly.eu>" },
+      { id: "to", text: "John Doe <john@example.com>" },
       { id: "subject", text: "Application: Senior Product Designer" },
-      { id: "body", text: expect.stringMatching(/^Dear Anna,\n\nI'm applying/) },
+      { id: "body", text: expect.stringMatching(/^Dear John,\n\nI'm applying/) },
     ]);
     expect(document.writtenWith).toBe("write-email@1");
     expect(document.versions.map((version) => version.cause)).toEqual(["WRITTEN"]);
@@ -72,12 +72,12 @@ describe("writeEmailJob", () => {
     expect(prompt).toMatch(/Dutch/);
     // The letter's paragraphs go along; its sender's contact details never do.
     expect(prompt).toContain("Payments are where trust is won.");
-    expect(prompt).not.toContain("lena@example.com");
+    expect(prompt).not.toContain("jane@example.com");
   });
 
   it("writes over the email it had, keeping a recipient typed in, and returns the old one for Undo", async () => {
     const typed = [
-      { id: "to", label: "Recipient", text: "jobs@ledgerly.eu" },
+      { id: "to", label: "Recipient", text: "jobs@example.com" },
       { id: "subject", label: "Subject", text: "Old subject" },
       { id: "body", label: "Message", text: "Old message" },
     ];
@@ -87,7 +87,7 @@ describe("writeEmailJob", () => {
 
     expect(result.previous).toEqual(typed);
     const document = await prisma().document.findUniqueOrThrow({ where, include: { versions: true } });
-    expect(document.units).toMatchObject([{ id: "to", text: "jobs@ledgerly.eu" }, { id: "subject", text: "Application: Senior Product Designer" }, { id: "body" }]);
+    expect(document.units).toMatchObject([{ id: "to", text: "jobs@example.com" }, { id: "subject", text: "Application: Senior Product Designer" }, { id: "body" }]);
     expect(result.units).toEqual(document.units);
     expect(document.versions.map((version) => version.cause)).toEqual(["WRITTEN"]);
   });

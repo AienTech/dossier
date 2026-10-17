@@ -162,7 +162,7 @@ describe("tailorResume", () => {
     const provider = model(answer);
     await tailorResume(provider, { profile, extracted, match: null, note: "Mention my interest in fintech.", posting }, options);
     const text = prompt(provider);
-    for (const secret of ["lena@hartmann.studio", "+31 6 1234 5678", "Westersingel", "1992-04-18", "linkedin.com", "Joris van Dam"]) {
+    for (const secret of ["jane.doe@example.com", "+31 6 1234 5678", "Westersingel", "1992-04-18", "linkedin.com", "John Doe"]) {
       expect(text).not.toContain(secret);
     }
     expect(text).toContain('"skillsUsed"');
@@ -242,7 +242,7 @@ describe("writeCoverLetter", () => {
   });
 
   it("leaves the greeting, sign-off and name to the renderer", () => {
-    const paragraphs = [{ text: "Hi,\nI'm applying for the role." }, { text: "Middle." }, { text: "Thank you for your time.\n\nWarm regards,\nLena Hartmann" }];
+    const paragraphs = [{ text: "Hi,\nI'm applying for the role." }, { text: "Middle." }, { text: "Thank you for your time.\n\nWarm regards,\nJane Doe" }];
     expect(withoutFrame(paragraphs, "Warm regards,").map((paragraph) => paragraph.text)).toEqual([
       "I'm applying for the role.",
       "Middle.",
@@ -262,13 +262,13 @@ describe("writeCoverLetter", () => {
 });
 
 describe("writeEmail", () => {
-  const withContact = `${posting}\n\nQuestions? Send your application to Anna Berg, anna.berg@ledgerly.eu.`;
+  const withContact = `${posting}\n\nQuestions? Send your application to John Doe, john.doe@example.com.`;
   const answer = {
-    contactName: "Anna Berg",
-    contactEmail: "anna.berg@ledgerly.eu",
-    subject: " Application:  Senior Product Designer,\nLena Hartmann ",
-    greeting: "Dear Anna,",
-    paragraphs: ["Dear Anna,\nI'm applying for the Senior Product Designer role.", "  ", "My resume and cover letter are attached.\n\nWarm regards,\nLena"],
+    contactName: "John Doe",
+    contactEmail: "john.doe@example.com",
+    subject: " Application:  Senior Product Designer,\nJane Doe ",
+    greeting: "Dear John,",
+    paragraphs: ["Dear John,\nI'm applying for the Senior Product Designer role.", "  ", "My resume and cover letter are attached.\n\nWarm regards,\nLena"],
     signOff: "Cheers,",
   };
   const input = { profile, extracted, match: null, tone: "FORMAL" as const, note: "", posting: withContact, letter: ["Payments are where trust is won."] };
@@ -278,23 +278,23 @@ describe("writeEmail", () => {
     const { data, promptVersion } = await writeEmail(provider, input, options);
     expect(promptVersion).toBe("write-email@1");
     expect(data).toEqual([
-      { id: "to", label: "Recipient", text: "Anna Berg <anna.berg@ledgerly.eu>" },
-      { id: "subject", label: "Subject", text: "Application: Senior Product Designer, Lena Hartmann" },
+      { id: "to", label: "Recipient", text: "John Doe <john.doe@example.com>" },
+      { id: "subject", label: "Subject", text: "Application: Senior Product Designer, Jane Doe" },
       {
         id: "body",
         label: "Message",
-        text: `Dear Anna,\n\nI'm applying for the Senior Product Designer role.\n\nMy resume and cover letter are attached.\n\nKind regards,\n${profile.basics.name}`,
+        text: `Dear John,\n\nI'm applying for the Senior Product Designer role.\n\nMy resume and cover letter are attached.\n\nKind regards,\n${profile.basics.name}`,
       },
     ]);
     expect(sent(provider).system).toMatch(/Tone: Formal\./);
     // It reads the posting for where to send it, and the letter so it doesn't repeat it.
-    expect(prompt(provider)).toContain("Send your application to Anna Berg");
+    expect(prompt(provider)).toContain("Send your application to John Doe");
     expect(prompt(provider)).toContain("The cover letter it goes with:\nPayments are where trust is won.");
     expect(sent(provider).json?.name).toBe("application_email");
   });
 
   it("never uses an address the posting doesn't have", async () => {
-    const { data } = await writeEmail(model({ ...answer, contactEmail: "jobs@ledgerly.eu" }), input, options);
+    const { data } = await writeEmail(model({ ...answer, contactEmail: "jobs@example.com" }), input, options);
     expect(data[0]).toEqual({ id: "to", label: "Recipient", text: "" });
   });
 
@@ -310,10 +310,10 @@ describe("writeEmail", () => {
   });
 
   it("names the recipient as the posting gives them", () => {
-    expect(recipient(null, "jobs@ledgerly.eu", "Apply at JOBS@ledgerly.eu")).toBe("jobs@ledgerly.eu");
-    expect(recipient("Anna <Berg>", "mailto:anna@ledgerly.eu", "anna@ledgerly.eu")).toBe("Anna Berg <anna@ledgerly.eu>");
-    expect(recipient("Anna Berg", null, "anna@ledgerly.eu")).toBe("");
-    expect(recipient("Anna Berg", "not an address", "not an address")).toBe("");
+    expect(recipient(null, "jobs@example.com", "Apply at JOBS@example.com")).toBe("jobs@example.com");
+    expect(recipient("John <Doe>", "mailto:john@example.com", "john@example.com")).toBe("John Doe <john@example.com>");
+    expect(recipient("John Doe", null, "john@example.com")).toBe("");
+    expect(recipient("John Doe", "not an address", "not an address")).toBe("");
   });
 });
 
@@ -338,10 +338,10 @@ describe("regenerateUnit", () => {
   });
 
   it("tells the model what the email's message is, with the tone", async () => {
-    const unit = { id: "body", label: "Message", text: "Dear Anna,\n\nHello.\n\nWarm regards,\nLena" };
-    const provider = model({ text: "Dear Anna,\n\nHi again." });
+    const unit = { id: "body", label: "Message", text: "Dear John,\n\nHello.\n\nWarm regards,\nLena" };
+    const provider = model({ text: "Dear John,\n\nHi again." });
     const { data } = await regenerateUnit(provider, { kind: "EMAIL", unit, document: [unit], profile, extracted, tone: "DIRECT", note: "", posting }, options);
-    expect(data.text).toBe("Dear Anna,\n\nHi again.");
+    expect(data.text).toBe("Dear John,\n\nHi again.");
     expect(sent(provider).system).toMatch(/one part of a candidate's application email/);
     expect(sent(provider).system).toMatch(/It's the email's whole message/);
     expect(sent(provider).system).toMatch(/Tone: Direct\./);
@@ -411,14 +411,14 @@ describe("refineChat", () => {
 
   it("edits the email, which it sees when there is one", async () => {
     const email = [
-      { id: "to", label: "Recipient", text: "anna@ledgerly.eu" },
+      { id: "to", label: "Recipient", text: "john@example.com" },
       { id: "subject", label: "Subject", text: "Application" },
-      { id: "body", label: "Message", text: "Dear Anna,\n\nHello." },
+      { id: "body", label: "Message", text: "Dear John,\n\nHello." },
     ];
-    const answer = { reply: "Shorter now.", edits: [{ document: "EMAIL", unitId: "body", text: "Dear Anna,\n\nHi." }], tone: null, declined: false };
+    const answer = { reply: "Shorter now.", edits: [{ document: "EMAIL", unitId: "body", text: "Dear John,\n\nHi." }], tone: null, declined: false };
     const provider = model(answer);
     const { data } = await refineChat(provider, { ...input, email, viewing: "EMAIL", request: "Shorter" }, options);
-    expect(data.edits).toEqual([{ document: "EMAIL", unitId: "body", text: "Dear Anna,\n\nHi.", previousText: "Dear Anna,\n\nHello." }]);
+    expect(data.edits).toEqual([{ document: "EMAIL", unitId: "body", text: "Dear John,\n\nHi.", previousText: "Dear John,\n\nHello." }]);
     expect(prompt(provider)).toContain("The email's units:");
     expect(sent(provider).messages.at(-1)).toEqual({ role: "user", content: "(I'm looking at the email.) Shorter" });
 

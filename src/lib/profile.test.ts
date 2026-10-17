@@ -105,7 +105,7 @@ describe("basics", () => {
   it("counts filled fields, ignoring whitespace", () => {
     expect(BASICS_FIELDS).toHaveLength(11);
     expect(filledBasics(empty)).toBe(0);
-    expect(filledBasics({ ...empty, name: "Lena", email: "lena@hartmann.studio", city: "  " })).toBe(2);
+    expect(filledBasics({ ...empty, name: "Jane", email: "jane.doe@example.com", city: "  " })).toBe(2);
   });
 
   it("computes the age from the date of birth", () => {
@@ -146,13 +146,13 @@ describe("profile strength", () => {
 describe("stored basics", () => {
   const basics = {
     ...(Object.fromEntries(BASICS_FIELDS.map((field) => [field, ""])) as Record<(typeof BASICS_FIELDS)[number], string>),
-    name: "Lena Hartmann",
+    name: "Jane Doe",
     dob: "1992-04-18",
     showAge: true,
   };
 
   it("stores filled-in fields as text and marks empty ones for removal", () => {
-    expect(fieldsFromBasics(basics)).toMatchObject({ name: "Lena Hartmann", dob: "1992-04-18", showAge: "true", email: null });
+    expect(fieldsFromBasics(basics)).toMatchObject({ name: "Jane Doe", dob: "1992-04-18", showAge: "true", email: null });
     expect(fieldsFromBasics({ ...basics, showAge: false }).showAge).toBeNull();
   });
 

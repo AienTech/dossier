@@ -34,7 +34,7 @@ export function isEmailAddress(text: string): boolean {
   return new RegExp(`^${ADDRESS.source}$`).test(text);
 }
 
-/** The addresses in a recipient line, e.g. ["anna@ledgerly.eu"] from "Anna Berg <anna@ledgerly.eu>". */
+/** The addresses in a recipient line, e.g. ["john@example.com"] from "John Doe <john@example.com>". */
 export function emailAddresses(text: string): string[] {
   return [...new Set(text.match(ADDRESS) ?? [])];
 }

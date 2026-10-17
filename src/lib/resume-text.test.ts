@@ -5,7 +5,7 @@ import { docxWith, pdfWith } from "@/test/resume-files";
 import { markdownText, MAX_RESUME_CHARACTERS, RESUME_MAX_BYTES, RESUME_MESSAGES, resumeText } from "./resume-text";
 
 const LINES = [
-  "Robin Vermeer",
+  "John Doe",
   "Senior Product Designer - Utrecht",
   "Experience",
   "Design Lead, Acme Payments, 2021 - present",
@@ -17,7 +17,7 @@ describe("resumeText (E4-10)", () => {
     const result = await resumeText(pdfWith(LINES));
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.text).toContain("Robin Vermeer");
+      expect(result.text).toContain("John Doe");
       expect(result.text).toContain("Led the redesign of the payout flow");
     }
   });
@@ -30,7 +30,7 @@ describe("resumeText (E4-10)", () => {
   it("reads Markdown as plain text", async () => {
     const markdown = [
       "---",
-      "# Robin Vermeer",
+      "# John Doe",
       "**Senior Product Designer** · Utrecht · [robin@example.com](mailto:robin@example.com) · <https://robin.design>",
       "<!-- last updated in May -->",
       "",
@@ -45,12 +45,12 @@ describe("resumeText (E4-10)", () => {
       "| Figma | Expert |",
       "",
       "![Portrait](data:image/png;base64,iVBORw0KGgo=)",
-      "Handle: robin_vermeer_design, 100\\% remote",
+      "Handle: john_doe_design, 100\\% remote",
     ].join("\n");
     expect(await resumeText(new TextEncoder().encode(markdown))).toEqual({
       ok: true,
       text: [
-        "Robin Vermeer",
+        "John Doe",
         "Senior Product Designer · Utrecht · robin@example.com · https://robin.design",
         "",
         "Experience",
@@ -62,13 +62,13 @@ describe("resumeText (E4-10)", () => {
         "| Skill | Level |",
         "| Figma | Expert |",
         "",
-        "Handle: robin_vermeer_design, 100% remote",
+        "Handle: john_doe_design, 100% remote",
       ].join("\n"),
     });
   });
 
   it("reads plain text as it is, with or without a byte order mark", async () => {
-    const text = ["Robin Vermeer", "Senior Product Designer, Utrecht", "Design Lead at Acme Payments since 2021, leading the payout flow redesign"].join("\n");
+    const text = ["John Doe", "Senior Product Designer, Utrecht", "Design Lead at Acme Payments since 2021, leading the payout flow redesign"].join("\n");
     const bytes = new TextEncoder().encode(String.fromCharCode(0xfeff) + text);
     expect(await resumeText(bytes)).toEqual({ ok: true, text });
     expect(markdownText("2 * 3 * 4 and snake_case_name")).toBe("2 * 3 * 4 and snake_case_name");
@@ -77,11 +77,11 @@ describe("resumeText (E4-10)", () => {
   it("refuses other files, broken ones, scans and very large ones", async () => {
     expect(await resumeText(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]))).toEqual({ ok: false, error: RESUME_MESSAGES.wrongType });
     expect(await resumeText(new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]))).toEqual({ ok: false, error: RESUME_MESSAGES.wrongType });
-    expect(await resumeText(new TextEncoder().encode("{\\rtf1\\ansi Robin Vermeer, Senior Product Designer, a resume long enough to read if it weren't RTF"))).toEqual({
+    expect(await resumeText(new TextEncoder().encode("{\\rtf1\\ansi John Doe, Senior Product Designer, a resume long enough to read if it weren't RTF"))).toEqual({
       ok: false,
       error: RESUME_MESSAGES.wrongType,
     });
-    expect(await resumeText(new TextEncoder().encode("# Robin Vermeer"))).toEqual({ ok: false, error: RESUME_MESSAGES.tooShort });
+    expect(await resumeText(new TextEncoder().encode("# John Doe"))).toEqual({ ok: false, error: RESUME_MESSAGES.tooShort });
     expect(await resumeText(new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]))).toEqual({ ok: false, error: RESUME_MESSAGES.unreadable });
     expect(await resumeText(pdfWith(["Page 1"]))).toEqual({ ok: false, error: RESUME_MESSAGES.noText });
     expect(await resumeText(new Uint8Array(RESUME_MAX_BYTES + 1))).toEqual({ ok: false, error: RESUME_MESSAGES.tooBig });

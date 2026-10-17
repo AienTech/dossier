@@ -12,7 +12,7 @@ import { advance, type StatusFields } from "@/lib/status";
 
 import sample from "./prototype-sample.json";
 
-// The prototype's sample data (Lena Hartmann and her applications), for
+// The prototype's sample data (Jane Doe and her applications), for
 // development and demos. It's only loaded with `prisma db seed -- --demo`.
 
 const DAY = 86_400_000;

@@ -25,7 +25,7 @@ It's for one person on a small server: one password, your data in your own Postg
 
 ![Dossier in use: the dashboard, dragging a card on the board, a new application from a pasted posting, refining the tailored resume in the chat, the cover letter, and switching resume themes](.github/images/demo.gif)
 
-<sub>Recorded with the demo data (Lena Hartmann is made up) and a stand-in AI server that answers at once, played at 1.2× speed. With a real model, reading a posting and writing the documents takes from a few seconds to a few minutes.</sub>
+<sub>Recorded with the demo data (Jane Doe is made up) and a stand-in AI server that answers at once, played at 1.2× speed. With a real model, reading a posting and writing the documents takes from a few seconds to a few minutes.</sub>
 
 ## Features
 
@@ -58,7 +58,7 @@ It's for one person on a small server: one password, your data in your own Postg
   </tr>
 </table>
 
-<sub>The screenshots show the demo data: Lena Hartmann is made up.</sub>
+<sub>The screenshots show the demo data: Jane Doe is made up.</sub>
 
 ## Self-hosting
 
@@ -282,7 +282,7 @@ From 1.4, Dossier sends a usage ping (see [Privacy](#privacy)). If you'd rather 
 
 - Everything you enter stays in your PostgreSQL database and data directory.
 - With a **local model**, nothing leaves your server. With a **hosted provider**, Dossier sends it what the task needs: the job posting, your profile without contact details (no email, phone, address, date of birth or links), what you add when you create an application, and, when you refine, the drafts and your chat messages, though never a letter's sender or signature. Importing a resume sends its text, contact details included; the import page says so first. The notes you keep on an application are never sent.
-- **Usage ping:** on each day you use Dossier, your server sends `telemetry.dossier.aien.me` a random install ID and the version number, once, so the project knows how many installs are in use and how often. The ID is made at random and kept in your database. It isn't derived from anything about you or your server, and exports leave it out. Nothing else is sent: no profile, documents, applications, settings, server address or time of day. The receiver, a Cloudflare Worker, keeps the ID, the day and the version, and deletes them after a year. It doesn't keep the address the ping came from, though Cloudflare sees it on the way, as with any request. Set `DOSSIER_TELEMETRY=off` to stop it. Settings → About shows whether it's on and the ID it sends.
+- **Usage ping:** on each day you use Dossier, your server sends `telemetry.dossier.aien.me` a random install ID and the version number, once, so the project knows how many installs are in use and how often. The ID is made at random and kept in your database. It isn't derived from anything about you or your server, and exports leave it out. Nothing else is sent: no profile, documents, applications, settings, server address or time of day. The receiver, a Cloudflare Worker, keeps the ID, the day and the version, and deletes them after a year. It doesn't keep the address the ping came from, though Cloudflare sees it on the way, as with any request. Set `DOSSIER_TELEMETRY=off` to stop it. Settings → About shows whether it's on and the ID it sends. To have your install's rows removed, send that ID to `dossier.app@pm.me`: everything kept under it is deleted, and you get a confirmation. Set `DOSSIER_TELEMETRY=off` first, so nothing new arrives afterwards.
 - No other tracking or analytics: Dossier loads nothing from other sites (its Content-Security-Policy forbids it, and the ping comes from your server, not your browser), and Next.js telemetry is off in the image.
 - **Check for updates** in Settings → About asks GitHub for the latest release, only when you press it, and sends nothing about you or your install.
 - **Fetch** on a new application asks the job site for the posting's page from your server, only when you press it. It never requests addresses on your own network.

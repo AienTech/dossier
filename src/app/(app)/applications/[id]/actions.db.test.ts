@@ -140,12 +140,12 @@ describe("saveUnit (E8-3)", () => {
     await prisma().document.create({ data: { applicationId: "app-1", kind: "COVER_LETTER", units: letter } });
     const greeting = { id: "app-1", document: "COVER_LETTER" as const, unitId: "greeting", expected: "Dear Ledgerly team,", text: " Sehr geehrtes Ledgerly-Team, " };
     expect(await saveUnit(greeting)).toEqual({ ok: true, data: { text: "Sehr geehrtes Ledgerly-Team," } });
-    expect(await saveUnit({ ...greeting, unitId: "signature", expected: "Your name", text: "Lena Hartmann" })).toMatchObject({ ok: true });
+    expect(await saveUnit({ ...greeting, unitId: "signature", expected: "Your name", text: "Jane Doe" })).toMatchObject({ ok: true });
     const stored = await prisma().document.findUniqueOrThrow({ where: { applicationId_kind: { applicationId: "app-1", kind: "COVER_LETTER" } } });
     expect(stored.units).toEqual([
       { id: "greeting", label: "Greeting", text: "Sehr geehrtes Ledgerly-Team," },
       ...letter,
-      { id: "signature", label: "Signature", text: "Lena Hartmann" },
+      { id: "signature", label: "Signature", text: "Jane Doe" },
     ]);
     // Only the letter's frame: anything else that's missing is gone.
     expect(await saveUnit({ ...greeting, unitId: "paragraph:9" })).toMatchObject({ ok: false, error: expect.stringMatching(/no longer exists/) });
@@ -195,7 +195,7 @@ describe("startRegenerating (E8-4)", () => {
   });
 
   it("leaves the email's recipient to editing", async () => {
-    await prisma().document.create({ data: { applicationId: "app-1", kind: "EMAIL", units: [{ id: "to", label: "Recipient", text: "anna@ledgerly.eu" }] } });
+    await prisma().document.create({ data: { applicationId: "app-1", kind: "EMAIL", units: [{ id: "to", label: "Recipient", text: "john@example.com" }] } });
     expect(await startRegenerating({ id: "app-1", document: "EMAIL", unitId: "to" })).toEqual({ ok: false, error: "This part isn't written by the AI. Edit it instead." });
   });
 });
@@ -341,13 +341,13 @@ describe("notes (E8-9)", () => {
   const notes = () => prisma().note.findMany({ where: { applicationId: "app-1" } });
 
   it("adds, edits and deletes a note, and Undo brings it back with its dates", async () => {
-    expect(await addNote({ id: "app-1", body: "  Called Sarah.  " })).toEqual({ ok: true, data: null });
+    expect(await addNote({ id: "app-1", body: "  Called John.  " })).toEqual({ ok: true, data: null });
     const [note] = await notes();
-    expect(note.body).toBe("Called Sarah.");
+    expect(note.body).toBe("Called John.");
 
-    expect(await updateNote({ id: "app-1", noteId: note.id, body: "Called Sarah; second round next week." })).toEqual({ ok: true, data: null });
+    expect(await updateNote({ id: "app-1", noteId: note.id, body: "Called John; second round next week." })).toEqual({ ok: true, data: null });
     const [edited] = await notes();
-    expect(edited.body).toBe("Called Sarah; second round next week.");
+    expect(edited.body).toBe("Called John; second round next week.");
     expect(edited.updatedAt.getTime()).toBeGreaterThan(note.updatedAt.getTime());
 
     const deleted = await deleteNote({ id: "app-1", noteId: note.id });
@@ -467,11 +467,11 @@ describe("versions (E8-10)", () => {
 
 describe("the email", () => {
   const email = [
-    { id: "to", label: "Recipient", text: "anna@ledgerly.eu" },
+    { id: "to", label: "Recipient", text: "john@example.com" },
     { id: "subject", label: "Subject", text: "Application" },
-    { id: "body", label: "Message", text: "Dear Anna,\n\nHello." },
+    { id: "body", label: "Message", text: "Dear John,\n\nHello." },
   ];
-  const rewritten = email.map((unit) => (unit.id === "body" ? { ...unit, text: "Dear Anna,\n\nHi again." } : unit));
+  const rewritten = email.map((unit) => (unit.id === "body" ? { ...unit, text: "Dear John,\n\nHi again." } : unit));
   const saved = async () => (await prisma().document.findUniqueOrThrow({ where: { applicationId_kind: { applicationId: "app-1", kind: "EMAIL" } } })).units;
   const finishedRewrite = (result: object) =>
     prisma().job.create({ data: { type: "write-email", key: "email:app-1", status: "DONE", input: { applicationId: "app-1" }, result } });
@@ -495,7 +495,7 @@ describe("the email", () => {
 
   it("lets the recipient be emptied, but nothing else", async () => {
     await prisma().document.create({ data: { applicationId: "app-1", kind: "EMAIL", units: email } });
-    expect(await saveUnit({ id: "app-1", document: "EMAIL", unitId: "to", text: "  ", expected: "anna@ledgerly.eu" })).toMatchObject({ ok: true });
+    expect(await saveUnit({ id: "app-1", document: "EMAIL", unitId: "to", text: "  ", expected: "john@example.com" })).toMatchObject({ ok: true });
     expect(await saved()).toMatchObject([{ id: "to", text: "" }, { id: "subject" }, { id: "body" }]);
     expect(await saveUnit({ id: "app-1", document: "EMAIL", unitId: "subject", text: "", expected: "Application" })).toMatchObject({ ok: false });
   });

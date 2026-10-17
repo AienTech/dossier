@@ -101,10 +101,10 @@ describe("publicAction", () => {
       toast(`Welcome back, ${name}.`);
       return { name };
     });
-    await expect(signIn({ name: "Lena" })).resolves.toEqual({
+    await expect(signIn({ name: "Jane" })).resolves.toEqual({
       ok: true,
-      data: { name: "Lena" },
-      toast: "Welcome back, Lena.",
+      data: { name: "Jane" },
+      toast: "Welcome back, Jane.",
     });
     await expect(signIn({ name: "" })).resolves.toMatchObject({ ok: false, error: messages.invalidInput });
     expect(getSession).not.toHaveBeenCalled();

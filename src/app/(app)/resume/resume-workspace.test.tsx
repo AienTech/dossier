@@ -51,7 +51,7 @@ describe("ResumeWorkspace", () => {
     expect(screen.getByRole("link", { name: "Download PDF" })).toHaveAttribute("href", "/api/pdf?doc=base");
     expect(previewLabel()).toBe("Modern");
     expect(screen.getByText("A4 · 1 page")).toBeInTheDocument();
-    expect(screen.getByRole("article", { name: "Resume" })).toHaveTextContent("Lena Hartmann");
+    expect(screen.getByRole("article", { name: "Resume" })).toHaveTextContent("Jane Doe");
   });
 
   it("points to the profile while it's empty, and only then (E11-4)", () => {

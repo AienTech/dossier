@@ -13,7 +13,7 @@ exports[`ResumeDocument > renders the demo profile in Atlas 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -26,7 +26,7 @@ exports[`ResumeDocument > renders the demo profile in Atlas 1`] = `
       <bdi
         dir="ltr"
       >
-        lena@hartmann.studio
+        jane.doe@example.com
       </bdi>
         ·  
       <bdi
@@ -44,13 +44,13 @@ exports[`ResumeDocument > renders the demo profile in Atlas 1`] = `
       <bdi
         dir="ltr"
       >
-        hartmann.studio
+        example.com
       </bdi>
         ·  
       <bdi
         dir="ltr"
       >
-        linkedin.com/in/lenahartmann
+        linkedin.com/in/janedoe-example
       </bdi>
     </p>
   </header>
@@ -325,7 +325,7 @@ exports[`ResumeDocument > renders the demo profile in Chronicle 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -338,7 +338,7 @@ exports[`ResumeDocument > renders the demo profile in Chronicle 1`] = `
       <bdi
         dir="ltr"
       >
-        lena@hartmann.studio
+        jane.doe@example.com
       </bdi>
         ·  
       <bdi
@@ -356,13 +356,13 @@ exports[`ResumeDocument > renders the demo profile in Chronicle 1`] = `
       <bdi
         dir="ltr"
       >
-        hartmann.studio
+        example.com
       </bdi>
         ·  
       <bdi
         dir="ltr"
       >
-        linkedin.com/in/lenahartmann
+        linkedin.com/in/janedoe-example
       </bdi>
     </p>
   </header>
@@ -637,7 +637,7 @@ exports[`ResumeDocument > renders the demo profile in Classic 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -650,7 +650,7 @@ exports[`ResumeDocument > renders the demo profile in Classic 1`] = `
       <bdi
         dir="ltr"
       >
-        lena@hartmann.studio
+        jane.doe@example.com
       </bdi>
         ·  
       <bdi
@@ -668,13 +668,13 @@ exports[`ResumeDocument > renders the demo profile in Classic 1`] = `
       <bdi
         dir="ltr"
       >
-        hartmann.studio
+        example.com
       </bdi>
         ·  
       <bdi
         dir="ltr"
       >
-        linkedin.com/in/lenahartmann
+        linkedin.com/in/janedoe-example
       </bdi>
     </p>
   </header>
@@ -949,7 +949,7 @@ exports[`ResumeDocument > renders the demo profile in Console 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -978,7 +978,7 @@ exports[`ResumeDocument > renders the demo profile in Console 1`] = `
             <bdi
               dir="ltr"
             >
-              lena@hartmann.studio
+              jane.doe@example.com
             </bdi>
           </li>
           <li>
@@ -999,14 +999,14 @@ exports[`ResumeDocument > renders the demo profile in Console 1`] = `
             <bdi
               dir="ltr"
             >
-              hartmann.studio
+              example.com
             </bdi>
           </li>
           <li>
             <bdi
               dir="ltr"
             >
-              linkedin.com/in/lenahartmann
+              linkedin.com/in/janedoe-example
             </bdi>
           </li>
         </ul>
@@ -1276,7 +1276,7 @@ exports[`ResumeDocument > renders the demo profile in Editorial 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -1289,7 +1289,7 @@ exports[`ResumeDocument > renders the demo profile in Editorial 1`] = `
       <bdi
         dir="ltr"
       >
-        lena@hartmann.studio
+        jane.doe@example.com
       </bdi>
         ·  
       <bdi
@@ -1307,13 +1307,13 @@ exports[`ResumeDocument > renders the demo profile in Editorial 1`] = `
       <bdi
         dir="ltr"
       >
-        hartmann.studio
+        example.com
       </bdi>
         ·  
       <bdi
         dir="ltr"
       >
-        linkedin.com/in/lenahartmann
+        linkedin.com/in/janedoe-example
       </bdi>
     </p>
   </header>
@@ -1588,7 +1588,7 @@ exports[`ResumeDocument > renders the demo profile in Folio 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -1601,7 +1601,7 @@ exports[`ResumeDocument > renders the demo profile in Folio 1`] = `
       <bdi
         dir="ltr"
       >
-        lena@hartmann.studio
+        jane.doe@example.com
       </bdi>
         ·  
       <bdi
@@ -1619,13 +1619,13 @@ exports[`ResumeDocument > renders the demo profile in Folio 1`] = `
       <bdi
         dir="ltr"
       >
-        hartmann.studio
+        example.com
       </bdi>
         ·  
       <bdi
         dir="ltr"
       >
-        linkedin.com/in/lenahartmann
+        linkedin.com/in/janedoe-example
       </bdi>
     </p>
   </header>
@@ -1900,7 +1900,7 @@ exports[`ResumeDocument > renders the demo profile in Ledger 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -1929,7 +1929,7 @@ exports[`ResumeDocument > renders the demo profile in Ledger 1`] = `
             <bdi
               dir="ltr"
             >
-              lena@hartmann.studio
+              jane.doe@example.com
             </bdi>
           </li>
           <li>
@@ -1950,14 +1950,14 @@ exports[`ResumeDocument > renders the demo profile in Ledger 1`] = `
             <bdi
               dir="ltr"
             >
-              hartmann.studio
+              example.com
             </bdi>
           </li>
           <li>
             <bdi
               dir="ltr"
             >
-              linkedin.com/in/lenahartmann
+              linkedin.com/in/janedoe-example
             </bdi>
           </li>
         </ul>
@@ -2227,7 +2227,7 @@ exports[`ResumeDocument > renders the demo profile in Minimal 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -2240,7 +2240,7 @@ exports[`ResumeDocument > renders the demo profile in Minimal 1`] = `
       <bdi
         dir="ltr"
       >
-        lena@hartmann.studio
+        jane.doe@example.com
       </bdi>
         ·  
       <bdi
@@ -2258,13 +2258,13 @@ exports[`ResumeDocument > renders the demo profile in Minimal 1`] = `
       <bdi
         dir="ltr"
       >
-        hartmann.studio
+        example.com
       </bdi>
         ·  
       <bdi
         dir="ltr"
       >
-        linkedin.com/in/lenahartmann
+        linkedin.com/in/janedoe-example
       </bdi>
     </p>
   </header>
@@ -2539,7 +2539,7 @@ exports[`ResumeDocument > renders the demo profile in Modern 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -2568,7 +2568,7 @@ exports[`ResumeDocument > renders the demo profile in Modern 1`] = `
             <bdi
               dir="ltr"
             >
-              lena@hartmann.studio
+              jane.doe@example.com
             </bdi>
           </li>
           <li>
@@ -2589,14 +2589,14 @@ exports[`ResumeDocument > renders the demo profile in Modern 1`] = `
             <bdi
               dir="ltr"
             >
-              hartmann.studio
+              example.com
             </bdi>
           </li>
           <li>
             <bdi
               dir="ltr"
             >
-              linkedin.com/in/lenahartmann
+              linkedin.com/in/janedoe-example
             </bdi>
           </li>
         </ul>
@@ -2866,7 +2866,7 @@ exports[`ResumeDocument > renders the demo profile in Signal 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -2879,7 +2879,7 @@ exports[`ResumeDocument > renders the demo profile in Signal 1`] = `
       <bdi
         dir="ltr"
       >
-        lena@hartmann.studio
+        jane.doe@example.com
       </bdi>
         ·  
       <bdi
@@ -2897,13 +2897,13 @@ exports[`ResumeDocument > renders the demo profile in Signal 1`] = `
       <bdi
         dir="ltr"
       >
-        hartmann.studio
+        example.com
       </bdi>
         ·  
       <bdi
         dir="ltr"
       >
-        linkedin.com/in/lenahartmann
+        linkedin.com/in/janedoe-example
       </bdi>
     </p>
   </header>
@@ -3178,7 +3178,7 @@ exports[`ResumeDocument > renders the demo profile in Studio 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -3422,7 +3422,7 @@ exports[`ResumeDocument > renders the demo profile in Studio 1`] = `
             <bdi
               dir="ltr"
             >
-              lena@hartmann.studio
+              jane.doe@example.com
             </bdi>
           </li>
           <li>
@@ -3443,14 +3443,14 @@ exports[`ResumeDocument > renders the demo profile in Studio 1`] = `
             <bdi
               dir="ltr"
             >
-              hartmann.studio
+              example.com
             </bdi>
           </li>
           <li>
             <bdi
               dir="ltr"
             >
-              linkedin.com/in/lenahartmann
+              linkedin.com/in/janedoe-example
             </bdi>
           </li>
         </ul>
@@ -3505,7 +3505,7 @@ exports[`ResumeDocument > renders the demo profile in Technical 1`] = `
     <h1
       class="_name_fa1ef7"
     >
-      Lena Hartmann
+      Jane Doe
     </h1>
     <p
       class="_headline_fa1ef7"
@@ -3534,7 +3534,7 @@ exports[`ResumeDocument > renders the demo profile in Technical 1`] = `
             <bdi
               dir="ltr"
             >
-              lena@hartmann.studio
+              jane.doe@example.com
             </bdi>
           </li>
           <li>
@@ -3555,14 +3555,14 @@ exports[`ResumeDocument > renders the demo profile in Technical 1`] = `
             <bdi
               dir="ltr"
             >
-              hartmann.studio
+              example.com
             </bdi>
           </li>
           <li>
             <bdi
               dir="ltr"
             >
-              linkedin.com/in/lenahartmann
+              linkedin.com/in/janedoe-example
             </bdi>
           </li>
         </ul>

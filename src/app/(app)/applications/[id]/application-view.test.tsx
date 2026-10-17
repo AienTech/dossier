@@ -41,7 +41,7 @@ vi.mock("./actions", () => ({
   addMatchSkill: vi.fn(async () => ({ ok: true, data: { name: "Kubernetes" } })),
   addNote: vi.fn(async () => ({ ok: true, data: null })),
   updateNote: vi.fn(async () => ({ ok: true, data: null })),
-  deleteNote: vi.fn(async () => ({ ok: true, data: { body: "Called Sarah.", createdAt: "2026-10-03T13:00:00.000Z", updatedAt: "2026-10-03T13:00:00.000Z" } })),
+  deleteNote: vi.fn(async () => ({ ok: true, data: { body: "Called John.", createdAt: "2026-10-03T13:00:00.000Z", updatedAt: "2026-10-03T13:00:00.000Z" } })),
   restoreNote: vi.fn(async () => ({ ok: true, data: null })),
   putBackTrimmed: vi.fn(async () => ({ ok: true, data: null })),
   listVersions: vi.fn(async () => ({ ok: true, data: [] })),
@@ -102,7 +102,7 @@ const props: ApplicationViewProps = {
   letter: { units: demoLetterUnits(), theme: theme("editorial") },
   email: null,
   writingEmail: null,
-  attachments: { resume: "Lena Hartmann – Ledgerly – Resume.pdf", letter: "Lena Hartmann – Ledgerly – Cover letter.pdf" },
+  attachments: { resume: "Jane Doe – Ledgerly – Resume.pdf", letter: "Jane Doe – Ledgerly – Cover letter.pdf" },
   profile: demoProfile(),
   paper: "A4",
   dateFormat: "DAY_MONTH_YEAR",
@@ -644,7 +644,7 @@ describe("downloading PDFs (E8-8)", () => {
 
 describe("notes and activity (E8-9)", () => {
   const activity = [
-    { kind: "note" as const, id: "n1", body: "Called Sarah.\nSecond round next week.", date: "3 Oct", edited: false },
+    { kind: "note" as const, id: "n1", body: "Called John.\nSecond round next week.", date: "3 Oct", edited: false },
     { kind: "status" as const, id: "e2", status: "INTERVIEW" as const, date: "3 Oct" },
     { kind: "note" as const, id: "n2", body: "Sent a thank-you.", date: "1 Oct", edited: true },
     { kind: "status" as const, id: "e1", status: "SENT" as const, date: "1 Oct" },
@@ -670,7 +670,7 @@ describe("notes and activity (E8-9)", () => {
     open();
     const items = within(timeline()).getAllByRole("listitem");
     expect(items.map((item) => item.textContent)).toEqual([
-      "Called Sarah.\nSecond round next week.3 OctEditDelete",
+      "Called John.\nSecond round next week.3 OctEditDelete",
       "Moved to Interview3 Oct",
       "Sent a thank-you.1 Oct · editedEditDelete",
       "Moved to Sent1 Oct",
@@ -707,7 +707,7 @@ describe("notes and activity (E8-9)", () => {
     await act(async () => vi.mocked(toast).mock.lastCall?.[1]?.action?.onClick());
     expect(restoreNote).toHaveBeenCalledWith({
       id: "app-1",
-      body: "Called Sarah.",
+      body: "Called John.",
       createdAt: "2026-10-03T13:00:00.000Z",
       updatedAt: "2026-10-03T13:00:00.000Z",
     });
@@ -792,9 +792,9 @@ describe("version history (E8-10)", () => {
 
 describe("the Email tab", () => {
   const email = [
-    { id: "to", label: "Recipient", text: "Anna Berg <anna@ledgerly.eu>" },
-    { id: "subject", label: "Subject", text: "Application: Senior Product Designer, Lena Hartmann" },
-    { id: "body", label: "Message", text: "Dear Anna,\n\nI'd love to bring calm to Ledgerly's payments.\n\nWarm regards,\nLena Hartmann" },
+    { id: "to", label: "Recipient", text: "John Doe <john@example.com>" },
+    { id: "subject", label: "Subject", text: "Application: Senior Product Designer, Jane Doe" },
+    { id: "body", label: "Message", text: "Dear John,\n\nI'd love to bring calm to Ledgerly's payments.\n\nWarm regards,\nJane Doe" },
   ];
   const toastAction = () => vi.mocked(toast).mock.lastCall?.[1]?.action;
   const panel = () => screen.getByRole("complementary", { name: "Refine with AI" });
@@ -812,8 +812,8 @@ describe("the Email tab", () => {
     expect(toast).not.toHaveBeenCalled();
     rerender(<ApplicationView {...props} initialTab="email" email={email} />);
     const article = screen.getByRole("article", { name: "Email" });
-    expect(within(article).getByRole("group", { name: "Recipient" })).toHaveTextContent("Anna Berg <anna@ledgerly.eu>");
-    expect(within(article).getByRole("group", { name: "Subject" })).toHaveTextContent("Application: Senior Product Designer, Lena Hartmann");
+    expect(within(article).getByRole("group", { name: "Recipient" })).toHaveTextContent("John Doe <john@example.com>");
+    expect(within(article).getByRole("group", { name: "Subject" })).toHaveTextContent("Application: Senior Product Designer, Jane Doe");
     expect(within(article).getByRole("group", { name: "Message" })).toHaveTextContent("I'd love to bring calm to Ledgerly's payments.");
   });
 
@@ -836,25 +836,25 @@ describe("the Email tab", () => {
     const user = userEvent.setup();
     render(<ApplicationView {...props} initialTab="email" email={email} />);
     await user.click(screen.getByRole("button", { name: "Copy the recipient" }));
-    expect(copyText).toHaveBeenLastCalledWith("Anna Berg <anna@ledgerly.eu>");
+    expect(copyText).toHaveBeenLastCalledWith("John Doe <john@example.com>");
     await user.click(screen.getByRole("button", { name: "Copy the subject" }));
-    expect(copyText).toHaveBeenLastCalledWith("Application: Senior Product Designer, Lena Hartmann");
+    expect(copyText).toHaveBeenLastCalledWith("Application: Senior Product Designer, Jane Doe");
     expect(toast).toHaveBeenLastCalledWith("Copied the subject.");
     await user.click(screen.getByRole("button", { name: "Copy message" }));
     expect(copyText).toHaveBeenLastCalledWith(email[2].text);
 
     const mailto = screen.getByRole("link", { name: "Open in mail app" }).getAttribute("href")!;
-    expect(mailto).toMatch(/^mailto:anna@ledgerly\.eu\?subject=Application%3A%20Senior/);
-    expect(mailto).toContain("body=Dear%20Anna%2C%0D%0A%0D%0AI'd%20love");
+    expect(mailto).toMatch(/^mailto:john@example\.com\?subject=Application%3A%20Senior/);
+    expect(mailto).toContain("body=Dear%20John%2C%0D%0A%0D%0AI'd%20love");
   });
 
   it("lists the resume and cover letter to attach, each with its download", () => {
     render(<ApplicationView {...props} initialTab="email" email={email} />);
-    expect(screen.getByRole("link", { name: "Download Lena Hartmann – Ledgerly – Resume.pdf" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Download Jane Doe – Ledgerly – Resume.pdf" })).toHaveAttribute(
       "href",
       "/api/pdf?doc=resume&application=app-1",
     );
-    expect(screen.getByRole("link", { name: "Download Lena Hartmann – Ledgerly – Cover letter.pdf" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Download Jane Doe – Ledgerly – Cover letter.pdf" })).toHaveAttribute(
       "href",
       "/api/pdf?doc=letter&application=app-1",
     );

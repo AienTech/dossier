@@ -167,8 +167,8 @@ describe("createApplication", () => {
     const units = letter.units as { id: string; text: string }[];
     expect(units.map((unit) => unit.id)).toEqual(["sender", "date", "recipient", "greeting", "paragraph:1", "paragraph:2", "paragraph:3", "paragraph:4", "sign-off", "signature"]);
     const text = (id: string) => units.find((unit) => unit.id === id)?.text;
-    expect(text("sender")).toMatch(/^Lena Hartmann\n.*lena@hartmann\.studio/);
-    expect(text("signature")).toBe("Lena Hartmann");
+    expect(text("sender")).toMatch(/^Jane Doe\n.*jane\.doe@example\.com/);
+    expect(text("signature")).toBe("Jane Doe");
     expect(text("date")).toBe(new Intl.DateTimeFormat("de", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(calendarDay()));
     // This job's letter came without a recipient or greeting, so the English ones stand in.
     expect(text("greeting")).toBe("Dear Ledgerly B.V. team,");

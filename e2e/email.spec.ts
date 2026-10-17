@@ -10,7 +10,7 @@ test.beforeAll(async () => {
   const [ledgerly] = await sql<{ id: string }>(`SELECT id FROM "Application" WHERE company = 'Ledgerly' LIMIT 1`);
   await sql(`UPDATE "Application" SET "postingText" = "postingText" || $2 WHERE id = $1`, [
     ledgerly.id,
-    "\n\nSend your application to Sanne de Vries, careers@ledgerly.eu.",
+    "\n\nSend your application to John Doe, careers@example.com.",
   ]);
   url = `/applications/${ledgerly.id}?tab=email`;
 });
@@ -21,24 +21,24 @@ test("writes the email, ready to copy, with the PDFs to attach", async ({ page, 
   await page.getByRole("button", { name: "Write the email" }).click();
 
   const email = page.getByRole("article", { name: "Email" });
-  await expect(email.getByRole("group", { name: "Recipient" })).toContainText("Sanne de Vries <careers@ledgerly.eu>");
+  await expect(email.getByRole("group", { name: "Recipient" })).toContainText("John Doe <careers@example.com>");
   await expect(email.getByRole("group", { name: "Subject" })).toContainText("Application: Senior Product Designer, Payments");
-  await expect(email.getByRole("group", { name: "Message" })).toContainText(/^Dear Sanne,\s+I'm applying/);
-  await expect(email.getByRole("group", { name: "Message" })).toContainText(/Warm regards,\s+Lena Hartmann/);
+  await expect(email.getByRole("group", { name: "Message" })).toContainText(/^Dear John,\s+I'm applying/);
+  await expect(email.getByRole("group", { name: "Message" })).toContainText(/Warm regards,\s+Jane Doe/);
 
   await page.getByRole("button", { name: "Copy the subject" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("Application: Senior Product Designer, Payments");
   await page.getByRole("button", { name: "Copy message" }).click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^Dear Sanne,\n\nI'm applying[^]*Warm regards,\nLena Hartmann$/);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^Dear John,\n\nI'm applying[^]*Warm regards,\nJane Doe$/);
   await expect(page.getByRole("link", { name: "Open in mail app" })).toHaveAttribute(
     "href",
-    /^mailto:careers@ledgerly\.eu\?subject=Application%3A%20Senior%20Product%20Designer%2C%20Payments&body=Dear%20Sanne%2C%0D%0A/,
+    /^mailto:careers@example\.com\?subject=Application%3A%20Senior%20Product%20Designer%2C%20Payments&body=Dear%20John%2C%0D%0A/,
   );
   await expect(email.getByRole("link", { name: /^Download .* Resume\.pdf$/ })).toBeVisible();
   await expect(email.getByRole("link", { name: /^Download .* Cover letter\.pdf$/ })).toBeVisible();
 
   await page.reload();
-  await expect(email.getByRole("group", { name: "Recipient" })).toContainText("Sanne de Vries <careers@ledgerly.eu>");
+  await expect(email.getByRole("group", { name: "Recipient" })).toContainText("John Doe <careers@example.com>");
 });
 
 test("rewrites the email, and Undo brings the first one back", async ({ page }) => {
@@ -56,9 +56,9 @@ test("edits the subject by hand", async ({ page }) => {
   const subject = page.getByRole("group", { name: "Subject" });
   await subject.hover();
   await subject.getByRole("button", { name: "Edit" }).click();
-  await page.getByRole("textbox", { name: "Edit Subject" }).fill("Senior Product Designer, Payments: Lena Hartmann");
+  await page.getByRole("textbox", { name: "Edit Subject" }).fill("Senior Product Designer, Payments: Jane Doe");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(subject).toContainText("Senior Product Designer, Payments: Lena Hartmann");
+  await expect(subject).toContainText("Senior Product Designer, Payments: Jane Doe");
 });
 
 test("changes the email from the chat, and puts it back with Undo", async ({ page }) => {

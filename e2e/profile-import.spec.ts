@@ -10,7 +10,7 @@ import { resetData } from "./support";
 test.beforeEach(resetData);
 
 const RESUME = docxWith([
-  "Robin Vermeer",
+  "John Doe",
   "Design Lead in Utrecht · robin@example.com",
   "Experience",
   "Design Lead, Acme Payments, Utrecht, March 2021 – present",
@@ -38,7 +38,7 @@ test("says which files it takes", async ({ page }) => {
   await file.setInputFiles({ name: "resume.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]) });
   await page.getByRole("button", { name: "Read my resume →" }).click();
   await expect(page.getByText("Choose a PDF, a Word (.docx) or a Markdown (.md) file.")).toBeVisible();
-  await file.setInputFiles({ name: "resume.md", mimeType: "text/markdown", buffer: Buffer.from("# Robin Vermeer") });
+  await file.setInputFiles({ name: "resume.md", mimeType: "text/markdown", buffer: Buffer.from("# John Doe") });
   await page.getByRole("button", { name: "Read my resume →" }).click();
   await expect(page.getByText("There's hardly any text in that file. Choose the one with your whole resume.")).toBeVisible();
 });
@@ -58,7 +58,7 @@ test("reads a resume, shows what it found and merges it into the profile", async
   await expect(page).toHaveURL("/profile");
   await expect(page.getByText(/^Added to your profile: 1 role, 0 degrees, 2 skills, 1 language, 0 references\./)).toBeVisible();
   // What the resume says wins; the demo profile's other roles stay.
-  await expect(page.getByLabel("Full name")).toHaveValue("Robin Vermeer");
+  await expect(page.getByLabel("Full name")).toHaveValue("John Doe");
   await page.goto("/profile?section=experience");
   await expect(page.getByRole("button", { name: /^Design Lead.*Acme Payments/, expanded: false })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Senior Product Designer.*Northwind/, expanded: false })).toBeVisible();
@@ -84,7 +84,7 @@ test("reads a PDF too: Dossier's own base resume", async ({ page }) => {
 
 test("reads Markdown too", async ({ page }) => {
   const markdown = [
-    "# Robin Vermeer",
+    "# John Doe",
     "Design Lead in Utrecht · [robin@example.com](mailto:robin@example.com)",
     "",
     "## Experience",

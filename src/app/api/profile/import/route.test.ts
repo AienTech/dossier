@@ -23,7 +23,7 @@ const post = (body: BodyInit, headers: Record<string, string> = {}) =>
     undefined,
   );
 
-const resume = docxWith(["Robin Vermeer", "Design Lead, Acme Payments, 2021 – present", "Led the redesign of the payout flow for merchants"]);
+const resume = docxWith(["John Doe", "Design Lead, Acme Payments, 2021 – present", "Led the redesign of the payout flow for merchants"]);
 
 beforeEach(() => {
   vi.mocked(getSession).mockResolvedValue({ persistent: false, issuedAt: new Date(), expiresAt: new Date() });
@@ -42,12 +42,12 @@ describe("POST /api/profile/import (E4-10)", () => {
   });
 
   it("reads a Markdown file as plain text", async () => {
-    const markdown = "# Robin Vermeer\n\n## Experience\n\n**Design Lead**, Acme Payments, 2021 – present\n\n* Led the redesign of the payout flow for merchants";
+    const markdown = "# John Doe\n\n## Experience\n\n**Design Lead**, Acme Payments, 2021 – present\n\n* Led the redesign of the payout flow for merchants";
     const response = await post(markdown, { "content-type": "text/markdown" });
     expect(await response.json()).toEqual({ jobId: "job-1" });
     expect(startJob).toHaveBeenCalledWith(
       expect.objectContaining({ type: "import-profile" }),
-      { resume: "Robin Vermeer\n\nExperience\n\nDesign Lead, Acme Payments, 2021 – present\n\n- Led the redesign of the payout flow for merchants" },
+      { resume: "John Doe\n\nExperience\n\nDesign Lead, Acme Payments, 2021 – present\n\n- Led the redesign of the payout flow for merchants" },
       { key: "profile-import" },
     );
   });

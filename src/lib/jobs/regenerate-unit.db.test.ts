@@ -102,7 +102,7 @@ describe("regenerateUnitJob (E8-4)", () => {
 describe("the letter's frame (E8-11)", () => {
   it("writes the greeting again in the letter's language, without the sender's contact details", async () => {
     const letter = [
-      { id: "sender", label: "Sender", text: "Lena Hartmann\nsecret-mail@example.com" },
+      { id: "sender", label: "Sender", text: "Jane Doe\nsecret-mail@example.com" },
       { id: "greeting", label: "Greeting", text: "Dear Ledgerly team," },
       { id: "paragraph:1", label: "Opening", text: "Ik solliciteer graag." },
     ];

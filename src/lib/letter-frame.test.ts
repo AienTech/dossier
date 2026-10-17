@@ -10,11 +10,11 @@ const context = { basics, company: "Ledgerly", location: "Amsterdam", date: new 
 describe("the letter's frame (E8-11)", () => {
   it("draws the frame as letters always had it, in English", () => {
     expect(englishFrame(context)).toEqual({
-      sender: expect.stringMatching(/^Lena Hartmann\n.*lena@hartmann\.studio.* · /),
+      sender: expect.stringMatching(/^Jane Doe\n.*jane\.doe@example\.com.* · /),
       date: "3 October 2026",
       recipient: "Ledgerly · Hiring team\nAmsterdam",
       greeting: "Dear Ledgerly team,",
-      signature: "Lena Hartmann",
+      signature: "Jane Doe",
     });
     expect(englishFrame({ ...context, basics: { ...basics, name: " ", email: "", phone: "", website: "", linkedin: "", city: "", country: "", address: "" }, company: "", location: "" })).toEqual({
       sender: "Your name",
@@ -35,7 +35,7 @@ describe("the letter's frame (E8-11)", () => {
   });
 
   it("frames a new letter with the profile's sender and the date in its language", () => {
-    expect(newFrame({ ...context, lang: "nl" })).toMatchObject({ date: "3 oktober 2026", signature: "Lena Hartmann", greeting: "Dear Ledgerly team," });
+    expect(newFrame({ ...context, lang: "nl" })).toMatchObject({ date: "3 oktober 2026", signature: "Jane Doe", greeting: "Dear Ledgerly team," });
   });
 
   it("puts every part in reading order, keeping the ones a letter has", () => {
@@ -45,7 +45,7 @@ describe("the letter's frame (E8-11)", () => {
     expect(framed.find((unit) => unit.id === "greeting")?.text).toBe("Hallo,");
     expect(framed.find((unit) => unit.id === "date")).toEqual({ id: "date", label: "Date", text: "3 October 2026" });
     // The sign-off comes after the paragraphs, then the signature.
-    expect(withFrame([{ id: "sign-off", label: "Sign-off", text: "Groetjes," }, ...demoLetterUnits()], { signature: "Lena" }).slice(-2).map((unit) => unit.id)).toEqual(["sign-off", "signature"]);
+    expect(withFrame([{ id: "sign-off", label: "Sign-off", text: "Groetjes," }, ...demoLetterUnits()], { signature: "Jane" }).slice(-2).map((unit) => unit.id)).toEqual(["sign-off", "signature"]);
     // Only what's given is added.
     expect(withFrame(demoLetterUnits(), { date: "heute" }).map((unit) => unit.id)).toEqual(["date", "paragraph:1", "paragraph:2", "paragraph:3", "paragraph:4"]);
   });
