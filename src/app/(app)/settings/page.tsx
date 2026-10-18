@@ -13,6 +13,7 @@ import { appVersion } from "@/lib/version";
 import { prisma } from "@/lib/prisma";
 import { loadProfileName } from "@/lib/profile-data";
 import { loadSettings } from "@/lib/settings-data";
+import { availableUpdate } from "@/lib/update-check";
 import { USAGE_PING_HOST, usagePingEnabled } from "@/lib/usage-ping";
 
 import { AiBehaviour } from "./ai-behaviour";
@@ -51,6 +52,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             lastRun: whenRan(await lastNightlyBackup()),
             problem: settings.backupProblem,
           }}
+          jobRetentionHours={settings.jobRetentionHours}
         />
       ) : section === "documents" ? (
         <DocumentsSection
@@ -68,7 +70,11 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
           preview={await filePreview()}
         />
       ) : (
-        <AboutSection facts={await aboutFacts()} usagePingHost={USAGE_PING_HOST} />
+        <AboutSection
+          facts={await aboutFacts()}
+          usagePingHost={USAGE_PING_HOST}
+          updates={{ daily: settings.updateCheck, available: availableUpdate(settings) }}
+        />
       )}
     </SettingsScreen>
   );

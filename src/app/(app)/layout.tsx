@@ -2,7 +2,10 @@ import { after } from "next/server";
 
 import { verifySession } from "@/lib/auth/session";
 import { loadProfileName } from "@/lib/profile-data";
+import { loadSettings } from "@/lib/settings-data";
+import { checkForUpdatesDaily, updateNotice } from "@/lib/update-check";
 import { notePageLoad } from "@/lib/usage-ping";
+import { appVersion } from "@/lib/version";
 
 import { Sidebar } from "./sidebar";
 
@@ -14,10 +17,12 @@ import { Sidebar } from "./sidebar";
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   // Proxy already redirects signed-out visitors; this is the check next to the data.
   await verifySession();
-  // The day's usage ping, if it hasn't gone yet: after the page, so it never slows one down.
+  // The day's usage ping and update check, if they haven't run yet: after the page, so they never slow one down.
   after(notePageLoad);
+  after(checkForUpdatesDaily);
 
-  const userName = (await loadProfileName()).trim() || "New user";
+  const [name, settings] = await Promise.all([loadProfileName(), loadSettings()]);
+  const userName = name.trim() || "New user";
 
   return (
     <div className="flex min-h-screen">
@@ -27,7 +32,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       >
         Skip to content
       </a>
-      <Sidebar userName={userName} />
+      <Sidebar userName={userName} update={updateNotice(settings)} currentVersion={appVersion} />
       <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col focus:outline-none">
         {children}
       </main>

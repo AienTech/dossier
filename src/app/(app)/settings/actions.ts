@@ -23,6 +23,7 @@ import { prisma } from "@/lib/prisma";
 import { applySecretChange, JOB_SOURCE_KEY } from "@/lib/secrets";
 
 import { seedBuiltIns } from "../../../../prisma/seed/built-ins";
+import { isJobRetention } from "@/lib/settings";
 import { loadSettings, saveSettings } from "@/lib/settings-data";
 
 // Settings → AI provider (E6-3). Every field saves on its own, so a test
@@ -174,6 +175,8 @@ export const updateSettings = action(
     includeRefs: z.boolean().optional(),
     onePage: z.boolean().optional(),
     nightlyBackup: z.boolean().optional(),
+    jobRetentionHours: z.number().refine(isJobRetention).optional(),
+    updateCheck: z.boolean().optional(),
   }),
   async (changes) => {
     await saveSettings(changes);
@@ -237,8 +240,9 @@ export const deleteEverything = action(z.object({ confirm: z.literal("DELETE") }
   redirect("/");
 });
 
-/** "Check for updates" (E10-9): the latest release, asked for only now. */
+/** "Check for updates" (E10-9): the latest release, asked for now, and kept for the sidebar's notice. */
 export const checkUpdates = action(z.object({}), async () => {
   const result = await checkForUpdate();
+  revalidatePath("/", "layout");
   return result.status === "newer" ? result : { status: result.status };
 });

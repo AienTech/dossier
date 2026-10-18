@@ -325,6 +325,8 @@ model Application {
   documents         Document[]
   messages          ChatMessage[]
   notes             Note[]
+  /// Its background jobs, deleted with it (their inputs and results hold the posting and the documents).
+  jobs              Job[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -356,21 +358,21 @@ enum DocumentKind {
 
 /// A tailored resume, cover letter or application email, split into editable units (unitsSchema).
 model Document {
-  id            String       @id @default(cuid())
+  id            String            @id @default(cuid())
   applicationId String
-  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   kind          DocumentKind
   units         Json
   /// The theme it was created with; null falls back to the base theme.
   themeId       String?
-  theme         Theme?       @relation(fields: [themeId], references: [id], onDelete: SetNull)
+  theme         Theme?            @relation(fields: [themeId], references: [id], onDelete: SetNull)
   /// The prompt version that last wrote its units, e.g. "tailor-resume@1" (E6-5).
   writtenWith   String?
   /// Parts left out to fit one page, which can be put back (trimmedSchema, E10-10).
   trimmed       Json?
   /// Earlier states, after each AI change and before each restore (E8-10).
   versions      DocumentVersion[]
-  updatedAt     DateTime     @updatedAt
+  updatedAt     DateTime          @updatedAt
 
   @@unique([applicationId, kind])
 }
@@ -541,23 +543,27 @@ enum JobStatus {
 /// A long AI task run in the background, e.g. reading a posting or writing the
 /// documents. Each job type validates its own input and result (src/lib/jobs).
 model Job {
-  id         String    @id @default(cuid())
+  id            String       @id @default(cuid())
   /// Which handler runs it, e.g. "extract-posting".
-  type       String
+  type          String
   /// Finds the job again for something on screen, e.g. "application:<id>".
-  key        String?
-  status     JobStatus @default(QUEUED)
+  key           String?
+  /// The application it works on, if any: deleting the application deletes the job.
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  status        JobStatus    @default(QUEUED)
   /// The named step in progress, e.g. "Reading the posting".
-  step       String?
-  input      Json
-  result     Json?
+  step          String?
+  input         Json
+  result        Json?
   /// Why it failed, written for the user.
-  error      String?
-  createdAt  DateTime  @default(now())
-  startedAt  DateTime?
-  finishedAt DateTime?
-  updatedAt  DateTime  @updatedAt
+  error         String?
+  createdAt     DateTime     @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  updatedAt     DateTime     @updatedAt
 
   @@index([key, createdAt])
   @@index([status])
+  @@index([applicationId])
 }

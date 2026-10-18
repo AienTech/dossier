@@ -31,6 +31,10 @@ const toModelList = (result: Awaited<ReturnType<typeof listAiModels>>): ModelLis
 const OTHER_MODEL = "__other";
 const looksLikeUrl = (value: string) => /^https?:\/\/\S+$/i.test(value.trim());
 
+/** What a hosted model is sent (profileForPrompt and the tasks in src/lib/ai/tasks; PRIVACY.md). */
+const SENT_TO_HOSTED =
+  "your profile without contact details, the postings you add and what you tell it about each one, and, when you refine, the drafts and your chat messages. Importing a resume sends its whole text, contact details included. The notes you keep on an application are never sent.";
+
 /**
  * Settings → AI provider (E6-3, SET-1, SET-2). Each field saves on its own:
  * picking a card or a model right away, typing once you pause. The key is
@@ -165,8 +169,8 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
       {provider !== "LOCAL" && (
         <p role="note" className="rounded-card bg-warning-surface px-4 py-3 text-meta text-warning">
           {provider === "ANTHROPIC"
-            ? "Your profile and the job postings you add are sent to Anthropic to read postings and write your drafts. Nothing else leaves your server."
-            : "Your profile and the job postings you add are sent to this server to read postings and write your drafts. If it isn't on your own network, they leave your server."}
+            ? `Anthropic receives what each task needs: ${SENT_TO_HOSTED} How long it's kept and where it's processed depend on your account with Anthropic.`
+            : `This server receives what each task needs: ${SENT_TO_HOSTED} If it isn't on your own network, all this leaves your server, and how long it's kept is up to whoever runs it.`}
         </p>
       )}
 

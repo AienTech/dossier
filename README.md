@@ -19,7 +19,7 @@
 
 Dossier keeps your career history in one profile and turns it into a clean resume. For every job you apply to, it reads the posting, shows how you match, and drafts a tailored resume and cover letter that only use facts from your profile. You refine them in a chat, download them as PDFs and track each application from draft to offer.
 
-It's for one person on a small server: one password, your data in your own PostgreSQL database, and an AI model of your choice. That can be a local model through Ollama, so nothing leaves your server, or a hosted one (any OpenAI-compatible API, or Anthropic).
+It's for one person on a small server: one password, your data in your own PostgreSQL database, and an AI model of your choice. That can be a local model through Ollama, so your profile and documents never leave your server, or a hosted one (any OpenAI-compatible API, or Anthropic), which then receives what it writes from. [Privacy](#privacy) says what goes where.
 
 ## Demo
 
@@ -201,7 +201,7 @@ API keys are stored encrypted with `DOSSIER_SECRET` and never sent back to the b
 
 ### Local model with Ollama
 
-With a local model, nothing you write leaves your server. The Compose file can run Ollama next to Dossier. Switch it on, start it, and pull a model:
+With a local model, your profile, postings and documents never leave your server. The Compose file can run Ollama next to Dossier. Switch it on, start it, and pull a model:
 
 ```bash
 echo "COMPOSE_PROFILES=ai" >> .env
@@ -252,6 +252,8 @@ Keep a copy of `.env` with your backups: saved API keys can't be read without it
 
 ## Upgrading
 
+When a new version is out, the sidebar says so, with a link to what's new; Settings → About shows it too. Dossier checks GitHub for it once on each day you use it (switch that off in Settings → About).
+
 Take a backup first (an export, or a database dump). Then, in your Dossier folder:
 
 ```bash
@@ -284,13 +286,14 @@ From 1.4, Dossier sends a usage ping (see [Privacy](#privacy)). If you'd rather 
 
 ## Privacy
 
-- Everything you enter stays in your PostgreSQL database and data directory.
-- With a **local model**, nothing leaves your server. With a **hosted provider**, Dossier sends it what the task needs: the job posting, your profile without contact details (no email, phone, address, date of birth or links), what you add when you create an application, and, when you refine, the drafts and your chat messages, though never a letter's sender or signature. Importing a resume sends its text, contact details included; the import page says so first. The notes you keep on an application are never sent.
-- **Usage ping:** on each day you use Dossier, your server sends `telemetry.dossier.aien.me` a random install ID and the version number, once, so the project knows how many installs are in use and how often. The ID is made at random and kept in your database. It isn't derived from anything about you or your server, and exports leave it out. Nothing else is sent: no profile, documents, applications, settings, server address or time of day. The receiver, a Cloudflare Worker, keeps the ID, the day and the version, and deletes them after a year. It doesn't keep the address the ping came from, though Cloudflare sees it on the way, as with any request. Set `DOSSIER_TELEMETRY=off` to stop it. Settings → About shows whether it's on and the ID it sends. To have your install's rows removed, send that ID to `dossier.app@pm.me`: everything kept under it is deleted, and you get a confirmation. Set `DOSSIER_TELEMETRY=off` first, so nothing new arrives afterwards.
-- No other tracking or analytics: Dossier loads nothing from other sites (its Content-Security-Policy forbids it, and the ping comes from your server, not your browser), and Next.js telemetry is off in the image.
-- **Check for updates** in Settings → About asks GitHub for the latest release, only when you press it, and sends nothing about you or your install.
-- **Fetch** on a new application asks the job site for the posting's page from your server, only when you press it. It never requests addresses on your own network.
-- **Find jobs** is off until you choose a source. Then it sends the source what you search for (keywords, place, country, radius and filters), from your server, and nothing from your profile: the profile only fills in the form. Each search is kept with what it found, until you remove it from Past searches. For a posting that came with only its start (Adzuna, sometimes the Arbeitsagentur), Dossier asks the posting's page for the rest, as Fetch does.
+Everything you enter is kept in your PostgreSQL database and data directory. [PRIVACY.md](PRIVACY.md) has the details: what's kept and for how long, what deleting removes, everything that leaves your server and who receives it, and a note on the GDPR.
+
+- **AI:** with a local model, your profile, postings and documents never leave your server. A hosted provider receives what each task needs: the posting, your profile without contact details (no email, phone, address, date of birth or links), what you tell it about the application, and, when you refine, the drafts and your chat messages, though never a letter's sender or signature. Importing a resume sends its whole text, contact details included; the import page says so first. The notes you keep on an application are never sent. How long the provider keeps what it receives, and where it processes it, depend on its terms and your account.
+- **Task data:** what an AI task was given and wrote (a posting being read, a resume's text, drafts you didn't turn into an application) is deleted after 24 hours, or as long as Settings → Your data says. Deleting an application deletes its task data at once.
+- **Usage ping:** on each day you use Dossier, your server sends `telemetry.dossier.aien.me` a random install ID and the version number, once, so the project knows how many installs are in use and how often. Nothing else is sent. Set `DOSSIER_TELEMETRY=off` to stop it. [PRIVACY.md](PRIVACY.md#usage-ping) says what the receiver keeps, for how long, and how to have it deleted.
+- **Update check:** once on each day you use Dossier, and when you press **Check for updates**, your server asks GitHub for the latest release, and sends nothing about you or your install. Switch the daily check off in Settings → About.
+- **When you ask for it:** Find jobs, off until you choose a source, sends the source what you search for and nothing from your profile. **Fetch** asks a job site for a posting's page, from your server.
+- **No other tracking or analytics:** Dossier loads nothing from other sites (its Content-Security-Policy forbids it, and the ping comes from your server, not your browser), and Next.js telemetry is off in the image.
 
 ## Known limitations
 

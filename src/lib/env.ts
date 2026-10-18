@@ -126,6 +126,11 @@ const schema = z.object({
   DOSSIER_JOBS_TEST_BASE_URL: optional(
     z.url({ protocol: /^https?$/, error: "DOSSIER_JOBS_TEST_BASE_URL must be an http:// or https:// URL." }),
   ),
+  // For the end-to-end tests only: asks <url> for the latest release instead
+  // of GitHub's API (e2e/fake-jobs.mts answers).
+  DOSSIER_UPDATES_TEST_BASE_URL: optional(
+    z.url({ protocol: /^https?$/, error: "DOSSIER_UPDATES_TEST_BASE_URL must be an http:// or https:// URL." }),
+  ),
 });
 
 export type Env = z.infer<typeof schema>;

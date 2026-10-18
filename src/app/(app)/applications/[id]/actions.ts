@@ -125,7 +125,7 @@ export const startRegenerating = action(
       const input = regenerateUnitJob.input.safeParse(job.input);
       if (input.success && input.data.document === document && input.data.unitId === unitId) return job.id;
     }
-    return startJob(regenerateUnitJob, { applicationId: id, document, unitId, from: unit.text }, { key: unitJobKey(id) });
+    return startJob(regenerateUnitJob, { applicationId: id, document, unitId, from: unit.text }, { key: unitJobKey(id), applicationId: id });
   },
 );
 
@@ -203,7 +203,7 @@ export const sendMessage = action(
       data: { applicationId: id, role: ChatRole.USER, text, targetUnit: targetLabel },
       select: { id: true },
     });
-    const jobId = await startJob(refineJob, { applicationId: id, messageId: message.id, request: text, target, viewing }, { key: refineJobKey(id) });
+    const jobId = await startJob(refineJob, { applicationId: id, messageId: message.id, request: text, target, viewing }, { key: refineJobKey(id), applicationId: id });
     refresh(id);
     return { jobId };
   },
@@ -426,7 +426,7 @@ export const startWritingEmail = action(z.object({ id: z.string().min(1) }), asy
   if (!(await prisma.application.count({ where: { id } }))) throw new ActionError(GONE);
   if (!(await isAiConfigured())) throw new ActionError("That needs an AI provider. Choose one in Settings → AI provider.");
   const [running] = await findUnfinishedJobs(emailJobKey(id));
-  return running?.id ?? startJob(writeEmailJob, { applicationId: id }, { key: emailJobKey(id) });
+  return running?.id ?? startJob(writeEmailJob, { applicationId: id }, { key: emailJobKey(id), applicationId: id });
 });
 
 /**
