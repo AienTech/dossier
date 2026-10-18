@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 
+import type { Page } from "@playwright/test";
 import { Pool } from "pg";
 
 // What the end-to-end tests (E11-2) run against: a production build on its
@@ -83,10 +84,43 @@ export async function fakeJobSearches(): Promise<number> {
   return ((await response.json()) as { searches: number }).searches;
 }
 
-export type FakeGoogleState = { sent: { id: string; threadId: string; raw: string; text: string; attachments: string[] }[]; events: Record<string, unknown>[]; revoked: number; granted: string };
+export type FakeEvent = {
+  id: string;
+  summary: string;
+  start: { dateTime?: string; date?: string };
+  end: { dateTime?: string; date?: string };
+  extendedProperties?: { private?: Record<string, string> };
+  htmlLink: string;
+};
+export type FakeGoogleState = { sent: { id: string; threadId: string; raw: string; text: string; attachments: string[] }[]; events: FakeEvent[]; revoked: number; granted: string };
 
 /** What the fake Google has been sent so far (E15). */
 export async function fakeGoogle(): Promise<FakeGoogleState> {
   const response = await fetch(`http://localhost:${FAKE_GOOGLE_PORT}/state`);
   return (await response.json()) as FakeGoogleState;
+}
+
+/** Changes the fake Google's calendar as if in Google Calendar (E15-6): adds an event, or changes or deletes one by its id. */
+export async function inFakeCalendar(method: "POST" | "PATCH" | "DELETE", id?: string, body?: Partial<FakeEvent>): Promise<FakeEvent> {
+  const response = await fetch(`http://localhost:${FAKE_GOOGLE_PORT}/test/events${id ? `/${id}` : ""}`, { method, body: body && JSON.stringify(body) });
+  return (await response.json()) as FakeEvent;
+}
+
+/** Enters the fake Google's OAuth client in Settings → Google and connects (E15). */
+export async function connectFakeGoogle(page: Page): Promise<void> {
+  await page.goto("/settings?section=google");
+  await page.getByLabel("Client ID").fill("e2e-google-client.apps.googleusercontent.com");
+  await page.getByLabel("Client ID").press("Enter");
+  await page.getByLabel("Client secret").fill("e2e-google-secret");
+  await page.getByLabel("Client secret").press("Enter");
+  await page.getByRole("link", { name: "Connect Google account" }).click();
+  await page.getByRole("status").filter({ hasText: "Connected as" }).waitFor();
+}
+
+/** Disconnects Google and forgets its mail and client, so other specs see it not set up. */
+export async function forgetGoogle(): Promise<void> {
+  await sql(`DELETE FROM "EmailMessage"`);
+  await sql(`DELETE FROM "GoogleAccount"`);
+  await sql(`DELETE FROM "Setting" WHERE key IN ('googleClientId', 'googleClientSecretEnc')`);
+  await sql(`UPDATE "Application" SET "interviewEventId" = NULL, "interviewCalendarId" = NULL`);
 }

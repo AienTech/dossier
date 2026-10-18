@@ -12,8 +12,10 @@ import { emailParts } from "@/lib/application-email";
 import { logServerError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings-data";
+import { lastKnownTimeZone } from "@/lib/time-zone";
 
 import { googleConnection, loadGoogleAccount } from "./account";
+import { pullInterviewEvents } from "./availability";
 import { GoogleError } from "./errors";
 import { currentHistoryId, getMessage, messagesSince, searchMessages, type ReadMail } from "./gmail";
 import { matchMail, worthSuggesting, type MatchableApplication } from "./matching";
@@ -169,7 +171,8 @@ export async function readReply(emailId: string, signal?: AbortSignal): Promise<
       subject: email.subject,
       body: email.body,
       sentAt: email.sentAt,
-      timeZone: settings.workTimeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      // Never the server's own zone: in a container that's UTC, which read "13:00" two hours off.
+      timeZone: settings.workTimeZone ?? (await lastKnownTimeZone()),
       application: email.application ? [email.application.role, email.application.company].filter(Boolean).join(" at ") : null,
     },
     { ...options, signal },
@@ -192,14 +195,16 @@ export async function readReply(emailId: string, signal?: AbortSignal): Promise<
 
 const globalForSync = globalThis as unknown as { inboxTimer?: ReturnType<typeof setTimeout>; inboxRunning?: boolean };
 
-/** One scheduled check, skipped while Google or reading is off. */
+/** One scheduled check: interviews changed in Google Calendar, then new mail while reading is on. */
 async function scheduledCheck(): Promise<void> {
   if (globalForSync.inboxRunning) return;
   const [connection, settings] = await Promise.all([googleConnection(), loadSettings()]);
-  if (connection.status !== "connected" || !connection.canRead || !settings.gmailRead) return;
+  if (connection.status !== "connected") return;
   globalForSync.inboxRunning = true;
   try {
-    await syncInbox();
+    // Interviews moved or deleted in Google Calendar, whether or not mail is read.
+    await pullInterviewEvents().catch((error) => logServerError("calendar check", error));
+    if (connection.canRead && settings.gmailRead) await syncInbox();
   } finally {
     globalForSync.inboxRunning = false;
   }

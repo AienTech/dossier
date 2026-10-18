@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { sql } from "./support";
+import { connectFakeGoogle, forgetGoogle, inFakeCalendar, sql } from "./support";
 
 // The README's screenshots (see playwright.readme.config.ts): each screen as the
 // demo data shows it, 1440×900 at 2×, saved over .github/images/*.png.
@@ -107,7 +107,7 @@ test("the inbox with replies from Gmail", async ({ page }) => {
         reply.summary,
         JSON.stringify(reply.questions),
         reply.suggested,
-        reply.kind ? "classify-reply@1" : null,
+        reply.kind ? "classify-reply@2" : null,
         reply.handled ? hoursAgo(reply.hours) : null,
       ],
     );
@@ -121,6 +121,34 @@ test("the inbox with replies from Gmail", async ({ page }) => {
   await sql(`DELETE FROM "EmailMessage"`);
   await sql(`DELETE FROM "GoogleAccount"`);
   await sql(`DELETE FROM "Setting" WHERE key IN ('googleClientId', 'googleClientSecretEnc')`);
+});
+
+// The calendar with the demo's interview and a made-up week in the fake
+// Google; the account goes again afterwards.
+test("the calendar's week", async ({ page }) => {
+  await connectFakeGoogle(page);
+  const [northstar] = await sql<{ nextInterviewAt: Date }>(`SELECT "nextInterviewAt" FROM "Application" WHERE company = 'Northstar Health'`);
+  await page.goto("/");
+  // The week of the demo's interview, in the browser's zone; times as ISO moments.
+  const week = await page.evaluate((iso) => {
+    const interview = new Date(iso);
+    const monday = new Date(interview.getFullYear(), interview.getMonth(), interview.getDate() - ((interview.getDay() + 6) % 7));
+    const at = (day: number, hour: number, minute = 0) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + day, hour, minute).toISOString();
+    const date = (day: number) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + day).toLocaleDateString("en-CA");
+    return { anchor: interview.toLocaleDateString("en-CA"), at: [0, 1, 2, 3, 4].map((day) => [at(day, 9, 30), at(day, 9, 45)]), lunch: [at(2, 12, 30), at(2, 13, 30)], gym: [1, 3].map((day) => [at(day, 18), at(day, 19)]), dentist: [at(4, 15), at(4, 15, 45)], review: [at(0, 14), at(0, 15)], trip: [date(5), date(7)] };
+  }, northstar.nextInterviewAt.toISOString());
+  const add = (summary: string, [start, end]: string[]) => inFakeCalendar("POST", undefined, { summary, start: { dateTime: start }, end: { dateTime: end } });
+  for (const slot of week.at) await add("Stand-up", slot);
+  for (const slot of week.gym) await add("Gym", slot);
+  await add("Lunch with Sam", week.lunch);
+  await add("Dentist", week.dentist);
+  await add("Portfolio review", week.review);
+  await inFakeCalendar("POST", undefined, { summary: "Weekend in Utrecht", start: { date: week.trip[0] }, end: { date: week.trip[1] } });
+
+  await page.goto(`/calendar?view=week&date=${week.anchor}`);
+  await expect(page.getByRole("link", { name: /Interview · Lead Product Designer · Northstar Health/ })).toBeVisible();
+  await shot(page, "calendar");
+  await forgetGoogle();
 });
 
 // Last, since it adds an application the other screens shouldn't show.

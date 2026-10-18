@@ -9,6 +9,8 @@ export class GoogleError extends Error {
     message: string,
     /** For the server log only. */
     readonly detail?: string,
+    /** Google's HTTP status, when it answered with an error. */
+    readonly status?: number,
   ) {
     super(message);
   }

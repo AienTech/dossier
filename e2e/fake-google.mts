@@ -21,7 +21,18 @@ let granted = "";
 const mailbox: Mail[] = [];
 /** What the app sent: the raw message it built, its text and the attachments' names, for specs to check. */
 const sent: { id: string; threadId: string; raw: string; text: string; attachments: string[] }[] = [];
-const events: unknown[] = [];
+type FakeEvent = {
+  id: string;
+  status: string;
+  summary: string;
+  start: { dateTime?: string; date?: string; timeZone?: string };
+  end: { dateTime?: string; date?: string; timeZone?: string };
+  extendedProperties?: { private?: Record<string, string> };
+  htmlLink: string;
+};
+/** The calendar's events, by id; deleted ones stay, cancelled, as in Google. */
+const events = new Map<string, FakeEvent>();
+let eventCount = 0;
 let revoked = 0;
 
 function send(response: ServerResponse, status: number, body: unknown) {
@@ -55,6 +66,12 @@ function textOf(raw: string): string {
   return part ? Buffer.from(part[1].replace(/\s/g, ""), "base64").toString("utf8") : "";
 }
 
+function newEvent(): FakeEvent {
+  eventCount += 1;
+  const id = `e2e-event-${eventCount}`;
+  return { id, status: "confirmed", summary: "", start: {}, end: {}, htmlLink: `https://calendar.google.com/calendar/event?eid=${id}` };
+}
+
 function deliver(mail: Omit<Mail, "historyId" | "date">) {
   historyId += 1;
   mailbox.push({ ...mail, date: Date.now(), historyId });
@@ -80,7 +97,22 @@ createServer(async (request, response) => {
   const path = url.pathname;
   if (path === "/health") return send(response, 200, { ok: true });
   // For specs: what the app sent and did.
-  if (path === "/state") return send(response, 200, { sent, events, revoked, granted });
+  if (path === "/state") return send(response, 200, { sent, events: [...events.values()].filter((event) => event.status !== "cancelled"), revoked, granted });
+
+  // For specs: changes made "in Google Calendar".
+  const testEvent = /^\/test\/events(?:\/([^/]+))?$/.exec(path);
+  if (testEvent) {
+    const event = testEvent[1] ? events.get(testEvent[1]) : undefined;
+    if (request.method === "POST" && !testEvent[1]) {
+      const added = { ...newEvent(), ...(JSON.parse(await read(request)) as Partial<FakeEvent>) };
+      events.set(added.id, added);
+      return send(response, 200, added);
+    }
+    if (!event) return send(response, 404, { error: "no such event" });
+    if (request.method === "PATCH") Object.assign(event, JSON.parse(await read(request)) as Partial<FakeEvent>);
+    if (request.method === "DELETE") event.status = "cancelled";
+    return send(response, 200, event);
+  }
 
   // Sign-in: the consent page agrees at once and sends the browser back.
   if (path === "/accounts/o/oauth2/v2/auth") {
@@ -151,9 +183,31 @@ createServer(async (request, response) => {
     const body = JSON.parse(await read(request)) as { items: { id: string }[] };
     return send(response, 200, { kind: "calendar#freeBusy", calendars: Object.fromEntries(body.items.map(({ id }) => [id, { busy: [] }])) });
   }
-  if (/^\/www\/calendar\/v3\/calendars\/[^/]+\/events$/.test(path) && request.method === "POST") {
-    events.push(JSON.parse(await read(request)));
-    return send(response, 200, { id: `e2e-event-${events.length}`, htmlLink: `https://calendar.google.com/event?eid=e2e-${events.length}` });
+  const calendarEvent = /^\/www\/calendar\/v3\/calendars\/[^/]+\/events(?:\/([^/]+))?$/.exec(path);
+  if (calendarEvent && !calendarEvent[1]) {
+    if (request.method === "POST") {
+      const added = { ...newEvent(), ...(JSON.parse(await read(request)) as Partial<FakeEvent>) };
+      events.set(added.id, added);
+      return send(response, 200, added);
+    }
+    // The events overlapping timeMin–timeMax, in order.
+    const from = Date.parse(url.searchParams.get("timeMin") ?? "");
+    const to = Date.parse(url.searchParams.get("timeMax") ?? "");
+    const at = (time: FakeEvent["start"]) => Date.parse(time.dateTime ?? `${time.date}T00:00:00Z`);
+    const items = [...events.values()].filter((event) => event.status !== "cancelled" && at(event.start) < to && at(event.end) > from).sort((a, b) => at(a.start) - at(b.start));
+    return send(response, 200, { kind: "calendar#events", items });
+  }
+  if (calendarEvent) {
+    const event = events.get(decodeURIComponent(calendarEvent[1]));
+    if (!event) return send(response, 404, { error: { code: 404, message: "Not Found" } });
+    if (request.method === "DELETE") {
+      if (event.status === "cancelled") return send(response, 410, { error: { code: 410, message: "Resource has been deleted" } });
+      event.status = "cancelled";
+      response.writeHead(204);
+      return response.end();
+    }
+    if (request.method === "PATCH") Object.assign(event, JSON.parse(await read(request)) as Partial<FakeEvent>);
+    return send(response, 200, event);
   }
 
   send(response, 404, { error: { message: "Not found" } });

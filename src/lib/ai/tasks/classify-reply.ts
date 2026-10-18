@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 import { ApplicationStatus, ReplyKind } from "@/generated/prisma/enums";
+import { isoInZone } from "@/lib/dates";
 
 import { system, type Task } from "./prompt-parts";
 
-export const CLASSIFY_REPLY_VERSION = "classify-reply@1";
+export const CLASSIFY_REPLY_VERSION = "classify-reply@2";
 
 const answerSchema = z.object({
   kind: z.enum(ReplyKind),
@@ -47,8 +48,9 @@ export type Classified = {
 /** Mail is cut to this length: replies are short, and prompts must fit local models. */
 export const MAX_EMAIL_CHARACTERS = 8_000;
 
-export const emailForPrompt = ({ from, subject, body, sentAt }: Pick<ClassifyInput, "from" | "subject" | "body" | "sentAt">) =>
-  `<email>\nFrom: ${from}\nDate: ${sentAt.toISOString()}\nSubject: ${subject}\n\n${body.trim().slice(0, MAX_EMAIL_CHARACTERS)}\n</email>`;
+/** The mail for a prompt, its date in the candidate's time zone, so times in it read in that zone. */
+export const emailForPrompt = ({ from, subject, body, sentAt }: Pick<ClassifyInput, "from" | "subject" | "body" | "sentAt">, timeZone: string) =>
+  `<email>\nFrom: ${from}\nDate: ${isoInZone(sentAt, timeZone)}\nSubject: ${subject}\n\n${body.trim().slice(0, MAX_EMAIL_CHARACTERS)}\n</email>`;
 
 /** What each kind of reply suggests for the application's status. */
 export const SUGGESTED_STATUS: Record<ReplyKind, ApplicationStatus | null> = {
@@ -70,7 +72,7 @@ export const classifyReply: Task<ClassifyInput, Classified> = async (provider, i
         content: [
           input.application && `The application: ${input.application}`,
           `The candidate's time zone: ${input.timeZone}`,
-          emailForPrompt(input),
+          emailForPrompt(input, input.timeZone),
         ]
           .filter(Boolean)
           .join("\n\n"),

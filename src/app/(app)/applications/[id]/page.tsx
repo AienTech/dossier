@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 
 import { activityTimeline } from "@/lib/activity";
 import { isAiConfigured } from "@/lib/ai/config";
@@ -11,6 +12,7 @@ import { regenerateUnitJob, unitJobKey } from "@/lib/jobs/regenerate-unit";
 import { findUnfinishedJobs } from "@/lib/jobs/runner";
 import { emailJobKey } from "@/lib/jobs/write-email";
 import { googleConnection } from "@/lib/google/account";
+import { pullInterviewEvents } from "@/lib/google/availability";
 import { loadConversation } from "@/lib/google/inbox-data";
 import { refineSuggestions } from "@/lib/refine-suggestions";
 import { userTimeZone } from "@/lib/time-zone";
@@ -19,8 +21,16 @@ import { ApplicationView } from "./application-view";
 import { metaLine } from "./meta";
 import { tabFrom } from "./tabs";
 
+/**
+ * Takes an interview moved or deleted in Google Calendar into the
+ * application, once per request and before anything reads it:
+ * loadApplication is cached for the request, and the title reads it first.
+ */
+const pullCalendar = cache((id: string) => pullInterviewEvents({ applicationId: id, signal: AbortSignal.timeout(3_000) }).catch(() => 0));
+
 export async function generateMetadata({ params }: PageProps<"/applications/[id]">): Promise<Metadata> {
   const { id } = await params;
+  await pullCalendar(id);
   const application = await loadApplication(id);
   return { title: application.title.trim() || "Untitled application" };
 }
@@ -28,6 +38,7 @@ export async function generateMetadata({ params }: PageProps<"/applications/[id]
 /** One application (PRD §6.5): its status, tailored documents, email, posting and notes. */
 export default async function ApplicationPage({ params, searchParams }: PageProps<"/applications/[id]">) {
   const [{ id }, { tab }] = await Promise.all([params, searchParams]);
+  await pullCalendar(id);
   const [{ application, profile, settings, extracted, resume, letter, email, includeReferences, letterDate }, aiReady, unitJobs, refineJobs, emailJobs, timeZone, google, emails] =
     await Promise.all([
       loadDocuments(id),

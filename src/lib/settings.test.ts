@@ -80,6 +80,7 @@ describe("stored settings", () => {
       bufferMinutes: 15,
       usagePingId: null,
       usagePingDay: null,
+      browserTimeZone: null,
     });
   });
 

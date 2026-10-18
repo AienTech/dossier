@@ -165,6 +165,10 @@ export const settingsSchema = z.object({
   // not its data, so exports leave them out (INSTALL_SETTINGS).
   usagePingId: z.string().nullable().catch(null),
   usagePingDay: z.string().nullable().catch(null),
+  // The browser's time zone as it last told the server, for work done
+  // without a request, such as the inbox check (time-zone.ts). It belongs
+  // to the install, not its data, so exports leave it out (INSTALL_SETTINGS).
+  browserTimeZone: z.string().nullable().catch(null),
 });
 export type SettingsData = z.output<typeof settingsSchema>;
 

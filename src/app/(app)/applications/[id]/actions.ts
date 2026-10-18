@@ -11,6 +11,8 @@ import { editsSchema, extractedSchema, matchSchema, trimmedSchema, unitsSchema, 
 import { WRITTEN_EMAIL_UNITS } from "@/lib/application-email";
 import { updateDocuments } from "@/lib/document-units";
 import { DOCUMENT_LABELS } from "@/lib/file-name";
+import { syncInterviewToCalendar } from "@/lib/google/availability";
+import { GoogleError } from "@/lib/google/errors";
 import { isFrameUnit, withFrame, WRITTEN_FRAME_UNITS } from "@/lib/letter-frame";
 import { saveVersion } from "@/lib/document-versions";
 import { refineJob, refineJobKey } from "@/lib/jobs/refine";
@@ -39,15 +41,24 @@ export const setFollowThemeLayout = action(
 
 /**
  * The next interview's date and time (E9-9), or null to remove it. It shows
- * on the dashboard's "Worth a look" while the application is in Interview.
+ * on the dashboard's "Worth a look" while the application is in Interview,
+ * and while Dossier keeps interviews in Google Calendar, the event is added,
+ * moved or deleted to match.
  */
 export const setInterviewDate = action(
   z.object({ id: z.string().min(1), at: z.iso.datetime().nullable() }),
   async ({ id, at }, { toast }) => {
     const { count } = await prisma.application.updateMany({ where: { id }, data: { nextInterviewAt: at ? new Date(at) : null } });
     if (count === 0) throw new ActionError(GONE);
-    toast(at ? "Interview date saved. It'll show on your dashboard." : "Interview date removed.");
     refresh(id);
+    try {
+      const { inCalendar } = await syncInterviewToCalendar(id);
+      if (inCalendar) toast(at ? "Interview date saved, in your calendar too." : "Interview date removed, from your calendar too.");
+      else toast(at ? "Interview date saved. It'll show on your dashboard." : "Interview date removed.");
+    } catch (error) {
+      if (!(error instanceof GoogleError)) throw error;
+      toast(`${at ? "Interview date saved" : "Interview date removed"}, but your calendar wasn't changed: ${error.message}`);
+    }
     return null;
   },
 );

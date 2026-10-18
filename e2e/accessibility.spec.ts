@@ -39,6 +39,8 @@ const SCREENS = [
   "/jobs?view=saved",
   "/jobs?view=dismissed",
   "/inbox",
+  "/calendar",
+  "/calendar?view=month",
   "/settings?section=ai",
   "/settings?section=jobs",
   "/settings?section=documents",

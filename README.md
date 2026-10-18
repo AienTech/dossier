@@ -36,7 +36,7 @@ It's for one person on a small server: one password, your data in your own Postg
 - **Never invents experience:** drafts only use facts from your profile. What the posting asks for and your profile doesn't have is shown as a gap, not made up.
 - **Refine:** ask for changes in a chat, edit or regenerate any part (every part of the cover letter too: sender, date, recipient, greeting and sign-off, written in the letter's language), undo AI changes or go back to any earlier version, keep private notes.
 - **Send:** an email to go with each application, to whoever the posting says to send it to, ready to copy or open in your mail app, with the resume and cover letter PDFs to attach. Edit, rewrite or refine it like the documents.
-- **Gmail and Calendar (optional):** connect your Google account to send an application from your own address with its PDFs attached, see employers' replies next to each application, have the AI read what they ask and draft your answer from your profile, offer interview times you're free and add agreed interviews to your calendar. Nothing is sent without your confirmation. Set it up by entering your Google OAuth client in Settings → Google, or with `DOSSIER_GOOGLE_CLIENT_ID` and `DOSSIER_GOOGLE_CLIENT_SECRET` (see `.env.example`).
+- **Gmail and Calendar (optional):** connect your Google account to send an application from your own address with its PDFs attached, see employers' replies next to each application, have the AI read what they ask and draft your answer from your profile, offer interview times you're free, and see your week or month on a Calendar screen, with interviews kept in step with Google Calendar both ways. Nothing is sent without your confirmation. Set it up by entering your Google OAuth client in Settings → Google, or with `DOSSIER_GOOGLE_CLIENT_ID` and `DOSSIER_GOOGLE_CLIENT_SECRET` (see `.env.example`).
 - **Track:** a board and a table of every application, and a dashboard with your funnel (last 30 days, 90 days or all time), a week-by-week chart and what's worth a look next, upcoming interviews included.
 - **Your data:** export and import everything as one file, nightly backups, and Delete everything.
 
@@ -59,7 +59,7 @@ It's for one person on a small server: one password, your data in your own Postg
   </tr>
   <tr>
     <td><img src=".github/images/inbox.png" alt="The inbox: employers' replies from Gmail, what each one asks, and mail to link to an application"><br>Replies from Gmail, read by the AI, with answers it drafts</td>
-    <td></td>
+    <td><img src=".github/images/calendar.png" alt="The calendar's week: an interview next to the rest of the Google Calendar"><br>Your interviews in your Google Calendar's week, kept in step</td>
   </tr>
 </table>
 
@@ -237,6 +237,8 @@ The search starts from your profile's city, country and current role; change the
 ## Connecting Gmail and Calendar
 
 This is optional. With a Google account connected, Dossier sends an application from your own Gmail address with its PDFs attached, checks Gmail every few minutes for employers' replies and links them to their applications, has the AI read each reply and draft your answer, offers times you're free in Google Calendar, and adds agreed interviews to it. Nothing is sent, and no status changes, until you confirm it.
+
+The **Calendar** screen shows your week or month: the events in your Google Calendar, with your interviews linked to their applications. Interviews stay in step both ways: change or remove an interview's date in Dossier and its event moves or goes; move or delete the event in Google Calendar and Dossier follows.
 
 Google doesn't let one sign-in serve every server, so each install brings its own OAuth client:
 

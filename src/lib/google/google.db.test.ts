@@ -20,7 +20,7 @@ vi.mock("@/lib/ai", () => ({ getAiProvider: async () => provider.current }));
 vi.mock("@/lib/ai/config", () => ({ isAiConfigured: async () => true }));
 vi.mock("@/lib/ai/task-options", () => ({ loadTaskOptions: async () => ({ creativity: "BALANCED", strict: true, language: null }) }));
 vi.mock("@/lib/pdf/render", () => ({ renderPdf: async () => new Uint8Array([37, 80, 68, 70]) }));
-vi.mock("@/lib/time-zone", () => ({ userTimeZone: async () => "Europe/Berlin" }));
+vi.mock("@/lib/time-zone", () => ({ userTimeZone: async () => "Europe/Berlin", lastKnownTimeZone: async () => "Europe/Berlin" }));
 
 import { encryptSecret, GOOGLE_TOKEN } from "@/lib/secrets";
 

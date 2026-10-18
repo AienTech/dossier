@@ -7,7 +7,7 @@ import { getAiProvider } from "@/lib/ai";
 import { loadTaskOptions } from "@/lib/ai/task-options";
 import { draftReply } from "@/lib/ai/tasks";
 import { extractedOf } from "@/lib/application-data";
-import { proposeSlots } from "@/lib/google/availability";
+import { proposeSlots, workingHours } from "@/lib/google/availability";
 import { formatSlot } from "@/lib/google/slots";
 import { prisma } from "@/lib/prisma";
 import { loadProfile } from "@/lib/profile-data";
@@ -36,10 +36,12 @@ export const draftReplyJob = defineJob({
     const application = email.application;
 
     await step("Checking your calendar");
+    // The user's zone, for the offered times and the email's date.
+    const { timeZone } = await workingHours();
     let offered: string[] = [];
     let starts: string[] = [];
     if (email.kind === "INTERVIEW" && !email.confirmedAt) {
-      const proposal = await proposeSlots().catch(() => ({ slots: [], timeZone: "UTC", fromCalendar: false }));
+      const proposal = await proposeSlots().catch(() => ({ slots: [], timeZone, fromCalendar: false }));
       const minutes = proposal.slots[0] ? proposal.slots[0].end.getTime() - proposal.slots[0].start.getTime() : 45 * 60_000;
       const picked = chosen
         ? chosen.map((start) => ({ start: new Date(start), end: new Date(new Date(start).getTime() + minutes) }))
@@ -63,6 +65,7 @@ export const draftReplyJob = defineJob({
         extracted: application ? extractedOf(application) : null,
         tone: application?.tone ?? "WARM",
         email: { from: [email.fromName, `<${email.fromAddress}>`].filter(Boolean).join(" "), subject: email.subject, body: email.body, sentAt: email.sentAt },
+        timeZone,
         thread: thread.map((entry) => `${entry.direction === EmailDirection.OUTGOING ? "The candidate" : entry.fromName || "They"} wrote:\n${entry.body.slice(0, 2000)}`),
         slots: offered,
         note,

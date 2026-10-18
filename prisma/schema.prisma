@@ -321,6 +321,10 @@ model Application {
   archivedAt        DateTime?
   /// The Gmail thread the application was sent in, when it went out through Gmail (E15-2).
   emailThreadId     String?
+  /// The Google Calendar event of the next interview, and the calendar it's
+  /// in, when Dossier added it: kept in step with nextInterviewAt both ways.
+  interviewEventId    String?
+  interviewCalendarId String?
   /// The Find jobs posting it was started from, if any (E14-8).
   posting           Posting?
   /// Mail sent and received about it through Gmail (E15-3).

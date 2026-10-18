@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, FileText, House, Inbox, Search, Settings, UserRound, type LucideIcon } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, FileText, House, Inbox, Search, Settings, UserRound, type LucideIcon } from "lucide-react";
 
 // The app's sections, shared by the sidebar and the page bar so they always agree.
 
@@ -35,6 +35,7 @@ export const NAV: { label?: string; items: NavItem[] }[] = [
         isActive: (pathname) => within(pathname, "/applications") || within(pathname, "/new"),
       },
       { href: "/inbox", label: "Inbox", icon: Inbox },
+      { href: "/calendar", label: "Calendar", icon: CalendarDays },
     ],
   },
   { items: [{ href: "/settings", label: "Settings", icon: Settings }] },

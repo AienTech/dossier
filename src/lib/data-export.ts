@@ -42,7 +42,7 @@ export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2];
 const API_KEY_SETTING = "apiKeyEnc";
 /** The settings that hold encrypted keys, which only this server can read: never exported as they are. */
 export const SECRET_SETTINGS: readonly string[] = [API_KEY_SETTING, "jsearchKeyEnc", "adzunaKeyEnc"];
-/** The settings that belong to this install rather than its data (the usage ping's, the update check's and the Google client): never exported, and kept by an import. */
+/** The settings that belong to this install rather than its data (the usage ping's, the update check's, the Google client and the browser's time zone): never exported, and kept by an import. */
 export const INSTALL_SETTINGS: readonly string[] = [
   "usagePingId",
   "usagePingDay",
@@ -52,6 +52,7 @@ export const INSTALL_SETTINGS: readonly string[] = [
   "updateDismissed",
   "googleClientId",
   "googleClientSecretEnc",
+  "browserTimeZone",
 ];
 
 const date = z.iso.datetime().transform((value) => new Date(value));
@@ -271,7 +272,7 @@ export async function buildExport(
       tx.application.findMany({
         orderBy: { createdAt: "asc" },
         // The Gmail thread belongs to the mailbox, not the data (E15-2).
-        omit: { emailThreadId: true },
+        omit: { emailThreadId: true, interviewEventId: true, interviewCalendarId: true },
         include: {
           events: { omit: { applicationId: true }, orderBy: { at: "asc" } },
           documents: {

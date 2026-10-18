@@ -216,7 +216,7 @@ export function GoogleSection({
             <Toggle
               className="border-t border-line py-4"
               label="Add interviews to my calendar"
-              description="Once a time is agreed, add it with a link back to the application."
+              description="Once a time is agreed, add it with a link back to the application, and keep it in step: a time changed here or in Google changes on both sides."
               checked={settings.calendarEvents}
               disabled={!connection.canUseCalendar}
               onCheckedChange={(calendarEvents) => change({ calendarEvents })}

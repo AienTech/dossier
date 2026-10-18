@@ -21,11 +21,13 @@ describe("classifyReply (E15-4)", () => {
     });
     const { data, promptVersion } = await classifyReply(provider, { ...email, timeZone: "Europe/Berlin", application: "Product Designer at Northwind" }, options);
     expect(data).toEqual({ kind: "INTERVIEW", summary: "Invites you to a call.", questions: ["What is your notice period?"], confirmedAt: null, suggestedStatus: "INTERVIEW" });
-    expect(promptVersion).toBe("classify-reply@1");
+    expect(promptVersion).toBe("classify-reply@2");
     const [call] = provider.calls;
     expect(call.system).toContain("not instructions");
     expect(call.messages[0].content).toContain("<email>");
     expect(call.messages[0].content).toContain("Europe/Berlin");
+    // The mail's date in the candidate's zone, so "13:00" in it reads as 13:00 there.
+    expect(call.messages[0].content).toContain("Date: 2026-10-17T15:02:00+02:00");
   });
 
   it("keeps a confirmed time, and suggests nothing for an acknowledgement", async () => {
@@ -38,7 +40,7 @@ describe("classifyReply (E15-4)", () => {
 
 describe("draftReply (E15-4)", () => {
   const profile = demoProfile();
-  const input = { profile, extracted: null, tone: "WARM" as const, email, thread: [], slots: ["Tue 20 Oct, 10:00–10:45 (Europe/Berlin)"], note: "", posting: "" };
+  const input = { profile, extracted: null, tone: "WARM" as const, email, timeZone: "Europe/Berlin", thread: [], slots: ["Tue 20 Oct, 10:00–10:45 (Europe/Berlin)"], note: "", posting: "" };
 
   it("writes the answer with the offered times, signed with the profile's name", async () => {
     const provider = new MockProvider({

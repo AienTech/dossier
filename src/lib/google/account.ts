@@ -133,8 +133,10 @@ export async function googleFetch<T = unknown>(
   }
   if (response.status === 403) throw new GoogleError("scope", "Google refused that. Check the permissions in Settings → Google.", `${path}: 403`);
   if (response.status === 429) throw new GoogleError("quota", "Google asks Dossier to slow down. Try again in a few minutes.", `${path}: 429`);
-  if (response.status === 404) throw new GoogleError("unavailable", "Google couldn't find that. It may have been deleted.", `${path}: 404`);
-  if (!response.ok) throw new GoogleError("unavailable", "Google had a problem with that. Try again in a moment.", `${path}: HTTP ${response.status}`);
+  if (response.status === 404 || response.status === 410) {
+    throw new GoogleError("unavailable", "Google couldn't find that. It may have been deleted.", `${path}: ${response.status}`, response.status);
+  }
+  if (!response.ok) throw new GoogleError("unavailable", "Google had a problem with that. Try again in a moment.", `${path}: HTTP ${response.status}`, response.status);
   if (response.status === 204) return undefined as T;
   const length = Number(response.headers.get("content-length") ?? 0);
   if (length > MAX_BYTES) throw new GoogleError("unavailable", "Google's answer was too big.", `${path}: ${length} bytes`);

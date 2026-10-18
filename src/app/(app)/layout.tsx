@@ -6,6 +6,7 @@ import { inboxCount } from "@/lib/google/inbox-data";
 import { loadProfileName } from "@/lib/profile-data";
 import { loadSettings } from "@/lib/settings-data";
 import { COLOR_SCHEME_COOKIE, parseColorScheme, parseSidebarCollapsed, SIDEBAR_COOKIE } from "@/lib/ui-preferences";
+import { rememberBrowserTimeZone, userTimeZone } from "@/lib/time-zone";
 import { checkForUpdatesDaily, updateNotice } from "@/lib/update-check";
 import { notePageLoad } from "@/lib/usage-ping";
 import { appVersion } from "@/lib/version";
@@ -23,6 +24,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   // The day's usage ping and update check, if they haven't run yet: after the page, so they never slow one down.
   after(notePageLoad);
   after(checkForUpdatesDaily);
+  // The browser's zone, for the inbox check, which runs without a request.
+  const zone = await userTimeZone();
+  after(() => rememberBrowserTimeZone(zone));
 
   const [name, settings, jar] = await Promise.all([loadProfileName(), loadSettings(), cookies()]);
   const userName = name.trim() || "New user";

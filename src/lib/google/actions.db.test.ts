@@ -23,7 +23,7 @@ const ai = vi.hoisted(() => ({ provider: undefined as unknown, ready: true }));
 vi.mock("@/lib/ai", () => ({ getAiProvider: async () => ai.provider }));
 vi.mock("@/lib/ai/config", () => ({ isAiConfigured: async () => ai.ready }));
 vi.mock("@/lib/ai/task-options", () => ({ loadTaskOptions: async () => ({ creativity: "BALANCED", strict: true, language: null }) }));
-vi.mock("@/lib/time-zone", () => ({ userTimeZone: async () => "Europe/Berlin" }));
+vi.mock("@/lib/time-zone", () => ({ userTimeZone: async () => "Europe/Berlin", lastKnownTimeZone: async () => "Europe/Berlin" }));
 vi.mock("@/lib/jobs/runner", () => ({
   defineJob: <T,>(definition: T) => definition,
   findUnfinishedJobs: async () => [],

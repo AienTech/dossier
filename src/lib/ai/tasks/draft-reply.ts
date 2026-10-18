@@ -10,7 +10,7 @@ import { factSources, guardSources, unverifiedFacts } from "../fact-guard";
 import { emailForPrompt, UNTRUSTED_EMAIL } from "./classify-reply";
 import { CREATIVITY, jobForPrompt, NO_EM_DASHES, profileForPrompt, system, truthfulness, type Task } from "./prompt-parts";
 
-export const DRAFT_REPLY_VERSION = "draft-reply@1";
+export const DRAFT_REPLY_VERSION = "draft-reply@2";
 
 const answerSchema = z.object({
   greeting: z.string(),
@@ -33,6 +33,8 @@ export type DraftReplyInput = {
   tone: Tone;
   /** The email to answer. */
   email: { from: string; subject: string; body: string; sentAt: Date };
+  /** The candidate's time zone, for the email's date. */
+  timeZone: string;
   /** The application's earlier mail, oldest first, for context. */
   thread: string[];
   /** Free times to offer, already written out, e.g. "Tue 21 Oct, 10:00–10:45 (Europe/Berlin)". */
@@ -47,7 +49,7 @@ export type DraftedReply = { body: string; gaps: string[]; unverified: string[] 
 
 /** Drafts the answer to an employer's email (E15-4), with what it couldn't answer from the profile. */
 export const draftReply: Task<DraftReplyInput, DraftedReply> = async (provider, input, options) => {
-  const { profile, extracted, tone, email, thread, slots, note, posting } = input;
+  const { profile, extracted, tone, email, timeZone, thread, slots, note, posting } = input;
   const answer = await provider.complete({
     system: system(
       INSTRUCTIONS,
@@ -64,7 +66,7 @@ export const draftReply: Task<DraftReplyInput, DraftedReply> = async (provider, 
           `The candidate's profile:\n${profileForPrompt(profile)}`,
           extracted && `The job:\n${jobForPrompt(extracted, null)}`,
           thread.length > 0 && `Earlier in this conversation:\n${thread.map((entry) => `<earlier>\n${entry}\n</earlier>`).join("\n")}`,
-          `The email to answer:\n${emailForPrompt(email)}`,
+          `The email to answer:\n${emailForPrompt(email, timeZone)}`,
           slots.length > 0 ? `Times to offer:\n${slots.map((slot) => `• ${slot}`).join("\n")}` : "No times to offer: don't propose any.",
           note.trim() && `The candidate adds: ${note.trim()}`,
         ]
