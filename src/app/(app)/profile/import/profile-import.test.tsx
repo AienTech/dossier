@@ -13,7 +13,7 @@ import { applyProfileImport, discardProfileImport } from "../actions";
 import { ProfileImport } from "./profile-import";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => null }));
 vi.mock("@/hooks/use-job", () => ({ useJob: vi.fn(() => null) }));
 vi.mock("@/lib/jobs/actions", () => ({ retry: vi.fn() }));
 vi.mock("../actions", () => ({

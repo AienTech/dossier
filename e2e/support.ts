@@ -9,6 +9,7 @@ import { Pool } from "pg";
 export const APP_PORT = 3100;
 export const FAKE_AI_PORT = 3999;
 export const FAKE_JOBS_PORT = 3998;
+export const FAKE_GOOGLE_PORT = 3997;
 export const PASSWORD = "e2e-password";
 /** DOSSIER_PASSWORD for the run: `printf 'e2e-password' | yarn hash-password`. */
 const PASSWORD_HASH = "argon2id:m=19456,t=2,p=1:wk-0a22NLDwpNVDMxLY9rw:x4bAXEh9EtlaTIqLiHwF_omyDOpcPtwPrV0_SJx_y2c";
@@ -45,6 +46,9 @@ export function appEnv(): Record<string, string> {
     DOSSIER_JOBS_SOURCE: "jsearch",
     DOSSIER_JSEARCH_KEY: "e2e-jsearch-key",
     DOSSIER_JOBS_TEST_BASE_URL: `http://localhost:${FAKE_JOBS_PORT}`,
+    // Google's sign-in, Gmail and Calendar are the fake Google's (E15). It's
+    // only used once a spec enters an OAuth client in Settings → Google.
+    DOSSIER_GOOGLE_TEST_BASE_URL: `http://localhost:${FAKE_GOOGLE_PORT}`,
     // A production server, so it would ask GitHub for the latest release daily.
     DOSSIER_UPDATES_TEST_BASE_URL: `http://localhost:${FAKE_JOBS_PORT}/github`,
     // A production server, so it would send the usage ping.
@@ -77,4 +81,12 @@ export async function resetData(): Promise<void> {
 export async function fakeJobSearches(): Promise<number> {
   const response = await fetch(`http://localhost:${FAKE_JOBS_PORT}/searches`);
   return ((await response.json()) as { searches: number }).searches;
+}
+
+export type FakeGoogleState = { sent: { id: string; threadId: string; raw: string; text: string; attachments: string[] }[]; events: Record<string, unknown>[]; revoked: number; granted: string };
+
+/** What the fake Google has been sent so far (E15). */
+export async function fakeGoogle(): Promise<FakeGoogleState> {
+  const response = await fetch(`http://localhost:${FAKE_GOOGLE_PORT}/state`);
+  return (await response.json()) as FakeGoogleState;
 }

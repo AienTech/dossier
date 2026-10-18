@@ -68,6 +68,61 @@ test.describe("the board", () => {
   });
 });
 
+// Gmail connected to the fake Google, with replies made up for the demo
+// applications; all of it goes again afterwards, so no other screen shows it.
+test("the inbox with replies from Gmail", async ({ page }) => {
+  await page.goto("/settings?section=google");
+  await page.getByLabel("Client ID").fill("e2e-google-client.apps.googleusercontent.com");
+  await page.getByLabel("Client ID").press("Enter");
+  await page.getByLabel("Client secret").fill("e2e-google-secret");
+  await page.getByLabel("Client secret").press("Enter");
+  await page.getByRole("link", { name: "Connect Google account" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Connected as" })).toBeVisible();
+
+  const ids = Object.fromEntries(
+    (await sql<{ id: string; company: string }>(`SELECT id, company FROM "Application"`)).map(({ id, company }) => [company, id]),
+  );
+  const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
+  const replies = [
+    { app: "Kestrel Maps", from: ["Priya Raman", "priya.raman@kestrelmaps.example"], subject: "Re: Application: Product Designer, Mobile", hours: 2, kind: "INTERVIEW", summary: "Invites you to a 30-minute intro call and asks when you're free next week.", questions: ["Which times next week work for you?"], suggested: "INTERVIEW" },
+    { app: "Tidewater Energy", from: ["Marco Lindqvist", "m.lindqvist@tidewater.example"], subject: "Re: Senior UX Designer", hours: 26, kind: "QUESTION", summary: "Asks for your salary expectations and when you could start.", questions: ["What are your salary expectations?", "When could you start?"], suggested: null },
+    { app: null, from: ["Harbour Freight Talent", "talent@harbourfreight.example"], subject: "Your profile caught our eye", hours: 30, kind: null, summary: "", questions: [], suggested: null },
+    { app: "Meridian Bank", from: ["Meridian Bank Careers", "no-reply@meridianbank.example"], subject: "We've received your application", hours: 50, kind: "ACKNOWLEDGEMENT", summary: "Confirms they received your application and will be in touch.", questions: [], suggested: null, handled: true },
+    { app: "Parcelhub", from: ["Sofie Bakker", "sofie@parcelhub.example"], subject: "Re: Senior Product Designer", hours: 75, kind: "REJECTION", summary: "Says they've gone ahead with other candidates.", questions: [], suggested: null, handled: true },
+  ];
+  for (const [index, reply] of replies.entries()) {
+    await sql(
+      `INSERT INTO "EmailMessage" (id, "gmailId", "threadId", "applicationId", direction, "fromName", "fromAddress", "toAddress", subject, body, "sentAt", kind, summary, questions, "suggestedStatus", "classifiedWith", "handledAt")
+       VALUES ($1, $1, $2, $3, 'INCOMING', $4, $5, 'jane.doe@gmail.example', $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [
+        `readme-${index}`,
+        `readme-thread-${index}`,
+        reply.app ? ids[reply.app] : null,
+        reply.from[0],
+        reply.from[1],
+        reply.subject,
+        `${reply.summary}\n\nBest,\n${reply.from[0]}`,
+        hoursAgo(reply.hours),
+        reply.kind,
+        reply.summary,
+        JSON.stringify(reply.questions),
+        reply.suggested,
+        reply.kind ? "classify-reply@1" : null,
+        reply.handled ? hoursAgo(reply.hours) : null,
+      ],
+    );
+  }
+  await sql(`UPDATE "GoogleAccount" SET "lastSyncAt" = now()`);
+
+  await page.goto("/inbox");
+  await expect(page.getByRole("region", { name: "Needs an answer" })).toContainText("Invites you to a 30-minute intro call");
+  await shot(page, "inbox");
+
+  await sql(`DELETE FROM "EmailMessage"`);
+  await sql(`DELETE FROM "GoogleAccount"`);
+  await sql(`DELETE FROM "Setting" WHERE key IN ('googleClientId', 'googleClientSecretEnc')`);
+});
+
 // Last, since it adds an application the other screens shouldn't show.
 test("a new application: how you match", async ({ page }) => {
   await page.goto("/new?fresh=1");

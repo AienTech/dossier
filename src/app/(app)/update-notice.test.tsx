@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "@/components/toast";
 import { dismissUpdate } from "@/lib/update-actions";
 
+import { SidebarFrame } from "./sidebar-frame";
 import { UpdateNotice } from "./update-notice";
 
 vi.mock("@/lib/update-actions", () => ({ dismissUpdate: vi.fn(async () => ({ ok: true, data: null })) }));
@@ -48,5 +49,21 @@ describe("UpdateNotice", () => {
     await user.click(screen.getByRole("button", { name: "Not now" }));
     expect(toast).toHaveBeenCalledWith("You seem to be offline.");
     expect(screen.getByRole("region", { name: "Dossier 1.6.0 is out" })).toBeInTheDocument();
+  });
+
+  it("is an icon with a dot in the collapsed sidebar, which opens it on the notice", async () => {
+    const user = userEvent.setup();
+    render(
+      <SidebarFrame initialCollapsed brand={<span>Dossier</span>}>
+        <UpdateNotice release={release} currentVersion="1.5.0" />
+      </SidebarFrame>,
+    );
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Dossier 1.6.0 is out" }));
+    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Dossier 1.6.0 is out" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "What's new (opens in a new tab)" })).toHaveFocus();
+    expect(document.cookie).toContain("dossier_sidebar=expanded");
+    document.cookie = "dossier_sidebar=; max-age=0; path=/";
   });
 });

@@ -1,8 +1,11 @@
+import { cookies } from "next/headers";
 import { after } from "next/server";
 
 import { verifySession } from "@/lib/auth/session";
+import { inboxCount } from "@/lib/google/inbox-data";
 import { loadProfileName } from "@/lib/profile-data";
 import { loadSettings } from "@/lib/settings-data";
+import { COLOR_SCHEME_COOKIE, parseColorScheme, parseSidebarCollapsed, SIDEBAR_COOKIE } from "@/lib/ui-preferences";
 import { checkForUpdatesDaily, updateNotice } from "@/lib/update-check";
 import { notePageLoad } from "@/lib/usage-ping";
 import { appVersion } from "@/lib/version";
@@ -21,8 +24,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   after(notePageLoad);
   after(checkForUpdatesDaily);
 
-  const [name, settings] = await Promise.all([loadProfileName(), loadSettings()]);
+  const [name, settings, jar] = await Promise.all([loadProfileName(), loadSettings(), cookies()]);
   const userName = name.trim() || "New user";
+  // Replies waiting for an answer or a link, on the Inbox item.
+  const waiting = await inboxCount().catch(() => 0);
 
   return (
     <div className="flex min-h-screen">
@@ -32,10 +37,26 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       >
         Skip to content
       </a>
-      <Sidebar userName={userName} update={updateNotice(settings)} currentVersion={appVersion} />
-      <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col focus:outline-none">
-        {children}
-      </main>
+      <Sidebar
+        userName={userName}
+        update={updateNotice(settings)}
+        currentVersion={appVersion}
+        collapsed={parseSidebarCollapsed(jar.get(SIDEBAR_COOKIE)?.value)}
+        counts={waiting > 0 ? { "/inbox": waiting } : undefined}
+        colorScheme={parseColorScheme(jar.get(COLOR_SCHEME_COOKIE)?.value)}
+      />
+      {/* The screen sits in a white panel inset from the shell. Each screen
+          starts with its page bar (PageHeader or PageBar), which draws the
+          panel's top edge and stays in view. */}
+      <div className="flex min-w-0 flex-1 flex-col bg-paper px-2 pb-2">
+        <main
+          id="main"
+          tabIndex={-1}
+          className="relative flex min-w-0 flex-1 flex-col rounded-b-panel border border-t-0 border-line-card bg-surface focus:outline-none"
+        >
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
