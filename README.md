@@ -119,6 +119,10 @@ Dossier needs two more secrets in `.env`:
 echo "DOSSIER_SECRET=$(openssl rand -base64 32)" >> .env
 docker run --rm -it ghcr.io/aientech/dossier hash-password
 ```
+_Note_: In case you are building or running it locally on Apple Silicon (M-series Mac), use the following command to specify the platform:
+```bash
+docker run --platform linux/amd64 --rm -it ghcr.io/aientech/dossier hash-password
+```
 
 Type your password twice. The command prints one line that starts with `argon2id:`; add it to `.env` as `DOSSIER_PASSWORD=argon2id:…` (for example with `nano .env`). Then start Dossier and watch it come up:
 
