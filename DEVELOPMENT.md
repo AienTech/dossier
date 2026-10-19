@@ -185,7 +185,7 @@ Import files are capped at 10 MB, roughly 500 applications. The limit comes from
 
 On each day someone signed in opens a page, a production server sends `https://telemetry.dossier.aien.me/ping` the install's random ID and the version, once (`src/lib/usage-ping.ts`, called with `after()` from the signed-in layout). The ID and the day of the last ping are the settings `usagePingId` and `usagePingDay`: exports leave them out and imports keep them (`INSTALL_SETTINGS` in `src/lib/data-export.ts`). Development servers and tests never send it (`NODE_ENV` isn't `production`), and the end-to-end run sets `DOSSIER_TELEMETRY=off`, since it runs a production build.
 
-The receiving end is a Cloudflare Worker that isn't published with the app. Change what the ping sends only together with it, the README's Privacy section and Settings → About.
+The receiving end is a small service on the project's own server that isn't published with the app. Change what the ping sends only together with it, the README's Privacy section and Settings → About.
 
 ## Tests and checks
 

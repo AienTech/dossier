@@ -39,6 +39,7 @@ describe("stored settings", () => {
       dateFormat: "DAY_MONTH_YEAR",
       defaultTone: "WARM",
       docLanguage: null,
+      resumeLanguage: null,
       customLanguages: [],
       fileNamePattern: "{name} – {company} – {doc}",
       includeRefs: false,

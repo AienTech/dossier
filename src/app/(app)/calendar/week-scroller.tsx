@@ -10,7 +10,7 @@ export function WeekScroller({ top, children }: { top: number; children: ReactNo
   }, [top]);
   return (
     // Focusable, so the hours scroll from the keyboard too, links in them or not.
-    <div ref={area} role="region" aria-label="Hours of the week" tabIndex={0} className="scrollbar-subtle max-h-[calc(100dvh-300px)] min-h-[360px] overflow-y-auto">
+    <div ref={area} role="region" aria-label="Hours of the week" tabIndex={0} className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto">
       {children}
     </div>
   );

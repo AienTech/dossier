@@ -18,6 +18,7 @@ const initial: DocumentSettings = {
   dateFormat: "DAY_MONTH_YEAR",
   defaultTone: "WARM",
   docLanguage: null,
+  resumeLanguage: null,
   customLanguages: ["Farsi"],
   fileNamePattern: "{name} – {company} – {doc}",
   includeRefs: false,
@@ -63,6 +64,19 @@ describe("Documents settings (E10-3)", () => {
     expect(updateSettings).toHaveBeenLastCalledWith({ docLanguage: null });
     await user.click(screen.getByRole("switch", { name: "Include references" }));
     expect(updateSettings).toHaveBeenLastCalledWith({ includeRefs: true });
+  });
+
+  it("picks the base resume's language from the built-in ones, English by default", async () => {
+    const user = userEvent.setup();
+    open();
+    const select = screen.getByLabelText("Base resume language") as HTMLSelectElement;
+    expect(select).toHaveDisplayValue("English");
+    expect(select.options).toHaveLength(21);
+    expect(select).toHaveAccessibleDescription("For its headings and dates. Tailored documents use their application's language.");
+    await user.selectOptions(select, "German");
+    expect(updateSettings).toHaveBeenLastCalledWith({ resumeLanguage: "German" });
+    await user.selectOptions(select, "English");
+    expect(updateSettings).toHaveBeenLastCalledWith({ resumeLanguage: null });
   });
 
   it("adds another language", async () => {

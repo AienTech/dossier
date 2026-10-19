@@ -17,7 +17,7 @@ const href = (view: CalendarView, day: Day) => `/calendar?view=${view}&date=${da
 /**
  * Your week or month (E15-6): the events in Google Calendar next to your
  * interviews, which open their application. `?view=week|month&date=` picks
- * what's on screen.
+ * what's on screen. Like the board, it keeps to the window.
  */
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
   const params = await searchParams;
@@ -30,7 +30,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const calendar = await loadCalendar(days);
 
   return (
-    <>
+    <div className="flex h-panel min-h-[600px] flex-col">
       <PageHeader
         title="Calendar"
         description={`Your interviews${calendar.source.status === "google" ? " and the rest of your Google Calendar" : ""}, in your time zone (${calendar.timeZone}).`}
@@ -52,7 +52,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
       ) : (
         <MonthView days={days} anchor={anchor} today={today} items={calendar.items} timeZone={calendar.timeZone} />
       )}
-    </>
+    </div>
   );
 }
 

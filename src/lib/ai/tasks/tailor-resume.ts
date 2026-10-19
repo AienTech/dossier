@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import { unitsSchema, type Extracted, type Match, type Unit } from "@/lib/application-data";
-import { languageLevelLabel, sameName, type ProfileData } from "@/lib/profile";
+import { documentLabels, ENGLISH_LABELS, languagesLine, type DocumentLabels } from "@/lib/document-labels";
+import { sameName, type ProfileData } from "@/lib/profile";
 
 import { guardSources, guardUnits } from "../fact-guard";
 
@@ -76,7 +77,8 @@ export const tailorResume: Task<TailorInput, Unit[]> = async (provider, { profil
     creativity: options.creativity,
     signal: options.signal,
   });
-  const units = resumeUnits(profile, answer);
+  // The languages line in the resume's language: the chosen one, or the posting's.
+  const units = resumeUnits(profile, answer, documentLabels(options.language ?? extracted.language));
   // E6-6: in strict mode, note what the profile and posting don't back.
   return {
     data: options.strict ? guardUnits(units, guardSources(profile, extracted, posting)) : units,
@@ -87,9 +89,10 @@ export const tailorResume: Task<TailorInput, Unit[]> = async (provider, { profil
 /**
  * Turns the answer into units, trusting nothing: unknown roles and degrees are
  * dropped, skills must be the profile's own, and a role the model skipped
- * keeps its bullets from the profile.
+ * keeps its bullets from the profile. The languages come from the profile,
+ * with their levels in the words of `labels`.
  */
-export function resumeUnits(profile: ProfileData, answer: z.infer<typeof answerSchema>): Unit[] {
+export function resumeUnits(profile: ProfileData, answer: z.infer<typeof answerSchema>, labels: DocumentLabels = ENGLISH_LABELS): Unit[] {
   const roles = new Map(answer.roles.map((role) => [role.id, role.bullets]));
   const notes = new Map(answer.education.map((entry) => [entry.id, entry.notes]));
   const skills = [
@@ -110,7 +113,7 @@ export function resumeUnits(profile: ProfileData, answer: z.infer<typeof answerS
     {
       id: "languages",
       label: "Languages",
-      text: profile.languages.map((language) => `${language.name}: ${languageLevelLabel(language.level)}`).join(" · "),
+      text: languagesLine(profile.languages, labels),
     },
   ];
   return unitsSchema.parse(units);

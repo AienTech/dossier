@@ -62,7 +62,7 @@ What happens to the data then depends on the provider and your account with them
 
 On each day you use Dossier, your server sends `telemetry.dossier.aien.me` a random install ID and the version number, once, so the project knows how many installs are in use and how often. The ID is made at random and kept in your database. It isn't derived from anything about you or your server, and exports leave it out. Nothing else is sent: no profile, documents, applications, settings, server address or time of day.
 
-The receiver, a Cloudflare Worker, keeps the ID, the day and the version, and deletes them after a year. It doesn't keep the address the ping came from, though Cloudflare sees it on the way, as with any request.
+The receiver runs on the project's own server. It keeps the ID, the day and the version, and deletes them after a year. It doesn't keep the address the ping came from, and no other service handles the ping on the way.
 
 - **Stop it:** set `DOSSIER_TELEMETRY=off`. Settings → About shows whether it's on and the ID it sends.
 - **Delete what was sent:** set `DOSSIER_TELEMETRY=off` first, then send the ID to `dossier.app@pm.me`. Everything kept under it is deleted, and you get a confirmation.

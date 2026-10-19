@@ -172,6 +172,12 @@ export const updateSettings = action(
     defaultTone: z.enum(Tone).optional(),
     /** A language name, or null for the posting's language. */
     docLanguage: z.string().trim().min(1).max(60).nullable().optional(),
+    /** One of the built-in languages, or null for English. */
+    resumeLanguage: z
+      .string()
+      .refine((name) => DOCUMENT_LANGUAGES.some((language) => language.name === name), "Pick a language from the list.")
+      .nullable()
+      .optional(),
     fileNamePattern: z.string().max(200).optional(),
     includeRefs: z.boolean().optional(),
     onePage: z.boolean().optional(),

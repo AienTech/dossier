@@ -11,7 +11,8 @@ import { appVersion } from "@/lib/version";
 // signed in opens a page, the server sends this install's random ID and the
 // app's version, once, so the project can count the installs in use and how
 // often they're used. Nothing else is sent. DOSSIER_TELEMETRY=off stops it.
-// The receiving end is a Cloudflare Worker, not published with the app.
+// The receiving end runs on the project's own server and isn't published
+// with the app.
 
 export const USAGE_PING_HOST = "telemetry.dossier.aien.me";
 export const USAGE_PING_URL = `https://${USAGE_PING_HOST}/ping`;
@@ -26,7 +27,7 @@ export function usagePingEnabled(): boolean {
   return process.env.NODE_ENV === "production" && env.DOSSIER_TELEMETRY === "on";
 }
 
-/** The calendar day in UTC, as the Worker records it: "2026-10-16". */
+/** The calendar day in UTC, as the receiver records it: "2026-10-16". */
 export function utcDay(date: Date): string {
   return date.toISOString().slice(0, 10);
 }

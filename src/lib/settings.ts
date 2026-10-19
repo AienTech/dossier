@@ -81,6 +81,8 @@ export const settingsSchema = z.object({
   defaultTone: z.enum(Tone).catch(Tone.WARM),
   /** Language for generated documents; null means "the posting's language" (SET-7). */
   docLanguage: z.string().nullable().catch(null),
+  /** The base resume's language, for its headings and dates; null means English, with the direction read from the profile. */
+  resumeLanguage: z.string().nullable().catch(null),
   /** Languages added with "Other language…", kept in the list. */
   customLanguages: stringList.catch([]),
   fileNamePattern: z.string().catch("{name} – {company} – {doc}"),

@@ -324,7 +324,7 @@ Everything you enter is kept in your PostgreSQL database and data directory. [PR
 
 - **Desktop only:** made for a laptop or desktop browser, not for phones.
 - **Single user:** one password and one profile; there are no accounts.
-- **English interface:** documents can be written in other languages, but the app itself is in English.
+- **English interface:** the app itself is in English. Documents can be written in other languages; in the 21 built-in ones, their headings, dates and language levels are in that language too, and in one added with **Other language…** those stay in English.
 - **One instance:** run a single copy of the app per database. The nightly backups, the AI job queue and the PDF browser live inside the app's process.
 
 ## Performance and sizing

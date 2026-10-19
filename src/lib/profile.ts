@@ -32,18 +32,22 @@ type DateFormatOptions = {
   present?: string;
 };
 
-/** "Mar 2021", or "2013" without a month, or "" without a year. */
+/**
+ * "Mar 2021", or "2013" without a month, or "" without a year, in the
+ * locale's own order and digits ("2021年3月", "سپتامبر ۲۰۲۱").
+ */
 export function formatMonthYear(
   year: number | null,
   month: number | null,
   { locale = "en-US" }: DateFormatOptions = {},
 ): string {
   if (year === null) return "";
-  if (month === null) return String(year);
-  const monthName = new Intl.DateTimeFormat(locale, { month: "short", timeZone: "UTC" }).format(
-    Date.UTC(2000, month - 1, 1),
-  );
-  return `${monthName} ${year}`;
+  // The profile's dates are Gregorian, even where the locale's calendar isn't (Persian).
+  return new Intl.DateTimeFormat(`${locale}-u-ca-gregory`, {
+    year: "numeric",
+    month: month === null ? undefined : "short",
+    timeZone: "UTC",
+  }).format(Date.UTC(year, (month ?? 1) - 1, 1));
 }
 
 /** "Mar 2021 – Present", "2013 – 2015", "Sep 2015 – May 2018", or a single date. */

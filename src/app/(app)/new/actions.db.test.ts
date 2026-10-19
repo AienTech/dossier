@@ -170,8 +170,9 @@ describe("createApplication", () => {
     expect(text("sender")).toMatch(/^Jane Doe\n.*jane\.doe@example\.com/);
     expect(text("signature")).toBe("Jane Doe");
     expect(text("date")).toBe(new Intl.DateTimeFormat("de", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(calendarDay()));
-    // This job's letter came without a recipient or greeting, so the English ones stand in.
-    expect(text("greeting")).toBe("Dear Ledgerly B.V. team,");
+    // This job's letter came without a recipient or greeting, so German ones stand in.
+    expect(text("recipient")).toMatch(/^Ledgerly B\.V\. · Personalabteilung/);
+    expect(text("greeting")).toBe("Sehr geehrte Damen und Herren,");
     expect(await prisma().documentVersion.findFirstOrThrow({ where: { documentId: letter.id } })).toMatchObject({ units });
   });
 

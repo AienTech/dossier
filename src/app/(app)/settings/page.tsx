@@ -92,6 +92,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             dateFormat: settings.dateFormat,
             defaultTone: settings.defaultTone,
             docLanguage: settings.docLanguage,
+            resumeLanguage: settings.resumeLanguage,
             customLanguages: settings.customLanguages,
             fileNamePattern: settings.fileNamePattern,
             includeRefs: settings.includeRefs,

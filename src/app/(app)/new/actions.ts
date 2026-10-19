@@ -15,6 +15,7 @@ import { loadProfile } from "@/lib/profile-data";
 import { loadSettings } from "@/lib/settings-data";
 import { logServerError } from "@/lib/log";
 import { calendarDay } from "@/lib/application-documents";
+import { documentLabels } from "@/lib/document-labels";
 import { documentLanguage } from "@/lib/document-language";
 import { newFrame, withFrame } from "@/lib/letter-frame";
 import { describeTrim, fitResumeToOnePage } from "@/lib/one-page";
@@ -142,6 +143,7 @@ export const createApplication = action(
         date: calendarDay(),
         dateFormat: settings.dateFormat,
         lang: documentLanguage(language, documents.letter.map((unit) => unit.text).join(" ")).lang,
+        labels: documentLabels(language),
       }),
     );
     const summary = tailoringSummary({

@@ -19,6 +19,7 @@ export default async function BaseResumePage() {
       baseThemeId={settings.baseThemeId}
       paper={settings.paper}
       includeReferences={settings.includeRefs}
+      language={settings.resumeLanguage}
       onePage={settings.onePage}
     />
   );

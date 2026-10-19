@@ -14,8 +14,9 @@ const weekdayShort = (day: Day) => new Intl.DateTimeFormat("en-GB", { timeZone: 
 
 /**
  * Seven days with an hour grid (E15-6): all-day events in a row above it,
- * the others placed by time, side by side where they overlap. Opens at the
- * start of the working day.
+ * the others placed by time, side by side where they overlap. The hours
+ * fill the screen's height and scroll on their own, opened at the start of
+ * the working day.
  */
 export function WeekView({ days, today, now, items, timeZone, workStart }: { days: Day[]; today: Day; now: Date; items: CalendarItem[]; timeZone: string; workStart: string }) {
   const timed = items.filter((item): item is TimedItem => !item.allDay);
@@ -26,7 +27,7 @@ export function WeekView({ days, today, now, items, timeZone, workStart }: { day
   const nowMinutes = days.includes(today) ? (now.getTime() - startOfDay(today, timeZone).getTime()) / 60_000 : null;
 
   return (
-    <div className="mx-10 mb-16 overflow-hidden rounded-panel border border-line-card bg-card">
+    <div className="mx-10 mb-5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-panel border border-line-card bg-card">
       <div aria-hidden="true" className={cn(COLUMNS, "border-b border-line")}>
         <div />
         {days.map((day) => (

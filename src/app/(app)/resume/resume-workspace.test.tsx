@@ -33,6 +33,7 @@ const props: ResumeWorkspaceProps = {
   paper: "A4",
   includeReferences: false,
   onePage: true,
+  language: null,
 };
 
 /** The theme name above the preview, next to "A4 · 1 page". */

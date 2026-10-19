@@ -184,6 +184,15 @@ describe("tailorResume", () => {
     expect(data.find((unit) => unit.id === "languages")?.text).toBe("Dutch: Native · English: Fluent (C2) · German: Intermediate (B1)");
   });
 
+  it("names language levels in the resume's language: the chosen one, or the posting's", async () => {
+    const levels = async (language: string | null, postingLanguage: string) => {
+      const { data } = await tailorResume(model(answer), { profile, extracted: { ...extracted, language: postingLanguage }, match: null, note: "", posting }, { ...options, language });
+      return data.find((unit) => unit.id === "languages")?.text;
+    };
+    expect(await levels(null, "German")).toBe("Dutch: Muttersprache · English: Fließend (C2) · German: Mittelstufe (B1)");
+    expect(await levels("French", "German")).toBe("Dutch: Langue maternelle · English: Courant (C2) · German: Intermédiaire (B1)");
+  });
+
   it("asks for a one-page resume when that's on (E10-10)", async () => {
     const provider = model({ summary: "Designer.", roles: [], skills: [], education: [] });
     await tailorResume(provider, { profile, extracted, match: null, note: "", posting }, { ...options, onePage: true });

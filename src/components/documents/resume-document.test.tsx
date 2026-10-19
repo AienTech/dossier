@@ -84,6 +84,22 @@ describe("ResumeDocument", () => {
     expect(screen.getByText("Thesis on trust in automated scheduling tools")).toBeInTheDocument();
   });
 
+  it("writes its headings, dates, levels and age in the document's language", () => {
+    const withAge = { ...profile, basics: { ...profile.basics, showAge: true } };
+    render(<ResumeDocument theme={theme("modern")} profile={withAge} paper="A4" today={today} language="German" includeReferences />);
+    expect(sectionTitles()).toEqual(["Kontakt", "Kenntnisse", "Sprachen", "Profil", "Berufserfahrung", "Ausbildung", "Referenzen"]);
+    expect(screen.getByText("März 2021 – Heute")).toBeInTheDocument();
+    expect(screen.getByText("UX Designer").closest("[data-unit]")).toHaveTextContent("Kenntnisse · HTML & CSS, Interaction design");
+    expect(screen.getByText(/^Dutch: Muttersprache · English: Fließend \(C2\)/)).toBeInTheDocument();
+    expect(screen.getByText("34 Jahre")).toBeInTheDocument();
+  });
+
+  it("keeps English headings for a language without its own", () => {
+    render(<ResumeDocument theme={theme("editorial")} profile={profile} paper="A4" today={today} language="Hebrew" />);
+    expect(sectionTitles()).toEqual(["Profile", "Experience", "Education", "Skills", "Languages"]);
+    expect(screen.getByText("Mar 2021 – Present")).toBeInTheDocument();
+  });
+
   it("adds references only when enabled", () => {
     const { rerender } = render(<ResumeDocument theme={theme("editorial")} profile={profile} paper="A4" />);
     expect(screen.queryByRole("heading", { name: "References" })).not.toBeInTheDocument();

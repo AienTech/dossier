@@ -20,7 +20,8 @@ import {
 } from "@/generated/prisma/enums";
 import { type Match, type Requirement, type Unit } from "@/lib/application-data";
 import { EMAIL_UNITS, WRITTEN_EMAIL_UNITS } from "@/lib/application-email";
-import { englishFrame, isFrameUnit, isParagraph, withFrame, WRITTEN_FRAME_UNITS } from "@/lib/letter-frame";
+import { documentLabels } from "@/lib/document-labels";
+import { defaultFrame, isFrameUnit, isParagraph, withFrame, WRITTEN_FRAME_UNITS } from "@/lib/letter-frame";
 import type { ActivityEntry } from "@/lib/activity";
 import type { DocumentData } from "@/lib/application-documents";
 import { retry } from "@/lib/jobs/actions";
@@ -489,7 +490,14 @@ export function ApplicationView({
     letter &&
     withFrame(
       shown(DocumentKind.COVER_LETTER, letter.units),
-      englishFrame({ basics: profile.basics, company: application.company, location: application.location, date: letterDate, dateFormat }),
+      defaultFrame({
+        basics: profile.basics,
+        company: application.company,
+        location: application.location,
+        date: letterDate,
+        dateFormat,
+        labels: documentLabels(application.language),
+      }),
     );
   const letterStored = new Set(letter?.units.map((unit) => unit.id));
   const emailUnits = email && shown(DocumentKind.EMAIL, email);
