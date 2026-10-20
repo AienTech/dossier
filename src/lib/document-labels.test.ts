@@ -17,6 +17,7 @@ describe("document labels", () => {
       const labels = documentLabels(name);
       expect(labels.locale, name).toBe(tag);
       expect(labels.experience, name).not.toBe(ENGLISH_LABELS.experience);
+      expect(labels.projects, name).not.toBe(ENGLISH_LABELS.projects);
       expect(Object.values(labels.levels).filter(Boolean), name).toHaveLength(LANGUAGE_LEVELS.length);
     }
   });

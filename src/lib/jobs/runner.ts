@@ -3,9 +3,10 @@ import "server-only";
 import type { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
-import { AiProvider, JobStatus } from "@/generated/prisma/enums";
+import { JobStatus } from "@/generated/prisma/enums";
 import { loadAiConfig } from "@/lib/ai/config";
 import { AiError } from "@/lib/ai/errors";
+import { providerOption } from "@/lib/ai/provider-options";
 import { logServerError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 
@@ -16,6 +17,8 @@ import { prisma } from "@/lib/prisma";
 // as a single instance, so an in-process queue is enough.
 
 export type JobContext = {
+  /** The job's own id, e.g. to link it to the application it makes. */
+  id: string;
   /** Names the step now in progress, e.g. "Reading the posting". */
   step: (name: string) => Promise<void>;
   /** Aborts when the job is cancelled; pass it on to AI calls. */
@@ -192,7 +195,7 @@ function enqueue(id: string): void {
 
 async function concurrency(): Promise<number> {
   try {
-    return (await loadAiConfig()).provider === AiProvider.LOCAL ? LOCAL_CONCURRENCY : HOSTED_CONCURRENCY;
+    return providerOption((await loadAiConfig()).provider).local ? LOCAL_CONCURRENCY : HOSTED_CONCURRENCY;
   } catch {
     return LOCAL_CONCURRENCY;
   }
@@ -231,6 +234,7 @@ async function execute(id: string, controller: AbortController): Promise<void> {
     if (!definition) throw new Error(`No job type "${job.type}" is defined.`);
 
     const result = await definition.run(definition.input.parse(job.input), {
+      id,
       signal: controller.signal,
       step: async (name) => {
         // Deleted meanwhile: there's no one left to do it for.

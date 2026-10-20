@@ -23,6 +23,7 @@ type Profile = {
   summary: string;
   skills: string[];
   experience: { id: string; bullets: string[] }[];
+  projects: { id: string; bullets: string[] }[];
   education: { id: string; notes: string }[];
 };
 type Unit = { id: string; label: string; text: string };
@@ -70,8 +71,21 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
     return {
       summary: profile.summary,
       roles: profile.experience.map((entry) => ({ id: entry.id, bullets: entry.bullets })),
+      projects: profile.projects.map((entry) => ({ id: entry.id, bullets: entry.bullets })),
       skills: profile.skills,
       education: profile.education.map((entry) => ({ id: entry.id, notes: entry.notes })),
+    };
+  },
+
+  // The job agent's score (E16): by the posting's title, so a spec knows
+  // which postings make the queue (70 is the default minimum) and which don't.
+  posting_score: (messages) => {
+    const { title } = section(messages[1].content, "The posting's facts:\n") as { title: string };
+    const score = /senior product designer/i.test(title) ? 91 : /product designer/i.test(title) ? 78 : 45;
+    return {
+      score,
+      reasons: [score >= 70 ? `The profile's product design roles match "${title}".` : `"${title}" is further from the profile's roles.`],
+      redFlags: score >= 70 ? [] : ["The profile shows no UX research lead role."],
     };
   },
 
@@ -149,6 +163,7 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
         skills: ["Service design"],
       },
     ],
+    projects: [],
     education: [],
     references: [],
   }),

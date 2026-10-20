@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import type { PaperSize, ThemeLayout } from "@/generated/prisma/enums";
 import { cn } from "@/lib/cn";
@@ -25,7 +25,13 @@ type ResumeDocumentProps = ResumeOptions & {
 
 /** Enough of a resume's own words to tell its script and direction. */
 const sampleText = (content: ResumeContent) =>
-  [content.name, content.headline, content.summary, ...content.experience.flatMap((role) => [role.role, ...role.bullets])].join(" ");
+  [
+    content.name,
+    content.headline,
+    content.summary,
+    ...content.experience.flatMap((role) => [role.role, ...role.bullets]),
+    ...content.projects.flatMap((project) => [project.name, ...project.bullets]),
+  ].join(" ");
 
 /**
  * A resume (RES-1, RES-6, APP-4), the same markup for the preview and the
@@ -92,6 +98,43 @@ export function ResumeDocument({ theme, profile, paper, layout, language, render
                     <p className={styles.entrySkills}>
                       <span className={styles.accent}>{`${labels.skills} · `}</span>
                       {role.skills.join(", ")}
+                    </p>
+                  )}
+                </>
+              ),
+            })}
+          </Fragment>
+        ))}
+      </DocumentSection>
+    ),
+    content.projects.length > 0 && (
+      <DocumentSection key="projects" title={labels.projects}>
+        {content.projects.map((project) => (
+          <Fragment key={project.id}>
+            {renderUnit({
+              id: `project:${project.id}`,
+              className: styles.entry,
+              head: (
+                <EntryHead
+                  title={project.name}
+                  at={project.link && <Contact>{project.link}</Contact>}
+                  dates={project.dates}
+                  timeline={resolved.timeline}
+                />
+              ),
+              children: (
+                <>
+                  {project.bullets.length > 0 && (
+                    <ul className={styles.bullets}>
+                      {project.bullets.map((bullet, index) => (
+                        <li key={index}>{bullet}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {project.skills.length > 0 && (
+                    <p className={styles.entrySkills}>
+                      <span className={styles.accent}>{`${labels.skills} · `}</span>
+                      {project.skills.join(", ")}
                     </p>
                   )}
                 </>
@@ -171,14 +214,19 @@ const breakAfterDash = (dates: string) =>
  * the line, or before it in a timeline column (the dates come first then, so
  * they float into the column next to the title).
  */
-function EntryHead({ title, at, dates, timeline }: { title: string; at: string; dates: string; timeline: boolean }) {
+function EntryHead({ title, at, dates, timeline }: { title: string; at: ReactNode; dates: string; timeline: boolean }) {
   const datesSpan = dates && <span className={styles.dates}>{timeline ? breakAfterDash(dates) : dates}</span>;
   return (
     <div className={styles.entryHead}>
       {timeline && datesSpan}
       <p>
         <span className={styles.entryTitle}>{title}</span>
-        {at && (title ? `, ${at}` : at)}
+        {at && (
+          <>
+            {title && ", "}
+            {at}
+          </>
+        )}
       </p>
       {!timeline && datesSpan}
     </div>

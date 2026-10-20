@@ -10,3 +10,6 @@ import "./write-email";
 import "./zip-pdfs";
 import "./import-profile";
 import "./draft-reply";
+import "@/lib/agent/jobs";
+import "@/lib/agent/draft";
+import "./score-posting";

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Switch } from "radix-ui";
 import { useEffect, useId, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
@@ -103,6 +104,8 @@ export type ApplicationViewProps = {
     language: string;
     followThemeLayout: boolean;
     archived: boolean;
+    /** A job agent draft not approved yet (#195): it isn't in Applications. */
+    awaitingReview?: boolean;
     /** The next interview, while in Interview (E9-9). */
     nextInterviewAt: Date | null;
   };
@@ -426,12 +429,12 @@ export function ApplicationView({
       toast(`Added “${result.data.name}” to your skills. Attach it to a role under Experience to make it count.`);
     });
 
-  /** "Put back" something left out to fit one page (E10-10). */
+  /** "Put back" something left out to fit the page limit (E10-10). */
   const putBack = (index: number) =>
     startTransition(async () => {
       const result = await putBackTrimmed({ id: application.id, index });
       if (!result.ok) return toast(result.error);
-      toast("Put back. The resume may run over one page now.");
+      toast("Put back. The resume may run over its page limit now.");
     });
 
   /** "Undo" under a reply (E8-6): puts back what it changed. */
@@ -567,6 +570,11 @@ export function ApplicationView({
         actions={
           <>
             {application.archived && <span className="rounded-full bg-track px-3 py-1.5 text-meta text-muted">Archived</span>}
+            {application.awaitingReview && (
+              <Link href="/agent" className="rounded-full bg-warning-surface px-3 py-1.5 text-meta text-warning hover:text-warning">
+                From the job agent · waiting for review
+              </Link>
+            )}
             <StatusControl id={application.id} status={application.status} interviewAt={application.nextInterviewAt} timeZone={timeZone} />
             {(resume || letter) && (
               // The document on screen; from the Job posting tab, the resume (E8-8).

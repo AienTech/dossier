@@ -12,7 +12,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { DocumentKind, type DateFormat, type PaperSize, type Tone } from "@/generated/prisma/enums";
 import { DOCUMENT_LANGUAGES } from "@/lib/document-language";
 import { FILE_NAME_TOKENS, resolveFileName } from "@/lib/file-name";
-import { DATE_FORMATS } from "@/lib/settings";
+import { DATE_FORMATS, PAGE_LIMITS, type PageLimit } from "@/lib/settings";
 import { PAPER_SIZES } from "@/lib/themes";
 import { TONES } from "@/lib/tones";
 import { useAutosave } from "@/hooks/use-autosave";
@@ -30,7 +30,7 @@ export type DocumentSettings = {
   customLanguages: string[];
   fileNamePattern: string;
   includeRefs: boolean;
-  onePage: boolean;
+  pageLimit: PageLimit;
 };
 
 const POSTING_LANGUAGE = "__posting";
@@ -175,6 +175,18 @@ export function DocumentsSection({
             </option>
           ))}
         </Select>
+        <Select
+          label="Resume length"
+          hint="A tailored resume that runs longer is trimmed, oldest roles first, and I'll tell you what was cut."
+          value={settings.pageLimit}
+          onChange={(event) => change({ pageLimit: event.target.value as PageLimit })}
+        >
+          {PAGE_LIMITS.map((limit) => (
+            <option key={limit.value} value={limit.value}>
+              {limit.label}
+            </option>
+          ))}
+        </Select>
 
         <div className="flex flex-col gap-2.5 sm:col-span-2">
           <Input
@@ -217,13 +229,6 @@ export function DocumentsSection({
           description="Add your references to resumes when a posting asks for them. Otherwise they're left out."
           checked={settings.includeRefs}
           onCheckedChange={(includeRefs) => change({ includeRefs })}
-        />
-        <Toggle
-          className="border-t border-line py-4"
-          label="Keep resumes to one page"
-          description="I'll trim the oldest roles first and tell you what was cut."
-          checked={settings.onePage}
-          onCheckedChange={(onePage) => change({ onePage })}
         />
       </Card>
     </>
