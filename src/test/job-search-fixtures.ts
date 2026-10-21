@@ -74,12 +74,15 @@ export const jsearchV2Page = {
 /** The last search-v2 page: no cursor. */
 export const jsearchV2LastPage = { status: "OK", request_id: "r2", parameters: {}, data: { jobs: [northwind], cursor: null } };
 
-/** The RapidAPI endpoint: a list under `data`, ten to a page. */
+/** The RapidAPI endpoint: now /search-v2 too, so the same shape as OpenWeb Ninja's. */
 export const jsearchV1Page = {
   status: "OK",
   request_id: "r3",
   parameters: {},
-  data: Array.from({ length: 10 }, (_, index) => ({ ...northwind, job_id: `job-${index}`, job_title: `Role ${index}` })),
+  data: {
+    jobs: Array.from({ length: 10 }, (_, index) => ({ ...northwind, job_id: `job-${index}`, job_title: `Role ${index}` })),
+    cursor: "CURSOR-PAGE-2",
+  },
 };
 
 /** What JSearch says to a key it doesn't know. */

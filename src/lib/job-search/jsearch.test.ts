@@ -33,7 +33,7 @@ describe("JSearch search", () => {
     const requests = stubFetch(() => json(jsearchV1Page));
     const page = await jsearch.search({ ...query, place: "", remoteOnly: true, postedWithin: "any" }, rapid, "page:3");
     const [{ url, headers }] = requests;
-    expect(`${url.origin}${url.pathname}`).toBe("https://jsearch.p.rapidapi.com/search");
+    expect(`${url.origin}${url.pathname}`).toBe("https://jsearch.p.rapidapi.com/search-v2");
     expect(headers.get("x-rapidapi-key")).toBe("rapid-test");
     expect(headers.get("x-rapidapi-host")).toBe("jsearch.p.rapidapi.com");
     expect(Object.fromEntries(url.searchParams)).toEqual({
@@ -44,8 +44,8 @@ describe("JSearch search", () => {
       page: "3",
       num_pages: "1",
     });
-    // A full page of ten: there may be more.
-    expect(page.next).toBe("page:4");
+    // A full page of ten: there may be more; cursor advances each page.
+    expect(page.next).toBe("cursor:CURSOR-PAGE-2");
     expect(page.postings).toHaveLength(10);
   });
 
@@ -100,7 +100,8 @@ describe("JSearch search", () => {
   });
 
   it("stops paging RapidAPI after a short page", async () => {
-    stubFetch(() => json({ data: jsearchV1Page.data.slice(0, 4) }));
+    // jsearchV1Page.data is now an object {jobs, cursor}; slice first 4 jobs.
+    stubFetch(() => json({ data: { jobs: jsearchV1Page.data.jobs.slice(0, 4), cursor: null } }));
     expect((await jsearch.search(query, rapid, null)).next).toBeNull();
   });
 

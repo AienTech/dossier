@@ -11,8 +11,8 @@ import { safeLink, type FoundPosting, type PostedWithin, type SearchPage, type S
 // JSearch (E14-1): Google for Jobs through OpenWeb Ninja, or the same API on
 // RapidAPI. One search page is one request from the plan (200 a month free).
 // OpenWeb Ninja's search-v2 nests the jobs under `data` and pages with a
-// cursor; the RapidAPI endpoint returns a list and pages by number. Both are
-// read here.
+// cursor; both hosts answer /search-v2 the same way, and the next page comes
+// by cursor.
 
 const HOSTS: Record<JSearchHost, { base: string; path: string; headers: (key: string) => Record<string, string> }> = {
   openwebninja: {
@@ -22,7 +22,7 @@ const HOSTS: Record<JSearchHost, { base: string; path: string; headers: (key: st
   },
   rapidapi: {
     base: "https://jsearch.p.rapidapi.com",
-    path: "/search",
+    path: "/search-v2",
     headers: (key) => ({ "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" }),
   },
 };
@@ -138,10 +138,12 @@ function searchUrl(query: SearchQuery, host: JSearchHost, next: string | null, b
   url.searchParams.set("date_posted", DATE_POSTED[query.postedWithin]);
   if (query.place) url.searchParams.set("radius", String(query.radiusKm));
   if (query.remoteOnly) url.searchParams.set("work_from_home", "true");
-  if (host === "openwebninja") {
-    if (next?.startsWith("cursor:")) url.searchParams.set("cursor", next.slice("cursor:".length));
-  } else {
-    url.searchParams.set("page", next?.startsWith("page:") ? next.slice("page:".length) : "1");
+  // Both hosts answer /search-v2: the next page comes by cursor.
+  if (next?.startsWith("cursor:")) {
+    url.searchParams.set("cursor", next.slice("cursor:".length));
+  } else if (next?.startsWith("page:")) {
+    // Older list-shaped answers paged by number (kept for robustness).
+    url.searchParams.set("page", next.slice("page:".length));
     url.searchParams.set("num_pages", "1");
   }
   return url;
