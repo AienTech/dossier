@@ -30,7 +30,7 @@ import type { RefineResult } from "@/lib/jobs/refine";
 import type { RegenerateUnitResult } from "@/lib/jobs/regenerate-unit";
 import type { JobView } from "@/lib/jobs/runner";
 import type { WriteEmailResult } from "@/lib/jobs/write-email";
-import type { ProfileData } from "@/lib/profile";
+import type { FactItem, ProfileData } from "@/lib/profile";
 import type { RefineSuggestions } from "@/lib/refine-suggestions";
 import { hasSidebar } from "@/lib/themes";
 import { cleanUnitText, unitName } from "@/lib/unit-text";
@@ -116,6 +116,8 @@ export type ApplicationViewProps = {
   match: Match | null;
   /** The posting's requirements, in the same order as the match's items. */
   requirements: Requirement[];
+  /** What the user tells the AI for this application (APP-15). */
+  facts: FactItem[];
   /** Notes and status changes, newest first (E8-9). */
   activity: ActivityEntry[];
   meta: string[];
@@ -162,6 +164,7 @@ export function ApplicationView({
   posting,
   match,
   requirements,
+  facts: factsAtLoad,
   activity,
   resume,
   letter,
@@ -184,6 +187,8 @@ export function ApplicationView({
 }: ApplicationViewProps) {
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
+  // Kept here: the Job posting tab is drawn again on every visit, and switching tabs doesn't reload the page.
+  const [facts, setFacts] = useState(factsAtLoad);
   const [followLayout, showFollowLayout] = useOptimistic(application.followThemeLayout);
   const [, startTransition] = useTransition();
   const [editing, setEditing] = useState<string | null>(null);
@@ -692,7 +697,15 @@ export function ApplicationView({
         </TabsContent>
 
         <TabsContent value="posting" className="flex min-h-0 min-w-0 flex-[999_1_480px]">
-          <PostingTab posting={posting} match={match} requirements={requirements} onAddSkill={(index) => addSkill(index)} />
+          <PostingTab
+            applicationId={application.id}
+            posting={posting}
+            match={match}
+            requirements={requirements}
+            onAddSkill={(index) => addSkill(index)}
+            facts={facts}
+            setFacts={setFacts}
+          />
         </TabsContent>
 
         <TabsContent value="notes" className="flex min-h-0 min-w-0 flex-[999_1_480px]">

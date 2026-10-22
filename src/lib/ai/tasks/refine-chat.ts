@@ -10,6 +10,8 @@ import { TONES } from "@/lib/tones";
 import { guardSources, unverifiedFacts } from "../fact-guard";
 
 import {
+  applicationFacts,
+  candidateFacts,
   CREATIVITY,
   jobForPrompt,
   languageRule,
@@ -21,7 +23,7 @@ import {
   type Task,
 } from "./prompt-parts";
 
-export const REFINE_CHAT_VERSION = "refine-chat@5";
+export const REFINE_CHAT_VERSION = "refine-chat@6";
 
 const answerSchema = z.object({
   reply: z.string(),
@@ -56,7 +58,8 @@ export type RefineInput = {
   profile: ProfileData;
   extracted: Extracted;
   tone: Tone;
-  note: string;
+  /** What the candidate tells the AI for this application (APP-15). */
+  facts: string[];
   /** The posting as pasted, for the fact guard. */
   posting: string;
 };
@@ -75,10 +78,10 @@ const HISTORY = 10;
 
 /** APP-7, APP-9: a reply plus unit edits (with what they replace, for Undo), or a decline with guidance. */
 export const refineChat: Task<RefineInput, Refinement> = async (provider, input, options) => {
-  const { request, history, target, viewing, resume, letter, email = [], profile, extracted, tone, note, posting } = input;
+  const { request, history, target, viewing, resume, letter, email = [], profile, extracted, tone, facts, posting } = input;
   const looking = viewing ? LOOKING_AT[viewing] : null;
   const answer = await provider.complete({
-    system: system(INSTRUCTIONS, `Current letter tone: ${TONES[tone].label}.`, truthfulness(options.strict), CREATIVITY[options.creativity], languageRule(options.language), UNTRUSTED_POSTING, NO_EM_DASHES),
+    system: system(INSTRUCTIONS, `Current letter tone: ${TONES[tone].label}.`, truthfulness(options.strict), candidateFacts(profile, facts), CREATIVITY[options.creativity], languageRule(options.language), UNTRUSTED_POSTING, NO_EM_DASHES),
     messages: [
       {
         role: "user",
@@ -88,7 +91,7 @@ export const refineChat: Task<RefineInput, Refinement> = async (provider, input,
           `The resume's units:\n${JSON.stringify(resume, null, 2)}`,
           `The cover letter's units:\n${JSON.stringify(letter, null, 2)}`,
           email.length > 0 && `The email's units:\n${JSON.stringify(email, null, 2)}`,
-          note.trim() && `The candidate added earlier: ${note.trim()}`,
+          applicationFacts(facts),
         ]
           .filter(Boolean)
           .join("\n\n"),
@@ -105,7 +108,7 @@ export const refineChat: Task<RefineInput, Refinement> = async (provider, input,
 
   const newTone = answer.tone && answer.tone !== tone ? answer.tone : null;
   // The email's recipient counts too: its greeting names them, from the posting or typed in by the user.
-  const sources = options.strict ? guardSources(profile, extracted, [posting, emailParts(email).to].join("\n")) : null;
+  const sources = options.strict ? guardSources(profile, extracted, [posting, emailParts(email).to].join("\n"), facts) : null;
   const documents = { [DocumentKind.RESUME]: resume, [DocumentKind.COVER_LETTER]: letter, [DocumentKind.EMAIL]: email };
   // Only units that exist, each once; the text they replace is kept for Undo (APP-8).
   const edits = new Map<string, UnitEdit>();

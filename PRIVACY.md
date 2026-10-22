@@ -8,8 +8,8 @@ In short: everything you enter is kept in your own PostgreSQL database and data 
 
 | What | Where | Kept until |
 |---|---|---|
-| Your profile: basics with contact details, skills, languages, roles, projects, education, and references with their email and phone | Database | You change or delete it |
-| Each application: the posting, what was read from it, the match, what you told the AI, its status history | Database | You delete the application |
+| Your profile: basics with contact details, skills, languages, roles, projects, education, references with their email and phone, and your facts about you | Database | You change or delete it |
+| Each application: the posting, what was read from it, the match, the facts you gave for it, its status history | Database | You delete the application |
 | Each application's resume, cover letter and email, every earlier version of them, the refine chat and your private notes | Database | You delete the application |
 | Postings you saved or dismissed in Find jobs, and your past searches with what they found | Database | You remove them. A posting stays, unlinked, when you delete the application made from it |
 | The job agent's finds: each posting it scored, with its score, reasons and red flags, and the drafts it prepared. Of a posting you dismissed, only its source's ID, its title and company, and a fingerprint of its link, so it never comes back | Database | Dismissing a posting trims it at once and deletes its draft. Delete everything removes them all |
@@ -50,13 +50,13 @@ Nothing else is sent. Your browser loads nothing from other sites (the Content-S
 |---|---|
 | Reading a posting | The posting's text, up to 20,000 characters |
 | Matching it against your profile | The posting's requirements, and the names of your skills and languages |
-| Writing the resume, cover letter and email | Your profile without contact details: your name, headline, city and country, summary, skills, languages, roles with their companies, dates and bullet points, projects with their dates and bullet points (not their links), and education. Also the job's details and the match, the letter's tone, and what you told the AI about the application. The email also gets the posting and the letter's paragraphs |
+| Writing the resume, cover letter and email | Your profile without contact details: your name, headline, city and country, summary, skills, languages, roles with their companies, dates and bullet points, projects with their dates and bullet points (not their links), education, and your facts about you. Also the job's details and the match, the letter's tone, and the facts you gave for the application. The email also gets the posting and the letter's paragraphs |
 | Rewriting a part, or refining in the chat | The same, with the drafts (never a letter's sender or signature) and, in the chat, your request and the recent messages before it |
 | Importing a resume | The whole text of the file, contact details and references included. The import page says so first |
 | Scoring a posting, with **Score** in Find jobs or by the job agent | The posting's text, with its title, company, place and salary, and your profile without contact details or references, as for writing. Score in Find jobs fetches the rest of a posting the source sent only the start of. Each time you press Score, and up to the number of postings an agent run scores (Settings → Job agent) |
 | The job agent's drafts | The same as reading a posting and writing its resume and cover letter, for each draft you prepare or, with Prepare drafts on its own on, up to the number a run prepares |
 | Reading a reply from Gmail | The mail's sender, subject, date and text (up to 8,000 characters), the application's role and company, and your time zone. With **Every new email** in Settings → Google, that's each new mail outside Promotions and Social |
-| Drafting an answer to it | Your profile without contact details, as for the documents, the job's details, the mail and up to four earlier ones in its thread (up to 2,000 characters each), the times to offer, and what you tell the AI |
+| Drafting an answer to it | Your profile without contact details, as for the documents, the job's details and the facts you gave for it, the mail and up to four earlier ones in its thread (up to 2,000 characters each), the times to offer, and what you tell the AI |
 
 Never sent in a prompt: your email, phone, address, date of birth and links, your references, and the notes you keep on an application. A posting may name a contact person, a mail from an employer has its sender's name and address, and what you write in the chat may mention people, so other people's details can still be sent.
 

@@ -243,6 +243,7 @@ export const deleteEverything = action(z.object({ confirm: z.literal("DELETE") }
     await tx.language.deleteMany();
     await tx.education.deleteMany();
     await tx.reference.deleteMany();
+    await tx.fact.deleteMany();
     await tx.profileField.deleteMany();
     await tx.theme.deleteMany({ where: { builtIn: false } });
     await tx.setting.deleteMany();

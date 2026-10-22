@@ -96,6 +96,7 @@ const props: ApplicationViewProps = {
   posting: { text: "Ledgerly is hiring.\n\n  - Figma", url: "", pasted: "27 Sep" },
   match: null,
   requirements: [],
+  facts: [{ id: "f1", text: "I know their product as a customer." }],
   activity: [{ kind: "created", id: "created", date: "27 Sep" }],
   meta: ["Amsterdam"],
   resume: { units: demoResumeUnits(), theme: theme("editorial") },
@@ -155,6 +156,10 @@ describe("the document tabs (E8-2)", () => {
     render(<ApplicationView {...props} initialTab="posting" />);
     expect(screen.getByRole("tab", { name: /Job posting/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText(/Ledgerly is hiring\./)).toHaveTextContent("Ledgerly is hiring. - Figma");
+    // The application's facts for the AI come first (APP-15).
+    const facts = screen.getByRole("region", { name: "Facts for this application" });
+    expect(within(facts).getByLabelText("Fact 1")).toHaveValue("I know their product as a customer.");
+    expect(within(facts).getByRole("link", { name: "Facts about me" })).toHaveAttribute("href", "/profile?section=facts");
   });
 
   it("shows the tailored resume in its theme, in a single column by default", () => {
@@ -619,7 +624,7 @@ describe("the Job posting tab (E8-7)", () => {
   it("shows only the posting when it wasn't matched", () => {
     open({ match: null });
     expect(screen.queryByRole("heading", { name: "How you match" })).not.toBeInTheDocument();
-    expect(within(screen.getByRole("tabpanel")).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel")).queryByRole("link", { name: /opens in a new tab/ })).not.toBeInTheDocument();
   });
 });
 

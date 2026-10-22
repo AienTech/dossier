@@ -73,6 +73,7 @@ describe("resumeContent", () => {
       projects: [],
       education: [],
       references: [],
+      facts: [],
     };
     expect(resumeContent(empty)).toEqual({
       name: "Your name",

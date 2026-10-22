@@ -33,6 +33,7 @@ const profile: ProfileData = {
   references: [
     { id: "r1", name: "John Doe", relation: "Former manager", company: "Northwind Logistics", email: "john.doe@example.com", phone: "" },
   ],
+  facts: [],
 };
 
 function Harness({ section }: { section: "education" | "references" }) {

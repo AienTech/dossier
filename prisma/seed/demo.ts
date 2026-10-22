@@ -34,6 +34,7 @@ type Db = Pick<
   | "project"
   | "education"
   | "reference"
+  | "fact"
   | "application"
 >;
 
@@ -67,6 +68,7 @@ export async function hasUserData(db: Db): Promise<boolean> {
     db.project.count(),
     db.education.count(),
     db.reference.count(),
+    db.fact.count(),
     db.application.count(),
   ]);
   const basics = basicsFromFields(fields);
@@ -100,10 +102,11 @@ export async function seedDemo(
         await tx.project.deleteMany();
         await tx.education.deleteMany();
         await tx.reference.deleteMany();
+        await tx.fact.deleteMany();
       }
 
       // ── Profile ──
-      const { experience, projects, education, skills, languages, references } = sample.profile;
+      const { experience, projects, education, skills, languages, references, facts } = sample.profile;
       await tx.profileField.deleteMany();
       await tx.profileField.createMany({
         data: Object.entries(fieldsFromBasics(demoProfile().basics)).flatMap(([key, value]) =>
@@ -166,6 +169,7 @@ export async function seedDemo(
           sort,
         })),
       });
+      await tx.fact.createMany({ data: facts.map((text, sort) => ({ text, sort })) });
 
       // ── Applications ──
       const ledgerly = sample.ledgerly;
@@ -302,6 +306,7 @@ export async function seedDemo(
           language: "English",
           createdAt: now,
           updatedAt: now,
+          facts: { create: ledgerly.facts.map((text, sort) => ({ text, sort })) },
           documents: {
             create: [
               { kind: "RESUME", units: unitsSchema.parse(resumeUnits), themeId: "editorial" },

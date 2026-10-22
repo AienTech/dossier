@@ -149,6 +149,22 @@ model Reference {
   updatedAt DateTime @updatedAt
 }
 
+/// Something the user tells the AI about themselves: one of the profile's
+/// "Facts about me", or one for a single application. Never shown on a
+/// document; given to the AI with the profile when it writes.
+model Fact {
+  id            String       @id @default(cuid())
+  /// The application it's for; null for the profile's own.
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  text          String       @default("")
+  sort          Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([applicationId, sort])
+}
+
 // ─── Themes and settings (E2-2) ──────────────────────────────────────────────
 
 /// Serifs, then sans, then mono: the order the theme builder lists them.
@@ -372,8 +388,6 @@ model Application {
   /// When the next interview is, while the application is in Interview (E9-9); shown on the dashboard.
   nextInterviewAt     DateTime?
   tone                Tone              @default(WARM)
-  /// "Anything I should know?" (NEW-6).
-  userNote            String            @default("")
   /// The language the documents were written in, e.g. "English".
   language            String            @default("")
   /// The tailored resume follows its theme's layout, sidebar included; off
@@ -396,6 +410,8 @@ model Application {
   documents           Document[]
   messages            ChatMessage[]
   notes               Note[]
+  /// What the user tells the AI for this application; "Anything I should know?" (NEW-6) becomes the first.
+  facts               Fact[]
   /// Its background jobs, deleted with it (their inputs and results hold the posting and the documents).
   jobs                Job[]
   createdAt           DateTime          @default(now())

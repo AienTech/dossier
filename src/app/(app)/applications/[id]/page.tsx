@@ -99,6 +99,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       }}
       match={match}
       requirements={extracted?.requirements ?? []}
+      facts={application.facts}
       activity={activityTimeline({ notes: application.notes, events: application.events, createdAt: application.createdAt })}
       meta={metaLine(application)}
       resume={resume}

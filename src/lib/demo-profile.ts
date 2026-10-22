@@ -35,7 +35,7 @@ export const LEVELS_BY_LABEL = new Map<string, LanguageLevel>(
 
 /** The sample profile as `loadProfile()` returns it, with the prototype's ids. */
 export function demoProfile(): ProfileData {
-  const { experience, projects, education, skills, languages, references, showAge, ...basics } = sample.profile;
+  const { experience, projects, education, skills, languages, references, facts, showAge, ...basics } = sample.profile;
   const skillId = (name: string) => `skill-${skills.indexOf(name) + 1}`;
   return {
     basics: {
@@ -90,6 +90,7 @@ export function demoProfile(): ProfileData {
       email,
       phone,
     })),
+    facts: facts.map((text, index) => ({ id: `fact-${index + 1}`, text })),
   };
 }
 

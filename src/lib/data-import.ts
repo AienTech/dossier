@@ -104,6 +104,7 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
         tx.language.deleteMany(),
         tx.education.deleteMany(),
         tx.reference.deleteMany(),
+        tx.fact.deleteMany(),
         tx.theme.deleteMany({ where: { builtIn: false } }),
         tx.setting.deleteMany({ where: { key: { notIn: keptKeys } } }),
       ]);
@@ -124,6 +125,7 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
       });
       await tx.education.createMany({ data: profile.education });
       await tx.reference.createMany({ data: profile.references });
+      await tx.fact.createMany({ data: profile.facts });
       await tx.theme.createMany({ data: themes.map((theme) => ({ ...theme, builtIn: false })) });
       await tx.setting.createMany({ data: settings.filter((setting) => !SECRET_SETTINGS.includes(setting.key) && !INSTALL_SETTINGS.includes(setting.key)) });
       for (const [key, value] of Object.entries(fromFile)) if (value) await tx.setting.create({ data: { key, value } });
@@ -131,7 +133,7 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
       const themeIds = new Set((await tx.theme.findMany({ select: { id: true } })).map((theme) => theme.id));
       await tx.application.createMany({
         data: applications.map((application) => ({
-          ...omit(application, "events", "documents", "messages", "notes"),
+          ...omit(application, "events", "documents", "messages", "notes", "facts", "userNote"),
           extracted: json(application.extracted),
           match: json(application.match),
         })),
@@ -165,6 +167,15 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
       });
       await tx.note.createMany({
         data: applications.flatMap((application) => application.notes.map((note) => ({ ...note, applicationId: application.id }))),
+      });
+      // An older file's "Anything I should know?" becomes the application's first fact, as on upgrading (APP-15).
+      await tx.fact.createMany({
+        data: applications.flatMap((application) => [
+          ...(application.facts.length === 0 && application.userNote?.trim()
+            ? [{ text: application.userNote.trim(), createdAt: application.createdAt, updatedAt: application.createdAt }]
+            : []),
+          ...application.facts,
+        ].map((fact) => ({ ...fact, applicationId: application.id }))),
       });
       // A posting's application that isn't in the file leaves it unlinked.
       const applicationIds = new Set(applications.map((application) => application.id));

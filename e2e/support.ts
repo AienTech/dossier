@@ -121,6 +121,13 @@ export async function fakeGoogle(): Promise<FakeGoogleState> {
   return (await response.json()) as FakeGoogleState;
 }
 
+/** What the fake AI was last asked, as one text (GET /last), to check what a prompt carried. */
+export async function lastPrompt(): Promise<string> {
+  const response = await fetch(`http://localhost:${FAKE_AI_PORT}/last`);
+  const { messages } = (await response.json()) as { messages: { content: string }[] };
+  return messages.map((message) => message.content).join("\n\n");
+}
+
 /** Changes the fake Google's calendar as if in Google Calendar (E15-6): adds an event, or changes or deletes one by its id. */
 export async function inFakeCalendar(method: "POST" | "PATCH" | "DELETE", id?: string, body?: Partial<FakeEvent>): Promise<FakeEvent> {
   const response = await fetch(`http://localhost:${FAKE_GOOGLE_PORT}/test/events${id ? `/${id}` : ""}`, { method, body: body && JSON.stringify(body) });

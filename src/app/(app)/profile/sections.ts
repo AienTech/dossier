@@ -36,6 +36,12 @@ export const SECTIONS = [
     title: "References",
     hint: "People who'll vouch for you. They stay private unless you include them.",
   },
+  {
+    id: "facts",
+    label: "Facts about me",
+    title: "Facts about me",
+    hint: "What the AI should know about you that the rest of your profile doesn't say. It reads these when it writes your resumes and cover letters, and never copies them onto a resume as a list.",
+  },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]["id"];

@@ -134,7 +134,8 @@ export async function createApplicationFromDocuments({ reading, documents, match
         match,
         matchedWith,
         tone,
-        userNote: note,
+        // "Anything I should know?" becomes the application's first fact (APP-15).
+        ...(note.trim() ? { facts: { create: { text: note.trim() } } } : {}),
         language,
         documents: {
           create: [

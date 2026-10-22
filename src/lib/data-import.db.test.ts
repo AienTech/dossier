@@ -47,6 +47,7 @@ describe("importExport (E10-6)", () => {
     // Things change after the export…
     await prisma().application.deleteMany({ where: { company: "Oaken Studio" } });
     await prisma().project.deleteMany();
+    await prisma().fact.deleteMany();
     await prisma().skill.create({ data: { name: "Kubernetes" } });
     await prisma().setting.upsert({ where: { key: "paper" }, create: { key: "paper", value: "LETTER" }, update: { value: "LETTER" } });
     await prisma().theme.create({ data: { id: "later", name: "Later", headFont: "GEIST", bodyFont: "GEIST", accent: "#000000" } });
@@ -57,6 +58,7 @@ describe("importExport (E10-6)", () => {
     expect(await prisma().documentVersion.count()).toBe(1);
     expect(await prisma().theme.count({ where: { builtIn: true } })).toBe(12);
     expect(await prisma().projectSkill.count()).toBe(3);
+    expect(await prisma().fact.count()).toBe(3);
   });
 
   it("keeps the next interview's date, and reads older files without it (E9-9)", async () => {
@@ -203,6 +205,25 @@ describe("importExport (E10-6)", () => {
     if (!parsed.ok) return;
     await importExport(prisma(), parsed.data);
     expect(await prisma().project.count()).toBe(0);
+  });
+
+  it("reads files from before facts, with an application's note as its first fact (PRO-14, APP-15)", async () => {
+    const file = JSON.parse(JSON.stringify(await buildExport(prisma(), { now })));
+    const [first, ...rest] = file.applications;
+    const old = {
+      ...file,
+      schemaVersion: 3,
+      profile: { ...file.profile, facts: undefined },
+      applications: [
+        { ...first, facts: undefined, userNote: "  Relocating in January.  " },
+        ...rest.map((application: object) => ({ ...application, facts: undefined, userNote: "" })),
+      ],
+    };
+    const parsed = parseExport(JSON.stringify(old));
+    expect(parsed).toMatchObject({ ok: true, data: { schemaVersion: 3, profile: { facts: [] } } });
+    if (!parsed.ok) return;
+    await importExport(prisma(), parsed.data);
+    expect(await prisma().fact.findMany({ select: { applicationId: true, text: true } })).toEqual([{ applicationId: first.id, text: "Relocating in January." }]);
   });
 
   it("reads version 1 files, which have no postings", async () => {

@@ -59,6 +59,7 @@ function Harness({ order = "date" }: { order?: EntryOrder }) {
     projects: [],
     education: [],
     references: [],
+    facts: [],
   });
   useEffect(() => {
     latest = state;
@@ -136,7 +137,7 @@ describe("ExperienceSection", () => {
 
   it("shows the empty state", () => {
     function Empty() {
-      const [state, setState] = useState<ProfileData>({ basics: {} as ProfileData["basics"], skills: [], languages: [], experience: [], projects: [], education: [], references: [] });
+      const [state, setState] = useState<ProfileData>({ basics: {} as ProfileData["basics"], skills: [], languages: [], experience: [], projects: [], education: [], references: [], facts: [] });
       return <ExperienceSection order="date" profile={state} update={(change) => setState(change)} />;
     }
     render(<Empty />);

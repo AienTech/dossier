@@ -7,11 +7,12 @@ import { PageHeader } from "@/components/page-header";
 import { SavedIndicator } from "@/components/saved-indicator";
 import { buttonClassName } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { BASICS_FIELDS, filledBasics, type EntryOrder, type ProfileData } from "@/lib/profile";
+import { BASICS_FIELDS, factTexts, filledBasics, type EntryOrder, type ProfileData } from "@/lib/profile";
 
 import { BasicsSection } from "./basics-section";
 import { EducationSection } from "./education-section";
 import { ExperienceSection } from "./experience-section";
+import { FactsSection } from "./facts-section";
 import { ProjectsSection } from "./projects-section";
 import { ReferencesSection } from "./references-section";
 import { TrackSaveContext, useSaveTracker } from "@/components/save-tracker";
@@ -42,6 +43,7 @@ export function ProfileEditor({ initial, section, order }: { initial: ProfileDat
     projects: String(profile.projects.length),
     education: String(profile.education.length),
     references: String(profile.references.length),
+    facts: String(factTexts(profile.facts).length),
   };
 
   const body: Record<SectionId, ReactNode> = {
@@ -56,6 +58,7 @@ export function ProfileEditor({ initial, section, order }: { initial: ProfileDat
     projects: <ProjectsSection profile={profile} update={setProfile} order={order.projects} />,
     education: <EducationSection profile={profile} update={setProfile} order={order.education} />,
     references: <ReferencesSection profile={profile} update={setProfile} />,
+    facts: <FactsSection profile={profile} update={setProfile} />,
   };
 
   return (

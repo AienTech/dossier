@@ -7,6 +7,8 @@ import { sameName, type ProfileData } from "@/lib/profile";
 import { guardSources, guardUnits } from "../fact-guard";
 
 import {
+  applicationFacts,
+  candidateFacts,
   CREATIVITY,
   jobForPrompt,
   languageRule,
@@ -18,7 +20,7 @@ import {
   type Task,
 } from "./prompt-parts";
 
-export const TAILOR_RESUME_VERSION = "tailor-resume@4";
+export const TAILOR_RESUME_VERSION = "tailor-resume@5";
 
 const answerSchema = z.object({
   summary: z.string(),
@@ -52,19 +54,20 @@ export type TailorInput = {
   profile: ProfileData;
   extracted: Extracted;
   match: Match | null;
-  /** "Anything I should know?" (NEW-6). */
-  note: string;
+  /** What the candidate tells the AI for this application (APP-15). */
+  facts: string[];
   /** The posting as pasted, for the fact guard. */
   posting: string;
 };
 
 /** APP-4: the tailored resume as units (summary, each role, each project, skills, each degree, languages). */
-export const tailorResume: Task<TailorInput, Unit[]> = async (provider, { profile, extracted, match, note, posting }, options) => {
+export const tailorResume: Task<TailorInput, Unit[]> = async (provider, { profile, extracted, match, facts, posting }, options) => {
   const answer = await provider.complete({
     system: system(
       INSTRUCTIONS,
       pageFit(options.maxPages),
       truthfulness(options.strict),
+      candidateFacts(profile, facts),
       CREATIVITY[options.creativity],
       languageRule(options.language),
       UNTRUSTED_POSTING,
@@ -76,7 +79,7 @@ export const tailorResume: Task<TailorInput, Unit[]> = async (provider, { profil
         content: [
           `The candidate's profile:\n${profileForPrompt(profile)}`,
           `The job:\n${jobForPrompt(extracted, match)}`,
-          note.trim() && `The candidate adds: ${note.trim()}`,
+          applicationFacts(facts),
         ]
           .filter(Boolean)
           .join("\n\n"),
@@ -91,7 +94,7 @@ export const tailorResume: Task<TailorInput, Unit[]> = async (provider, { profil
   const units = resumeUnits(profile, answer, documentLabels(options.language ?? extracted.language));
   // E6-6: in strict mode, note what the profile and posting don't back.
   return {
-    data: options.strict ? guardUnits(units, guardSources(profile, extracted, posting)) : units,
+    data: options.strict ? guardUnits(units, guardSources(profile, extracted, posting, facts)) : units,
     promptVersion: TAILOR_RESUME_VERSION,
   };
 };

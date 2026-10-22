@@ -36,10 +36,10 @@ import { appVersion } from "@/lib/version";
 // behind: they belong to the server or the mailbox, not the user's data.
 
 export const EXPORT_FORMAT = "dossier-export";
-/** Bump when the file's shape changes; imports refuse versions they don't know. 2 added Find jobs' postings and keys (E14-9), 3 projects (PRO-13) and the job agent (E16). */
-export const EXPORT_SCHEMA_VERSION = 3;
+/** Bump when the file's shape changes; imports refuse versions they don't know. 2 added Find jobs' postings and keys (E14-9), 3 projects (PRO-13) and the job agent (E16), 4 facts (PRO-14, APP-15). */
+export const EXPORT_SCHEMA_VERSION = 4;
 /** The versions imports can read. */
-export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2, 3];
+export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2, 3, 4];
 
 /** The setting that holds the encrypted API key, which only this server can read. */
 const API_KEY_SETTING = "apiKeyEnc";
@@ -114,6 +114,8 @@ const reference = z.object({
   createdAt: date,
   updatedAt: date,
 });
+/** A fact for the AI (PRO-14, APP-15), the profile's or an application's. */
+const fact = z.object({ id: text, text, sort: int, createdAt: date, updatedAt: date });
 const theme = z.object({
   id: text,
   name: text,
@@ -188,7 +190,8 @@ const application = z.object({
   /** The next interview (E9-9); absent in older files. */
   nextInterviewAt: optionalDate.optional(),
   tone: z.enum(Tone),
-  userNote: text,
+  /** "Anything I should know?" in files before version 4; read as the application's first fact. */
+  userNote: text.optional(),
   language: text,
   followThemeLayout: z.boolean(),
   /** The job agent's (E16); absent in older files, which hold only the user's own. */
@@ -202,6 +205,8 @@ const application = z.object({
   documents: z.array(document),
   messages: z.array(chatMessage),
   notes: z.array(note),
+  /** Absent in files before version 4. */
+  facts: z.array(fact).default([]),
 });
 
 /** A posting the job agent found (E16). */
@@ -267,7 +272,7 @@ const postingSearch = z.object({
 /** An export file as read back (E10-6). */
 export const exportSchema = z.object({
   format: z.literal(EXPORT_FORMAT),
-  schemaVersion: z.literal([1, 2, 3]),
+  schemaVersion: z.literal([1, 2, 3, 4]),
   appVersion: text,
   exportedAt: date,
   profile: z.object({
@@ -279,6 +284,8 @@ export const exportSchema = z.object({
     projects: z.array(project).default([]),
     education: z.array(education),
     references: z.array(reference),
+    /** Absent in files before version 4. */
+    facts: z.array(fact).default([]),
   }),
   themes: z.array(theme),
   settings: z.array(keyValue),
@@ -314,7 +321,7 @@ export async function buildExport(
   { includeApiKey = false, now = new Date() }: { includeApiKey?: boolean; now?: Date } = {},
 ): Promise<DossierExport> {
   return db.$transaction(async (tx) => {
-    const [fields, skills, languages, experience, projects, education, references, themes, settings, applications, postings, searches, agentCandidates] = await Promise.all([
+    const [fields, skills, languages, experience, projects, education, references, facts, themes, settings, applications, postings, searches, agentCandidates] = await Promise.all([
       tx.profileField.findMany({ select: { key: true, value: true }, orderBy: { key: "asc" } }),
       tx.skill.findMany({ select: { id: true, name: true, sort: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
       tx.language.findMany({ select: { id: true, name: true, level: true, sort: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
@@ -322,6 +329,7 @@ export async function buildExport(
       tx.project.findMany({ include: { skills: { select: { skillId: true } } }, orderBy: { createdAt: "asc" } }),
       tx.education.findMany({ orderBy: { createdAt: "asc" } }),
       tx.reference.findMany({ orderBy: { createdAt: "asc" } }),
+      tx.fact.findMany({ where: { applicationId: null }, omit: { applicationId: true }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
       tx.theme.findMany({ where: { builtIn: false }, omit: { builtIn: true }, orderBy: { createdAt: "asc" } }),
       tx.setting.findMany({ select: { key: true, value: true }, orderBy: { key: "asc" } }),
       tx.application.findMany({
@@ -337,6 +345,7 @@ export async function buildExport(
           },
           messages: { omit: { applicationId: true }, orderBy: { createdAt: "asc" } },
           notes: { omit: { applicationId: true }, orderBy: { createdAt: "asc" } },
+          facts: { omit: { applicationId: true }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] },
         },
       }),
       tx.posting.findMany({ orderBy: { createdAt: "asc" } }),
@@ -374,6 +383,7 @@ export async function buildExport(
         projects: projects.map(({ skills: links, ...entry }) => ({ ...entry, skillIds: links.map((link) => link.skillId) })),
         education,
         references,
+        facts,
       },
       themes,
       settings: settings.filter((setting) => !SECRET_SETTINGS.includes(setting.key) && !INSTALL_SETTINGS.includes(setting.key)),

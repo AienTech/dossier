@@ -151,7 +151,7 @@ function UnitEditor({
             onSave(value);
           }
         }}
-        className="max-h-[60vh] w-full resize-y rounded-control border border-primary bg-input px-3 py-2.5 text-[13.5px] leading-[1.55] text-ink [field-sizing:content] focus-visible:outline-offset-0 disabled:opacity-60"
+        className="max-h-[calc(60vh/var(--preview-scale,1))] w-full resize-y rounded-control border border-primary bg-input px-3 py-2.5 text-control leading-[1.55] text-ink [field-sizing:content] focus-visible:outline-offset-0 disabled:opacity-60"
       />
       <div className="flex items-center justify-end gap-1.5">
         {isBulletUnit(unit.id) && (
@@ -159,10 +159,10 @@ function UnitEditor({
             One bullet per line
           </span>
         )}
-        <Button variant="secondary" size="sm" className="bg-input" onClick={onCancel} disabled={saving}>
+        <Button variant="secondary" size="sm" className="min-h-[calc(var(--px)*30)] bg-input" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button size="sm" onClick={() => onSave(value)} disabled={saving}>
+        <Button size="sm" className="min-h-[calc(var(--px)*30)]" onClick={() => onSave(value)} disabled={saving}>
           {saving ? "Saving…" : "Save"}
         </Button>
       </div>

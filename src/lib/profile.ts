@@ -127,6 +127,8 @@ export type ReferenceItem = {
   email: string;
   phone: string;
 };
+/** A fact the user tells the AI (PRO-14): about themselves, or for one application. */
+export type FactItem = { id: string; text: string };
 export type ProfileData = {
   basics: Basics;
   skills: SkillItem[];
@@ -135,7 +137,14 @@ export type ProfileData = {
   projects: ProjectItem[];
   education: EducationItem[];
   references: ReferenceItem[];
+  /** "Facts about me": never on a document, only given to the AI. */
+  facts: FactItem[];
 };
+
+/** The facts worth sending: trimmed, without empty ones. */
+export function factTexts(facts: { text: string }[]): string[] {
+  return facts.map((fact) => fact.text.trim()).filter(Boolean);
+}
 
 /** How many Basics fields have something in them. */
 export function filledBasics(basics: Record<BasicsField, string>): number {

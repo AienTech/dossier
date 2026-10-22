@@ -48,6 +48,7 @@ function Harness() {
     projects: [churn, thesis],
     education: [],
     references: [],
+    facts: [],
   });
   useEffect(() => {
     latest = state;

@@ -124,9 +124,10 @@ describe("createApplication", () => {
       extractedWith: "extract-posting@1",
       matchedWith: "match-requirements@1",
       tone: "FORMAL",
-      userNote: "Relocating in January.",
       language: "English",
     });
+    // "Anything I should know?" is the application's first fact (APP-15).
+    expect(await prisma().fact.findMany({ where: { applicationId: id }, select: { text: true } })).toEqual([{ text: "Relocating in January." }]);
     expect(application.deadline?.toISOString().slice(0, 10)).toBe("2026-10-20");
     expect(application.documents.map((document) => [document.kind, document.themeId, document.writtenWith])).toEqual([
       ["RESUME", "editorial", "tailor-resume@1"],
