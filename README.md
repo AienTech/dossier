@@ -107,6 +107,10 @@ The first start downloads the image (about 1.7 GB) and sets up the database. Ope
 
 To put Dossier on a server, on your own domain with HTTPS, follow the [installation guide](https://github.com/AienTech/dossier/wiki#self-host-on-a-server): a plain Ubuntu server with Docker Compose and Caddy (or Node.js, without Docker), CapRover, Coolify or Dokploy. Give the server at least 2 vCPUs and 2 GB of memory (see [Performance and sizing](#performance-and-sizing)).
 
+## One-click deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/Dossier/)
+
 ## Documentation
 
 The [wiki](https://github.com/AienTech/dossier/wiki) has what comes after installing:
