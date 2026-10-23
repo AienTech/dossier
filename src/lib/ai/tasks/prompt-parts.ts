@@ -1,6 +1,7 @@
 import type { Creativity } from "@/generated/prisma/enums";
 import type { Extracted, Match } from "@/lib/application-data";
-import { factTexts, formatDateRange, languageLevelLabel, type ProfileData } from "@/lib/profile";
+import { citationText } from "@/lib/citation";
+import { factTexts, formatDateRange, languageLevelLabel, resumePublications, type ProfileData } from "@/lib/profile";
 
 import type { AIProvider } from "../provider";
 
@@ -37,6 +38,7 @@ export function profileForPrompt(profile: ProfileData, { includeReferences = fal
   const skillNames = new Map(profile.skills.map((skill) => [skill.id, skill.name]));
   const { basics } = profile;
   const facts = factTexts(profile.facts);
+  const publications = resumePublications(profile.publications).map((entry) => citationText(entry.citation));
   return JSON.stringify(
     {
       name: basics.name,
@@ -70,6 +72,8 @@ export function profileForPrompt(profile: ProfileData, { includeReferences = fal
         dates: formatDateRange(entry),
         notes: entry.notes,
       })),
+      // Citations as plain text, without their links, and only those shown on resumes (#218).
+      ...(publications.length > 0 ? { publications } : {}),
       ...(includeReferences
         ? { references: profile.references.map(({ name, relation, company }) => ({ name, relation, company })) }
         : {}),

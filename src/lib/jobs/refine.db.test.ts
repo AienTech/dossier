@@ -63,7 +63,7 @@ describe("refineJob (E8-5)", () => {
     expect(saved).toMatchObject({
       role: "AI",
       text: "Trimmed your summary.",
-      writtenWith: "refine-chat@6",
+      writtenWith: "refine-chat@7",
       previousTone: null,
       edits: [{ document: "RESUME", unitId: "summary", text: "Designer of calm tools.", previousText: resume[0].text }],
     });

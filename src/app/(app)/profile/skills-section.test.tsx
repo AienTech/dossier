@@ -32,8 +32,10 @@ const profile = (): ProfileData => ({
   ],
   projects: [],
   education: [],
+  publications: [],
   references: [],
   facts: [],
+  photo: null,
 });
 
 let latest: ProfileData;

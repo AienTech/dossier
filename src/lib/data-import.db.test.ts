@@ -7,7 +7,7 @@ import { createTestClient, resetDatabase } from "@/test/db";
 import { seedBuiltIns } from "../../prisma/seed/built-ins";
 import { seedDemo } from "../../prisma/seed/demo";
 
-import { buildExport, EXPORT_SCHEMA_VERSION } from "./data-export";
+import { buildExport, EXPORT_SCHEMA_VERSION, exportSchema } from "./data-export";
 import { currentSummary, importExport, parseExport } from "./data-import";
 
 vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "s".repeat(32) } }));
@@ -198,6 +198,38 @@ describe("importExport (E10-6)", () => {
     expect(await prisma().application.findUniqueOrThrow({ where: { id: draft.id } })).toMatchObject({ origin: "MANUAL", awaitingReview: false });
   });
 
+  it("restores Startups with what the user did with them, and reads files from before them as having none (#222)", async () => {
+    const application = await prisma().application.create({ data: { title: "Android · Acme" } });
+    const emails = [{ email: "jobs@acme.example", label: "Hiring", from: "https://acme.example/careers", onRequest: false, foundAt: "2026-10-01T00:00:00.000Z" }];
+    await prisma().startup.create({
+      data: { source: "HN", externalId: "1", company: "Acme", roles: ["Engineer"], emails, links: [], reasons: ["In Berlin"], status: "SAVED", notes: "Ask about Compose", applicationId: application.id },
+    });
+    await prisma().startup.create({ data: { source: "YC", externalId: "2", company: "Gone", roles: [], emails: [], links: [], reasons: [], status: "DISMISSED" } });
+    await prisma().startupBlock.create({ data: { hash: "b".repeat(64) } });
+    const select = { externalId: true, status: true, notes: true, emails: true, roles: true, applicationId: true } as const;
+    const before = await prisma().startup.findMany({ orderBy: { externalId: "asc" }, select });
+    const file = await asFile();
+    expect(file.startups).toHaveLength(2);
+
+    await importExport(prisma(), file);
+    expect(await prisma().startup.findMany({ orderBy: { externalId: "asc" }, select })).toEqual(before);
+    expect(await prisma().startupBlock.count()).toBe(1);
+
+    // An application that isn't in the file leaves its startup unlinked; older files have no startups.
+    const unlinked = JSON.parse(JSON.stringify(file));
+    unlinked.applications = unlinked.applications.filter((entry: { id: string }) => entry.id !== application.id);
+    await importExport(prisma(), exportSchema.parse(unlinked));
+    expect((await prisma().startup.findFirstOrThrow({ where: { externalId: "1" } })).applicationId).toBeNull();
+    const older = JSON.parse(JSON.stringify(file));
+    delete older.startups;
+    delete older.startupBlocks;
+    const parsed = parseExport(JSON.stringify(older));
+    expect(parsed).toMatchObject({ ok: true, data: { startups: [], startupBlocks: [] } });
+    if (!parsed.ok) return;
+    await importExport(prisma(), parsed.data);
+    expect(await prisma().startup.count()).toBe(0);
+  });
+
   it("reads files from before projects as having none (PRO-13)", async () => {
     const file = JSON.parse(JSON.stringify(await buildExport(prisma(), { now })));
     const parsed = parseExport(JSON.stringify({ ...file, schemaVersion: 2, profile: { ...file.profile, projects: undefined } }));
@@ -205,6 +237,44 @@ describe("importExport (E10-6)", () => {
     if (!parsed.ok) return;
     await importExport(prisma(), parsed.data);
     expect(await prisma().project.count()).toBe(0);
+  });
+
+  it("restores publications, and reads files from before them as having none (#218)", async () => {
+    await prisma().publication.updateMany({ data: { onResumes: false } });
+    const file = JSON.parse(JSON.stringify(await buildExport(prisma(), { now })));
+    const before = await prisma().publication.findMany();
+    await importExport(prisma(), exportSchema.parse(file));
+    expect(await prisma().publication.findMany()).toEqual(before);
+
+    const parsed = parseExport(JSON.stringify({ ...file, schemaVersion: 4, profile: { ...file.profile, publications: undefined } }));
+    expect(parsed).toMatchObject({ ok: true, data: { schemaVersion: 4, profile: { publications: [] } } });
+    if (!parsed.ok) return;
+    await importExport(prisma(), parsed.data);
+    expect(await prisma().publication.count()).toBe(0);
+  });
+
+  it("restores the photo, the themes' photo options and each application's Photo switch, and reads older files with the defaults (#224)", async () => {
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+    await prisma().profileField.createMany({ data: [{ key: "photo", value: png }, { key: "photoOnResumes", value: "false" }] });
+    await prisma().theme.update({ where: { id: "mine" }, data: { photoShape: "PORTRAIT", photoPosition: "SIDEBAR" } });
+    await prisma().application.updateMany({ where: { company: "Ledgerly" }, data: { showPhoto: true } });
+    const file = JSON.parse(JSON.stringify(await buildExport(prisma(), { now })));
+
+    await prisma().profileField.deleteMany({ where: { key: { startsWith: "photo" } } });
+    await importExport(prisma(), exportSchema.parse(file));
+    const fields = await prisma().profileField.findMany({ where: { key: { startsWith: "photo" } }, orderBy: { key: "asc" } });
+    expect(fields.map(({ key, value }) => [key, value])).toEqual([["photo", png], ["photoOnResumes", "false"]]);
+    expect(await prisma().theme.findUniqueOrThrow({ where: { id: "mine" } })).toMatchObject({ photoShape: "PORTRAIT", photoPosition: "SIDEBAR" });
+    expect(await prisma().application.findFirstOrThrow({ where: { company: "Ledgerly" } })).toMatchObject({ showPhoto: true });
+
+    const older = {
+      ...file,
+      themes: file.themes.map((theme: object) => ({ ...theme, photoShape: undefined, photoPosition: undefined })),
+      applications: file.applications.map((application: object) => ({ ...application, showPhoto: undefined })),
+    };
+    await importExport(prisma(), exportSchema.parse(older));
+    expect(await prisma().theme.findUniqueOrThrow({ where: { id: "mine" } })).toMatchObject({ photoShape: "CIRCLE", photoPosition: "HEADER_END" });
+    expect(await prisma().application.findFirstOrThrow({ where: { company: "Ledgerly" } })).toMatchObject({ showPhoto: null });
   });
 
   it("reads files from before facts, with an application's note as its first fact (PRO-14, APP-15)", async () => {

@@ -1,4 +1,5 @@
 import type { Extracted, Unit } from "@/lib/application-data";
+import { citationText } from "@/lib/citation";
 import { experienceMonths, formatDateRange, languageLevelLabel, type ProfileData } from "@/lib/profile";
 
 // The fact guard (E6-6, PRD §7, §12 "zero invented facts"): after each
@@ -69,6 +70,8 @@ export function sourcesFor(profile: ProfileData, extracted: Extracted | null, po
     ...profile.experience.flatMap((entry) => [entry.role, entry.company, entry.location, formatDateRange(entry), entry.bullets]),
     ...profile.projects.flatMap((entry) => [entry.name, entry.link, formatDateRange(entry), entry.bullets]),
     ...profile.education.flatMap((entry) => [entry.degree, entry.school, formatDateRange(entry), entry.notes]),
+    // The candidate's own citations back what's said about their work (#218).
+    ...profile.publications.map((entry) => citationText(entry.citation)),
     ...profile.references.flatMap((reference) => [reference.name, reference.relation, reference.company]),
     // What the candidate says about themselves backs claims like the rest (PRO-14).
     ...profile.facts.map((fact) => fact.text),

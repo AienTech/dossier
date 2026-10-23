@@ -90,6 +90,13 @@
         "notes": ""
       }
     ],
+    "publications": [
+      {
+        "id": "u1",
+        "citation": "**Doe, J.**, & Vermeer, K. (2016). Trust in automated scheduling: A field study with dispatch planners. *Proceedings of the Delft Design Conference*, 4, 112–121.",
+        "link": "https://doi.org/10.5555/12345678"
+      }
+    ],
     "skills": [
       "Interaction design",
       "Design systems",

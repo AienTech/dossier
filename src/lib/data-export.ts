@@ -15,8 +15,11 @@ import {
   HeaderStyle,
   HeadingStyle,
   LanguageLevel,
+  PhotoPosition,
+  PhotoShape,
   PostingSource,
   SidebarStyle,
+  StartupStatus,
   ThemeAlign,
   ThemeFont,
   ThemeLayout,
@@ -30,16 +33,17 @@ import { appVersion } from "@/lib/version";
 // Everything a user keeps in Dossier as one JSON file (E10-4, SET-10): the
 // profile, custom themes, settings and applications with their history,
 // documents, chat and notes, the postings kept from Find jobs (E14-9) and
-// the job agent's candidates (E16), so its dedupe survives a restore.
+// the job agent's candidates (E16), so its dedupe survives a restore, and
+// Startups with what the user did with them (#222).
 // IDs are kept, so an import restores every link. Jobs, sign-in throttling,
 // built-in themes, the Google account and the mail fetched from Gmail stay
 // behind: they belong to the server or the mailbox, not the user's data.
 
 export const EXPORT_FORMAT = "dossier-export";
-/** Bump when the file's shape changes; imports refuse versions they don't know. 2 added Find jobs' postings and keys (E14-9), 3 projects (PRO-13) and the job agent (E16), 4 facts (PRO-14, APP-15). */
-export const EXPORT_SCHEMA_VERSION = 4;
+/** Bump when the file's shape changes; imports refuse versions they don't know. 2 added Find jobs' postings and keys (E14-9), 3 projects (PRO-13) and the job agent (E16), 4 facts (PRO-14, APP-15), 5 publications (#218), the profile photo's theme and application options (#224) and Startups (#222). */
+export const EXPORT_SCHEMA_VERSION = 5;
 /** The versions imports can read. */
-export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2, 3, 4];
+export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2, 3, 4, 5];
 
 /** The setting that holds the encrypted API key, which only this server can read. */
 const API_KEY_SETTING = "apiKeyEnc";
@@ -54,6 +58,9 @@ export const INSTALL_SETTINGS: readonly string[] = [
   "usagePingChoiceText",
   // The job agent's runs count against this server's job source key (E16).
   "agentRuns",
+  // When Startups was last opened and what its last refresh found (#222).
+  "startupsViewedAt",
+  "startupsLastRefresh",
   "latestVersion",
   "latestVersionUrl",
   "updateCheckDay",
@@ -61,6 +68,8 @@ export const INSTALL_SETTINGS: readonly string[] = [
   "googleClientId",
   "googleClientSecretEnc",
   "browserTimeZone",
+  // An import must never open the Claude connector's addresses on this server (#221).
+  "connectorEnabledAt",
 ];
 
 const date = z.iso.datetime().transform((value) => new Date(value));
@@ -103,6 +112,8 @@ const project = z.object({
   updatedAt: date,
 });
 const education = z.object({ id: text, degree: text, school: text, ...span, notes: text, sort: int, createdAt: date, updatedAt: date });
+/** A publication (#218): its citation as written, with **bold** and *italic*. */
+const publication = z.object({ id: text, citation: text, link: text, onResumes: z.boolean(), sort: int, createdAt: date, updatedAt: date });
 const reference = z.object({
   id: text,
   name: text,
@@ -130,6 +141,9 @@ const theme = z.object({
   headerStyle: z.enum(HeaderStyle).optional(),
   sidebarStyle: z.enum(SidebarStyle).optional(),
   dateStyle: z.enum(DateStyle).optional(),
+  /** Absent before 1.9.0 (#224). */
+  photoShape: z.enum(PhotoShape).optional(),
+  photoPosition: z.enum(PhotoPosition).optional(),
   createdAt: date,
   updatedAt: date,
 });
@@ -194,6 +208,8 @@ const application = z.object({
   userNote: text.optional(),
   language: text,
   followThemeLayout: z.boolean(),
+  /** Absent before 1.9.0, which follows the profile (#224). */
+  showPhoto: z.boolean().nullable().optional(),
   /** The job agent's (E16); absent in older files, which hold only the user's own. */
   origin: z.enum(ApplicationOrigin).optional(),
   agentScore: int.nullable().optional(),
@@ -235,6 +251,36 @@ const agentCandidate = z.object({
   updatedAt: date,
 });
 
+/** A startup from Startups (#222), with the addresses it publishes and what the user did with it. */
+const startup = z.object({
+  id: text,
+  source: text,
+  externalId: text,
+  company: text,
+  website: text,
+  summary: text,
+  details: text,
+  location: text,
+  remote: z.boolean().nullable(),
+  stage: text,
+  roles: z.unknown().nullable(),
+  emails: z.unknown().nullable(),
+  links: z.unknown().nullable(),
+  postedAt: optionalDate,
+  score: int,
+  reasons: z.unknown().nullable(),
+  scoredWith: text,
+  status: z.enum(StartupStatus),
+  noApplicationsFrom: text,
+  emailsCheckedAt: optionalDate,
+  peopleCheckedAt: optionalDate,
+  notes: text,
+  seenAt: date,
+  applicationId: text.nullable(),
+  createdAt: date,
+  updatedAt: date,
+});
+
 /** A posting kept from Find jobs (E14-5). */
 const posting = z.object({
   id: text,
@@ -272,7 +318,7 @@ const postingSearch = z.object({
 /** An export file as read back (E10-6). */
 export const exportSchema = z.object({
   format: z.literal(EXPORT_FORMAT),
-  schemaVersion: z.literal([1, 2, 3, 4]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5]),
   appVersion: text,
   exportedAt: date,
   profile: z.object({
@@ -283,6 +329,8 @@ export const exportSchema = z.object({
     /** Absent in files before version 3. */
     projects: z.array(project).default([]),
     education: z.array(education),
+    /** Absent in files before version 5. */
+    publications: z.array(publication).default([]),
     references: z.array(reference),
     /** Absent in files before version 4. */
     facts: z.array(fact).default([]),
@@ -300,6 +348,9 @@ export const exportSchema = z.object({
   searches: z.array(postingSearch).default([]),
   /** The job agent's candidates (E16); absent in older files. */
   agentCandidates: z.array(agentCandidate).default([]),
+  /** Startups (#222), and hashes of the ones removed for good; absent in older files. */
+  startups: z.array(startup).default([]),
+  startupBlocks: z.array(z.object({ hash: text, createdAt: date })).default([]),
 });
 export type DossierExport = z.infer<typeof exportSchema>;
 
@@ -321,13 +372,14 @@ export async function buildExport(
   { includeApiKey = false, now = new Date() }: { includeApiKey?: boolean; now?: Date } = {},
 ): Promise<DossierExport> {
   return db.$transaction(async (tx) => {
-    const [fields, skills, languages, experience, projects, education, references, facts, themes, settings, applications, postings, searches, agentCandidates] = await Promise.all([
+    const [fields, skills, languages, experience, projects, education, publications, references, facts, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks] = await Promise.all([
       tx.profileField.findMany({ select: { key: true, value: true }, orderBy: { key: "asc" } }),
       tx.skill.findMany({ select: { id: true, name: true, sort: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
       tx.language.findMany({ select: { id: true, name: true, level: true, sort: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
       tx.experience.findMany({ include: { skills: { select: { skillId: true } } }, orderBy: { createdAt: "asc" } }),
       tx.project.findMany({ include: { skills: { select: { skillId: true } } }, orderBy: { createdAt: "asc" } }),
       tx.education.findMany({ orderBy: { createdAt: "asc" } }),
+      tx.publication.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
       tx.reference.findMany({ orderBy: { createdAt: "asc" } }),
       tx.fact.findMany({ where: { applicationId: null }, omit: { applicationId: true }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
       tx.theme.findMany({ where: { builtIn: false }, omit: { builtIn: true }, orderBy: { createdAt: "asc" } }),
@@ -351,6 +403,8 @@ export async function buildExport(
       tx.posting.findMany({ orderBy: { createdAt: "asc" } }),
       tx.postingSearch.findMany({ orderBy: { createdAt: "asc" } }),
       tx.agentCandidate.findMany({ orderBy: { createdAt: "asc" } }),
+      tx.startup.findMany({ orderBy: { createdAt: "asc" } }),
+      tx.startupBlock.findMany({ orderBy: { createdAt: "asc" } }),
     ]);
 
     // Keys only when asked for, decrypted; one that's unreadable here too (DOSSIER_SECRET changed) has nothing to export.
@@ -382,6 +436,7 @@ export async function buildExport(
         experience: experience.map(({ skills: links, ...entry }) => ({ ...entry, skillIds: links.map((link) => link.skillId) })),
         projects: projects.map(({ skills: links, ...entry }) => ({ ...entry, skillIds: links.map((link) => link.skillId) })),
         education,
+        publications,
         references,
         facts,
       },
@@ -393,6 +448,8 @@ export async function buildExport(
       postings,
       searches,
       agentCandidates,
+      startups,
+      startupBlocks,
     };
   });
 }

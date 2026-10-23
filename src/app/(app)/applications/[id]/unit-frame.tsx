@@ -29,6 +29,8 @@ export type UnitFrameProps = {
   onSave: (text: string) => void;
   onRegenerate?: () => void;
   onAskAi?: () => void;
+  /** Takes it off a tailored resume (#217). */
+  onLeaveOut?: () => void;
 };
 
 const toolButton =
@@ -37,7 +39,7 @@ const toolButton =
 /**
  * One unit of a tailored document in the preview (APP-5, APP-6). Hovering it
  * or giving it keyboard focus highlights it and shows its toolbar: Edit,
- * Regenerate and Ask AI. Edit swaps in a text box.
+ * Regenerate, Ask AI and, on a resume, Leave out. Edit swaps in a text box.
  */
 export function UnitFrame({
   id,
@@ -54,6 +56,7 @@ export function UnitFrame({
   onSave,
   onRegenerate,
   onAskAi,
+  onLeaveOut,
 }: UnitFrameProps) {
   const frame = useRef<HTMLDivElement>(null);
   const wasEditing = useRef(editing);
@@ -107,6 +110,11 @@ export function UnitFrame({
             {onAskAi && (
               <button type="button" className={toolButton} onClick={onAskAi}>
                 Ask AI
+              </button>
+            )}
+            {onLeaveOut && (
+              <button type="button" className={toolButton} onClick={onLeaveOut}>
+                Leave out
               </button>
             )}
           </div>

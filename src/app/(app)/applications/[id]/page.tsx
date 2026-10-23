@@ -15,6 +15,7 @@ import { googleConnection } from "@/lib/google/account";
 import { pullInterviewEvents } from "@/lib/google/availability";
 import { loadConversation } from "@/lib/google/inbox-data";
 import { refineSuggestions } from "@/lib/refine-suggestions";
+import { loadThemes } from "@/lib/theme-data";
 import { userTimeZone } from "@/lib/time-zone";
 
 import { ApplicationView } from "./application-view";
@@ -39,7 +40,7 @@ export async function generateMetadata({ params }: PageProps<"/applications/[id]
 export default async function ApplicationPage({ params, searchParams }: PageProps<"/applications/[id]">) {
   const [{ id }, { tab }] = await Promise.all([params, searchParams]);
   await pullCalendar(id);
-  const [{ application, profile, settings, extracted, resume, letter, email, includeReferences, letterDate }, aiReady, unitJobs, refineJobs, emailJobs, timeZone, google, emails] =
+  const [{ application, profile, settings, extracted, resume, letter, email, includeReferences, letterDate }, aiReady, unitJobs, refineJobs, emailJobs, timeZone, google, emails, themes] =
     await Promise.all([
       loadDocuments(id),
       isAiConfigured(),
@@ -49,6 +50,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       userTimeZone(),
       googleConnection(),
       loadConversation(id),
+      loadThemes(),
     ]);
 
   const match = readJson(matchSchema, application.match);
@@ -65,7 +67,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     }))
     // Settings → "Show what changed" off hides the list of what was tailored (SET-5).
     .filter((message) => settings.showDiff || !message.opening);
-  const { title, company, location, status, tone, language, followThemeLayout, nextInterviewAt } = application;
+  const { title, company, location, status, tone, language, followThemeLayout, showPhoto, nextInterviewAt } = application;
   // Units still being rewritten, so a reload keeps showing it.
   const rewriting = unitJobs.flatMap((job) => {
     const input = regenerateUnitJob.input.safeParse(job.input);
@@ -86,6 +88,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
         tone,
         language,
         followThemeLayout,
+        showPhoto,
         archived: application.archivedAt !== null,
         awaitingReview: application.awaitingReview,
         nextInterviewAt,
@@ -104,6 +107,8 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       meta={metaLine(application)}
       resume={resume}
       letter={letter}
+      themes={themes}
+      baseThemeId={settings.baseThemeId}
       email={email}
       writingEmail={emailJobs.at(-1)?.id ?? null}
       attachments={{ resume: resume ? fileName("RESUME") : null, letter: letter ? fileName("COVER_LETTER") : null }}

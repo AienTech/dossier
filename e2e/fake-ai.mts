@@ -167,6 +167,7 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
     ],
     projects: [],
     education: [],
+    publications: [],
     references: [],
   }),
 

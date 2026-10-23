@@ -35,6 +35,8 @@ describe("buildExport (E10-4)", () => {
     // Projects with their skills (PRO-13).
     expect(file.profile.projects.map((entry) => entry.name)).toEqual(["Tidewater design tokens"]);
     expect(file.profile.projects.flatMap((entry) => entry.skillIds).length).toBe(await prisma().projectSkill.count());
+    // Publications in their order, with their switch (#218).
+    expect(file.profile.publications).toEqual([expect.objectContaining({ citation: expect.stringMatching(/^\*\*Doe, J\.\*\*/), onResumes: true, sort: 0 })]);
     expect(file.profile.references.length).toBe(await prisma().reference.count());
     // Facts about me, and each application's own (PRO-14, APP-15).
     expect(file.profile.facts.map((fact) => fact.text)).toEqual((await prisma().fact.findMany({ where: { applicationId: null }, orderBy: { sort: "asc" } })).map((fact) => fact.text));

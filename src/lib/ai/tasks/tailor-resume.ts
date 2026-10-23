@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 import { unitsSchema, type Extracted, type Match, type Unit } from "@/lib/application-data";
+import { publicationLabel } from "@/lib/citation";
 import { documentLabels, ENGLISH_LABELS, languagesLine, type DocumentLabels } from "@/lib/document-labels";
-import { sameName, type ProfileData } from "@/lib/profile";
+import { resumePublications, sameName, type ProfileData } from "@/lib/profile";
 
 import { guardSources, guardUnits } from "../fact-guard";
 
@@ -20,7 +21,7 @@ import {
   type Task,
 } from "./prompt-parts";
 
-export const TAILOR_RESUME_VERSION = "tailor-resume@5";
+export const TAILOR_RESUME_VERSION = "tailor-resume@6";
 
 const answerSchema = z.object({
   summary: z.string(),
@@ -37,7 +38,8 @@ const INSTRUCTIONS = `You tailor a candidate's resume to one job, as JSON.
 - roles: every role from the profile, by id, with 2–5 bullets each. Lead with what this job cares about, keep each bullet to one line, and start with a verb.
 - projects: every project from the profile, by id, with 1–3 bullets each, written like the roles' bullets: what was built and what it shows that this job cares about.
 - skills: the candidate's own skills, most relevant to this job first. Copy their names exactly; you may leave out ones that don't help.
-- education: every entry by id, with its notes shortened or left empty.`;
+- education: every entry by id, with its notes shortened or left empty.
+- The profile's publications go on the resume word for word, so don't answer with them; the summary may mention them.`;
 
 /** SET-9: asked for when "Resume length" has a limit; anything still over is trimmed afterwards (E10-10). */
 function pageFit(maxPages: number | null | undefined): string | null {
@@ -60,7 +62,7 @@ export type TailorInput = {
   posting: string;
 };
 
-/** APP-4: the tailored resume as units (summary, each role, each project, skills, each degree, languages). */
+/** APP-4: the tailored resume as units (summary, each role, each project, skills, each degree, each publication, languages). */
 export const tailorResume: Task<TailorInput, Unit[]> = async (provider, { profile, extracted, match, facts, posting }, options) => {
   const answer = await provider.complete({
     system: system(
@@ -102,8 +104,9 @@ export const tailorResume: Task<TailorInput, Unit[]> = async (provider, { profil
 /**
  * Turns the answer into units, trusting nothing: unknown roles, projects and
  * degrees are dropped, skills must be the profile's own, and a role or
- * project the model skipped keeps its bullets from the profile. The languages come from the profile,
- * with their levels in the words of `labels`.
+ * project the model skipped keeps its bullets from the profile. The publications and languages
+ * come from the profile, publications word for word (#218), and languages with their levels in
+ * the words of `labels`.
  */
 export function resumeUnits(profile: ProfileData, answer: z.infer<typeof answerSchema>, labels: DocumentLabels = ENGLISH_LABELS): Unit[] {
   const roles = new Map(answer.roles.map((role) => [role.id, role.bullets]));
@@ -127,6 +130,11 @@ export function resumeUnits(profile: ProfileData, answer: z.infer<typeof answerS
       id: `education:${entry.id}`,
       label: entry.degree || entry.school,
       text: (notes.get(entry.id) ?? entry.notes).trim(),
+    })),
+    ...resumePublications(profile.publications).map((entry) => ({
+      id: `publication:${entry.id}`,
+      label: publicationLabel(entry.citation),
+      text: entry.citation.trim(),
     })),
     {
       id: "languages",
