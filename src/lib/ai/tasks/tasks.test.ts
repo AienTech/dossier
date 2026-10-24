@@ -76,6 +76,15 @@ describe("extractPosting", () => {
     expect(sent(provider).system).toContain("Today is 2026-09-28.");
   });
 
+  it("asks once more when the answer names no company, role or title, and takes requirements without their empty fields", async () => {
+    const empty = { ...extracted, title: null, company: null, role: null };
+    const replies = [empty, { ...extracted, requirements: [{ text: "Figma", kind: "skill", skill: "Figma" }] }];
+    const provider = new MockProvider({ reply: () => replies.shift() });
+    const { data } = await extractPosting(provider, { posting, today }, options);
+    expect(provider.calls).toHaveLength(2);
+    expect(data).toMatchObject({ company: "Ledgerly", requirements: [{ text: "Figma", years: null, language: null }] });
+  });
+
   it("only keeps whole dates", () => {
     expect(isoDate("2026-10-15")).toBe("2026-10-15");
     expect(isoDate("15 Oct 2026")).toBe("2026-10-15");

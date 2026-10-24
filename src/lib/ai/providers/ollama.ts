@@ -33,11 +33,18 @@ export class OllamaProvider extends BaseProvider {
   }
 
   protected async chat(call: ChatCall): Promise<ChatAnswer> {
+    const schema = call.json ? z.toJSONSchema(call.json.schema) : undefined;
+    // A model on local hardware can think past any token limit and never answer, so it doesn't think.
+    // One that doesn't think ignores `format`, so the schema goes into the instructions as well.
+    const system = schema
+      ? `${call.system}\n\nReply with only a JSON object, no other text, that matches this JSON schema:\n${JSON.stringify(schema)}`
+      : call.system;
     const response = await this.client(call.signal).chat({
       model: call.model,
-      messages: [{ role: "system", content: call.system }, ...call.messages],
+      messages: [{ role: "system", content: system }, ...call.messages],
       stream: false,
-      format: call.json ? z.toJSONSchema(call.json.schema) : undefined,
+      think: false,
+      format: schema,
       options: { temperature: call.temperature, num_predict: call.maxTokens, num_ctx: CONTEXT_TOKENS },
     });
     return { text: response.message.content, cutOff: response.done_reason === "length" };
