@@ -65,7 +65,7 @@ describe("extractPosting", () => {
   it("reads the posting as data and returns typed requirements with an ISO deadline (NEW-3)", async () => {
     const provider = model({ ...extracted, title: null, deadline: "15 October 2026", requirements: [...extracted.requirements, { text: " ", kind: "other", skill: null, years: null, language: null }] });
     const { data, promptVersion } = await extractPosting(provider, { posting: sample.ledgerly.posting, today }, options);
-    expect(promptVersion).toBe("extract-posting@1");
+    expect(promptVersion).toBe("extract-posting@2");
     expect(data).toMatchObject({ title: "Senior Product Designer · Ledgerly", deadline: "2026-10-15", asksForReferences: false, language: "English" });
     expect(data.requirements).toHaveLength(7);
     expect(sent(provider).messages[0].content).toMatch(/^<posting>\nLedgerly: Senior Product Designer/);
@@ -74,6 +74,33 @@ describe("extractPosting", () => {
     expect(sent(provider).effort).toBe("low");
     // So "Apply by 15 October" gets the right year.
     expect(sent(provider).system).toContain("Today is 2026-09-28.");
+  });
+
+  it("asks once more when the answer names no company, role or title, and takes requirements without their empty fields", async () => {
+    const empty = { ...extracted, title: null, company: null, role: null };
+    const replies = [empty, { ...extracted, requirements: [{ text: "Figma", kind: "skill", skill: "Figma" }] }];
+    const provider = new MockProvider({ reply: () => replies.shift() });
+    const { data } = await extractPosting(provider, { posting, today }, options);
+    expect(provider.calls).toHaveLength(2);
+    expect(data).toMatchObject({ company: "Ledgerly", requirements: [{ text: "Figma", years: null, language: null }] });
+  });
+
+  it("keeps the first answer when one more look finds nothing either or fails, and stops when cancelled", async () => {
+    const empty = { ...extracted, title: null, company: null, role: null };
+    for (const second of [() => ({ ...empty, requirements: [] }), () => Promise.reject(new Error("socket hang up"))]) {
+      const replies = [() => empty, second];
+      const { data } = await extractPosting(new MockProvider({ reply: () => replies.shift()!() }), { posting, today }, options);
+      expect(data.requirements).toHaveLength(7);
+    }
+
+    const controller = new AbortController();
+    const cancelling = () => {
+      controller.abort();
+      return Promise.reject(new DOMException("The operation was aborted.", "AbortError"));
+    };
+    const replies = [() => empty, cancelling];
+    const reading = extractPosting(new MockProvider({ reply: () => replies.shift()!() }), { posting, today }, { ...options, signal: controller.signal });
+    await expect(reading).rejects.toMatchObject({ kind: "cancelled" });
   });
 
   it("only keeps whole dates", () => {
