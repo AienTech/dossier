@@ -7,7 +7,9 @@ import type { JobSource } from "./search";
 // fetching a posting (src/lib/posting-fetch.ts) there's no address to guard;
 // requests are still limited in time and size.
 
-export const REQUEST_TIMEOUT_MS = 10_000;
+// JSearch can take over 10 seconds on a search it hasn't run before; the
+// agent searches once a day, so a timeout there costs the whole run.
+export const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_BYTES = 5 * 1024 * 1024;
 
 /** GETs JSON from a source, turning every failure into a JobSearchError. */

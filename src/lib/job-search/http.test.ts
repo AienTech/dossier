@@ -50,6 +50,13 @@ describe("requestJson", () => {
     await expect(requestJson("JSEARCH", url)).rejects.toMatchObject({ problem: "changed" });
   });
 
+  it("gives a source 30 seconds, as JSearch can take over 10 on a search it hasn't seen", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    stubFetch(() => Response.json({ ok: true }));
+    await requestJson("JSEARCH", url);
+    expect(timeout).toHaveBeenCalledWith(30_000);
+  });
+
   it("says it timed out when the source takes too long", async () => {
     vi.spyOn(AbortSignal, "timeout").mockReturnValue(AbortSignal.abort());
     stubFetch((_, signal) => Promise.reject(signal?.reason ?? new Error("aborted")));
