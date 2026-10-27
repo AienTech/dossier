@@ -61,6 +61,22 @@ export const PROVIDER_OPTIONS: readonly {
     apiKey: { label: "API key" },
   },
   {
+    value: AiProvider.OPENCODE_GO,
+    name: "OpenCode Go",
+    vendor: "OpenCode",
+    description: "Open coding models through an OpenCode Go subscription.",
+    tag: "Hosted · Go subscription",
+    local: false,
+    defaultUrl: "https://opencode.ai/inference/go",
+    urlPlaceholder: "https://opencode.ai/inference/go",
+    urlHint: "The Go base URL from OpenCode's docs. Dossier adds the OpenAI-compatible path for chat.",
+    defaultModel: "glm-5.3-flash",
+    apiKey: {
+      label: "OpenCode API key",
+      hint: "From the OpenCode Console. The same key works with OpenCode Zen, but Go models need a Go or Go Plus plan.",
+    },
+  },
+  {
     value: AiProvider.ANTHROPIC,
     name: "Anthropic",
     vendor: "Anthropic",

@@ -37,11 +37,12 @@ export class OpenAICompatibleProvider extends BaseProvider {
   protected readonly client: OpenAI;
 
   constructor(
-    readonly kind: "OPENAI" | "LOCAL" | "MISTRAL" | "LMSTUDIO",
+    readonly kind: "OPENAI" | "LOCAL" | "MISTRAL" | "LMSTUDIO" | "OPENCODE_GO",
     private readonly baseURL: string,
     apiKey: string | null,
     model: string | null,
     timeoutMs: number,
+    defaultHeaders?: Record<string, string>,
   ) {
     super(model, timeoutMs);
     // Local servers often need no key, but the SDK insists on one.
@@ -50,14 +51,25 @@ export class OpenAICompatibleProvider extends BaseProvider {
       apiKey: apiKey || "not-needed",
       timeout: timeoutMs,
       maxRetries: 1,
+      ...(defaultHeaders ? { defaultHeaders } : {}),
       // With a key attached, no redirects to other hosts (E11-5).
       ...(apiKey ? { fetch: keyGuardedFetch() } : {}),
     });
   }
 
+  /** The JSON mode to start with; a server that can't take a schema can override this. */
+  protected defaultJsonMode(): JsonMode {
+    return "schema";
+  }
+
   protected async chat(call: ChatCall): Promise<ChatAnswer> {
-    const key = `${this.baseURL} ${call.model}`;
-    let known: Quirks = quirks.get(key) ?? { noTemperature: false, maxCompletionTokens: false, noEffort: false, json: "schema" };
+    const key = `${this.kind} ${this.baseURL} ${call.model}`;
+    let known: Quirks = quirks.get(key) ?? {
+      noTemperature: false,
+      maxCompletionTokens: false,
+      noEffort: false,
+      json: this.defaultJsonMode(),
+    };
     // A 400 or 422 naming a parameter this model doesn't take: adapt and
     // remember, once per parameter.
     for (;;) {

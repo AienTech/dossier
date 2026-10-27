@@ -5,9 +5,10 @@ import { AnthropicProvider } from "./providers/anthropic";
 import { LmStudioProvider } from "./providers/lmstudio";
 import { LocalProvider } from "./providers/local";
 import { MistralProvider } from "./providers/mistral";
+import { OpenCodeGoProvider } from "./providers/opencode-go";
 import { OpenAICompatibleProvider } from "./providers/openai-compatible";
 import type { AIProvider } from "./provider";
-import { liveLmStudio, liveMistral } from "./test-live";
+import { liveLmStudio, liveMistral, liveOpenCodeGo } from "./test-live";
 
 // Checks against real models, skipped unless asked for:
 //
@@ -15,9 +16,12 @@ import { liveLmStudio, liveMistral } from "./test-live";
 //   AI_LIVE=ollama docker/bin/yarn vitest run src/lib/ai/providers.live.test.ts
 //   AI_LIVE=anthropic ANTHROPIC_TEST_KEY=… docker/bin/yarn vitest run src/lib/ai/providers.live.test.ts
 //   AI_LIVE=mistral docker/bin/yarn vitest run src/lib/ai/providers.live.test.ts
+//   AI_LIVE=opencode-go OPENCODE_TEST_KEY=… docker/bin/yarn vitest run src/lib/ai/providers.live.test.ts
 //
 // Mistral's key is DOSSIER_AI_KEY when that's set, or else the one saved in
-// Settings → AI provider with Mistral chosen.
+// Settings → AI provider with Mistral chosen. OpenCode Go's key is
+// OPENCODE_TEST_KEY (and OPENCODE_TEST_MODEL), or the one saved in Settings
+// with OpenCode Go chosen.
 //
 //   AI_LIVE=lmstudio docker/bin/yarn vitest run src/lib/ai/providers.live.test.ts
 //
@@ -108,6 +112,29 @@ describe.runIf(mistral)("live: Mistral", () => {
 
   it("refuses a wrong key in plain words", async () => {
     await expect(make("wrong-key").test()).rejects.toMatchObject({ kind: "auth" });
+  });
+});
+
+const openCodeGo = live.has("opencode-go") ? await liveOpenCodeGo() : null;
+
+describe.runIf(openCodeGo)("live: OpenCode Go", () => {
+  const { key, model } = openCodeGo ?? { key: "", model: "" };
+  const make = (apiKey = key) => new OpenCodeGoProvider("https://opencode.ai/inference/go", apiKey, model, 120_000);
+  checks("chat completions", () => make(), model);
+
+  it("answers a reading task in plain JSON", async () => {
+    const result = await make().complete({
+      system: "Extract the job details from the posting.",
+      messages: [{ role: "user", content: posting }],
+      schema: Posting,
+      schemaName: "posting",
+      effort: "low",
+    });
+    expect(result).toMatchObject({ company: "Ledgerly", city: "Amsterdam" });
+  });
+
+  it("refuses a wrong key in plain words", async () => {
+    await expect(make("oc_sk-wrong").test()).rejects.toMatchObject({ kind: "auth" });
   });
 });
 

@@ -10,13 +10,14 @@ import { AnthropicProvider } from "./providers/anthropic";
 import { LocalProvider } from "./providers/local";
 import { LmStudioProvider } from "./providers/lmstudio";
 import { MistralProvider } from "./providers/mistral";
+import { OpenCodeGoProvider } from "./providers/opencode-go";
 import { OpenAICompatibleProvider } from "./providers/openai-compatible";
 
 export { AiError } from "./errors";
 export type { AIProvider, ChatMessage, CompletionRequest, JsonCompletionRequest } from "./provider";
 
 /** A provider for `config`. A saved key that can't be read stops hosted providers with a clear message. */
-export function createProvider(config: AiConfig): AIProvider {
+export function createProvider(config: AiConfig, sessionId?: string): AIProvider {
   const { provider, baseUrl, model, apiKey, apiKeyProblem, timeoutMs } = config;
   if (apiKeyProblem && providerOption(provider).apiKey) throw AiError.config(apiKeyProblem);
   switch (provider) {
@@ -24,6 +25,8 @@ export function createProvider(config: AiConfig): AIProvider {
       return new LocalProvider(baseUrl, model, timeoutMs);
     case AiProvider.OPENAI:
       return new OpenAICompatibleProvider("OPENAI", baseUrl, apiKey, model, timeoutMs);
+    case AiProvider.OPENCODE_GO:
+      return new OpenCodeGoProvider(baseUrl, apiKey, model, timeoutMs, sessionId);
     case AiProvider.ANTHROPIC:
       return new AnthropicProvider(baseUrl, apiKey, model, timeoutMs);
     case AiProvider.MISTRAL:
@@ -34,6 +37,6 @@ export function createProvider(config: AiConfig): AIProvider {
 }
 
 /** The provider configured in Settings, or by the DOSSIER_AI_* variables. */
-export async function getAiProvider(): Promise<AIProvider> {
-  return createProvider(await loadAiConfig());
+export async function getAiProvider(sessionId?: string): Promise<AIProvider> {
+  return createProvider(await loadAiConfig(), sessionId);
 }

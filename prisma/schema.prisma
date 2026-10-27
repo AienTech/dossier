@@ -306,6 +306,8 @@ enum AiProvider {
   MISTRAL
   /// LM Studio on the user's own hardware (#210).
   LMSTUDIO
+  /// OpenCode Go, through its OpenAI-compatible Go endpoint.
+  OPENCODE_GO
 }
 
 enum Creativity {

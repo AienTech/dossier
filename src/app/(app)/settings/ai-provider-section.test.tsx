@@ -32,6 +32,7 @@ describe("AiProviderSection", () => {
       "Local model",
       "LM Studio",
       "OpenAI-compatible",
+      "OpenCode Go",
       "Anthropic",
       "Mistral",
     ]);
@@ -52,6 +53,22 @@ describe("AiProviderSection", () => {
     expect(screen.getByLabelText("API key")).toHaveAttribute("placeholder", "Stored encrypted on your server");
     await waitFor(() =>
       expect(saveAiProvider).toHaveBeenCalledWith({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5" }),
+    );
+  });
+
+  it("fills in OpenCode Go's address and model, with its key and privacy note", async () => {
+    render(<AiProviderSection initial={local} />);
+    await userEvent.click(screen.getByRole("radio", { name: "OpenCode Go" }));
+    expect(screen.getByLabelText("Server address")).toHaveValue("https://opencode.ai/inference/go");
+    expect(screen.getByRole("note")).toHaveTextContent(/^OpenCode receives what each task needs: .* depend on your account with OpenCode\.$/);
+    expect(screen.getByLabelText("OpenCode API key")).toBeInTheDocument();
+    expect(screen.getByText(/Go models need a Go or Go Plus plan/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(saveAiProvider).toHaveBeenCalledWith({
+        provider: "OPENCODE_GO",
+        baseUrl: "https://opencode.ai/inference/go",
+        model: "glm-5.3-flash",
+      }),
     );
   });
 

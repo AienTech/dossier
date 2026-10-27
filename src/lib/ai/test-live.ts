@@ -24,6 +24,16 @@ export async function liveMistral(): Promise<{ key: string; model: string } | nu
   return saved.provider === AiProvider.MISTRAL && saved.apiKey ? { key: saved.apiKey, model: saved.model ?? fallbackModel } : null;
 }
 
+/** OpenCode Go's key and model: OPENCODE_TEST_KEY (and OPENCODE_TEST_MODEL), or what's saved in Settings with OpenCode Go chosen. */
+export async function liveOpenCodeGo(): Promise<{ key: string; model: string } | null> {
+  const fallbackModel = "glm-5.3-flash";
+  if (process.env.OPENCODE_TEST_KEY) {
+    return { key: process.env.OPENCODE_TEST_KEY, model: process.env.OPENCODE_TEST_MODEL ?? fallbackModel };
+  }
+  const saved = await savedAiConfig();
+  return saved.provider === AiProvider.OPENCODE_GO && saved.apiKey ? { key: saved.apiKey, model: saved.model ?? fallbackModel } : null;
+}
+
 /** LM Studio's address, token and model: DOSSIER_AI_MODEL (and DOSSIER_AI_URL, DOSSIER_AI_KEY), or what's saved in Settings with LM Studio chosen. */
 export async function liveLmStudio(): Promise<{ url: string; key: string | null; model: string } | null> {
   const { DOSSIER_AI_URL, DOSSIER_AI_KEY, DOSSIER_AI_MODEL } = process.env;

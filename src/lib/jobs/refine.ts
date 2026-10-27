@@ -70,7 +70,13 @@ export const refineJob = defineJob({
     );
     const targetUnit = target && unitsOf(target.document).find((unit) => unit.id === target.unitId);
 
-    const [provider, options, profile, facts] = await Promise.all([getAiProvider(), loadTaskOptions(), loadProfile(), loadFactTexts(applicationId)]);
+    // One OpenCode session per application keeps a Refine conversation together.
+    const [provider, options, profile, facts] = await Promise.all([
+      getAiProvider(applicationId),
+      loadTaskOptions(),
+      loadProfile(),
+      loadFactTexts(applicationId),
+    ]);
     const { data, promptVersion } = await refineChat(
       provider,
       {

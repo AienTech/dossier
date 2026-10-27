@@ -8,6 +8,7 @@ import { LocalProvider } from "./providers/local";
 import { MISTRAL_FALLBACK_MODELS, MistralProvider } from "./providers/mistral";
 import { MockProvider } from "./providers/mock";
 import { OllamaProvider } from "./providers/ollama";
+import { OpenCodeGoProvider, openCodeGoRoot, openCodeGoSession } from "./providers/opencode-go";
 import { OpenAICompatibleProvider } from "./providers/openai-compatible";
 import { hang, json, refused, stubFetch } from "./test-http";
 
@@ -146,6 +147,136 @@ describe("OpenAICompatibleProvider", () => {
     stubFetch(() => json({ object: "list", data: [{ id: "b-model", object: "model" }, { id: "a-model", object: "model" }] }));
     const provider = new OpenAICompatibleProvider("OPENAI", "https://api.example.com/v1", "sk", null, 60_000);
     expect(await provider.listModels()).toEqual(["a-model", "b-model"]);
+  });
+});
+
+describe("OpenCodeGoProvider", () => {
+  it("chats through Go's OpenAI-compatible endpoint, identifying Dossier and the conversation", async () => {
+    const requests = stubFetch(() => openaiChat("Hello!"));
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", "glm-5.3-flash", 60_000, "application-1");
+    expect(await provider.complete(ask)).toBe("Hello!");
+    expect(requests[0].url.href).toBe("https://opencode.ai/inference/go/openai/v1/chat/completions");
+    expect(requests[0].headers.get("authorization")).toBe("Bearer oc_sk-test");
+    expect(requests[0].headers.get("user-agent")).toMatch(/^Dossier\//);
+    expect(requests[0].headers.get("x-opencode-session")).toBe("ses_application-1");
+
+    await provider.complete(ask);
+    expect(requests[1].headers.get("x-opencode-session")).toBe("ses_application-1");
+  });
+
+  it("accepts the documented base URL or the OpenAI-compatible one", async () => {
+    expect(openCodeGoRoot("https://opencode.ai/inference/go")).toBe("https://opencode.ai/inference/go");
+    expect(openCodeGoRoot("https://opencode.ai/inference/go/")).toBe("https://opencode.ai/inference/go");
+    expect(openCodeGoRoot("https://opencode.ai/inference/go/openai/v1/")).toBe("https://opencode.ai/inference/go");
+    expect(openCodeGoSession("application-1")).toBe("ses_application-1");
+    expect(openCodeGoSession("ses_application-1")).toBe("ses_application-1");
+    expect(openCodeGoSession()).toMatch(/^ses_/);
+
+    const requests = stubFetch(() => openaiChat("Hello!"));
+    await new OpenCodeGoProvider("https://opencode.ai/inference/go/openai/v1/", "oc_sk", "glm-5.3-flash", 60_000).complete(ask);
+    expect(requests[0].url.href).toBe("https://opencode.ai/inference/go/openai/v1/chat/completions");
+  });
+
+  it("puts the schema in the instructions, since some Go models refuse response_format", async () => {
+    const requests = stubFetch(() => openaiChat('{"name":"Jane","years":9}'));
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk", "glm-5.3-flash", 60_000);
+    expect(await provider.complete({ ...ask, schema: Person, schemaName: "person" })).toEqual({ name: "Jane", years: 9 });
+    const body = requests[0].body as { response_format?: unknown; messages: { content: string }[] };
+    expect(body.response_format).toBeUndefined();
+    expect(body.messages[0].content).toMatch(/Reply with only a JSON object[\s\S]*"years"/);
+  });
+
+  it("lists the Go catalog from /v1/models without sending the key", async () => {
+    const requests = stubFetch(({ url }) => {
+      expect(url.href).toBe("https://opencode.ai/inference/go/v1/models");
+      return json({ object: "list", data: [{ id: "glm-5.3-flash" }, { id: "deepseek-v4.1-flash" }] });
+    });
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", null, 60_000);
+    expect(await provider.listModels()).toEqual(["deepseek-v4.1-flash", "glm-5.3-flash"]);
+    expect(requests[0].headers.get("authorization")).toBeNull();
+    expect(requests[0].headers.get("user-agent")).toMatch(/^Dossier\//);
+    expect(requests[0].headers.get("x-opencode-session")).toMatch(/^ses_/);
+  });
+
+  it("keeps only IDs from a model list that has odd entries", async () => {
+    stubFetch(() => json({ object: "list", data: [{ id: "glm-5.3-flash" }, { id: 4 }, {}] }));
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", null, 60_000);
+    expect(await provider.listModels()).toEqual(["glm-5.3-flash"]);
+  });
+
+  it("reports a model list the server won't give", async () => {
+    stubFetch(() => json({ error: { message: "temporarily unavailable" } }, { status: 500 }));
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", null, 60_000);
+    expect(await failure(provider.listModels())).toMatchObject({ kind: "provider" });
+  });
+
+  it("treats an unreadable model list as empty", async () => {
+    stubFetch(() => new Response("not json", { status: 200, headers: { "content-type": "text/plain" } }));
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", null, 60_000);
+    expect(await provider.listModels()).toEqual([]);
+  });
+
+  it("asks for a key before chatting", async () => {
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", null, "glm-5.3-flash", 60_000);
+    expect(await failure(provider.complete(ask))).toMatchObject({
+      kind: "config",
+      message: "Add your OpenCode API key in Settings → AI provider first.",
+    });
+  });
+
+  it("explains a key without a Go plan", async () => {
+    stubFetch(() => json({ error: { message: "An active OpenCode Go subscription is required to use Go models." } }, { status: 403 }));
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-wrong-plan", "glm-5.3-flash", 60_000);
+    const error = await failure(provider.complete(ask));
+    expect(error).toMatchObject({ kind: "config", message: expect.stringContaining("Go or Go Plus") });
+    expect(error.detail ?? "").not.toContain("oc_sk");
+  });
+
+  it("explains a workspace region restriction", async () => {
+    stubFetch(() =>
+      json(
+        { error: { message: "This Go model requires Global regions. Select Global in your workspace's Privacy settings to use it." } },
+        { status: 403 },
+      ),
+    );
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", "deepseek-v4.1-flash", 60_000);
+    const error = await failure(provider.complete(ask));
+    expect(error).toMatchObject({ kind: "config", message: expect.stringContaining("Global regions") });
+  });
+
+  it("explains a model that needs training opt-in, and a free one", async () => {
+    stubFetch(() => json({ error: { message: "This contributor model trains on request data." } }, { status: 403 }));
+    const contributor = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", "muse-spark-1.3-contributor", 60_000);
+    expect(await failure(contributor.complete(ask))).toMatchObject({
+      kind: "config",
+      message: expect.stringContaining("train on request data"),
+    });
+
+    stubFetch(() => json({ error: { message: "Free models are only available from within OpenCode." } }, { status: 403 }));
+    const free = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", "beam-free", 60_000);
+    expect(await failure(free.complete(ask))).toMatchObject({
+      kind: "config",
+      message: "That model is only available inside OpenCode. Pick a paid model included in your Go plan.",
+    });
+  });
+
+  it("keeps a 403 it can't explain as a key problem", async () => {
+    stubFetch(() => json({ error: { message: "Forbidden" } }, { status: 403 }));
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", "glm-5.3-flash", 60_000);
+    expect(await failure(provider.complete(ask))).toMatchObject({ kind: "auth" });
+  });
+
+  it("lets the base provider map a failure it doesn't explain", async () => {
+    stubFetch(() => refused());
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", "glm-5.3-flash", 60_000);
+    expect(await failure(provider.complete(ask))).toMatchObject({ kind: "unreachable" });
+  });
+
+  it("mentions the Go plan's limits when requests are throttled", async () => {
+    stubFetch(() => json({ error: { message: "Provider rate limit exceeded" } }, { status: 429 }));
+    const provider = new OpenCodeGoProvider("https://opencode.ai/inference/go", "oc_sk-test", "glm-5.3-flash", 60_000);
+    const error = await failure(provider.complete(ask));
+    expect(error).toMatchObject({ kind: "rate-limited", message: expect.stringContaining("5-hour") });
   });
 });
 

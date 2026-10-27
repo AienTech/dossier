@@ -24,6 +24,7 @@ export const PROVIDER_DEFAULTS: Record<AiProvider, { baseUrl: string; model: str
   // Generous: a local model on a laptop can take minutes for a cover letter.
   [AiProvider.LOCAL]: { baseUrl: "http://localhost:11434", model: null, timeoutSeconds: 300 },
   [AiProvider.OPENAI]: { baseUrl: "https://api.openai.com/v1", model: null, timeoutSeconds: 120 },
+  [AiProvider.OPENCODE_GO]: { baseUrl: "https://opencode.ai/inference/go", model: "glm-5.3-flash", timeoutSeconds: 120 },
   [AiProvider.ANTHROPIC]: { baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5", timeoutSeconds: 120 },
   [AiProvider.MISTRAL]: { baseUrl: "https://api.mistral.ai/v1", model: "mistral-medium-latest", timeoutSeconds: 120 },
   // As generous as a local model, and loading one can take a while too.
@@ -33,6 +34,7 @@ export const PROVIDER_DEFAULTS: Record<AiProvider, { baseUrl: string; model: str
 const FROM_ENV: Record<NonNullable<Env["DOSSIER_AI_PROVIDER"]>, AiProvider> = {
   local: AiProvider.LOCAL,
   openai: AiProvider.OPENAI,
+  "opencode-go": AiProvider.OPENCODE_GO,
   anthropic: AiProvider.ANTHROPIC,
   mistral: AiProvider.MISTRAL,
   lmstudio: AiProvider.LMSTUDIO,
@@ -126,6 +128,9 @@ export async function isAiUsable(): Promise<boolean> {
   if (!(await isAiConfigured())) return false;
   const config = await loadAiConfig();
   if (!config.model || config.apiKeyProblem) return false;
-  const needsKey = config.provider === AiProvider.ANTHROPIC || config.provider === AiProvider.MISTRAL;
+  const needsKey =
+    config.provider === AiProvider.ANTHROPIC ||
+    config.provider === AiProvider.MISTRAL ||
+    config.provider === AiProvider.OPENCODE_GO;
   return !needsKey || Boolean(config.apiKey);
 }
