@@ -12,7 +12,9 @@ const nothingSaved = {
   jsearchHost: "openwebninja" as const,
   adzunaAppId: null,
   adzunaKeyEnc: null,
+  firecrawlKeyEnc: null,
   arbeitsagenturAcceptedAt: null,
+  blockedCompanies: [],
 };
 const ACCEPTED = "2026-10-23T09:00:00.000Z";
 const noEnv = {};
@@ -25,8 +27,17 @@ describe("resolveJobSearchConfig", () => {
       source: "OFF",
       jsearch: { host: "openwebninja", keyState: "none" },
       adzuna: { appId: "", keyState: "none" },
+      firecrawl: { keyState: "none" },
       arbeitsagentur: { offered: true, acceptedAt: null },
+      blockedCompanies: [],
     });
+  });
+
+  it("carries the blocked companies list through untouched", () => {
+    expect(resolveJobSearchConfig(nothingSaved, noEnv).blockedCompanies).toEqual([]);
+    const blocked = resolveJobSearchConfig({ ...nothingSaved, blockedCompanies: ["Best Buy", "ProArch"] }, noEnv);
+    expect(blocked.blockedCompanies).toEqual(["Best Buy", "ProArch"]);
+    expect(jobSearchView(blocked).blockedCompanies).toEqual(["Best Buy", "ProArch"]);
   });
 
   it("uses the environment until something is saved", () => {
@@ -53,7 +64,9 @@ describe("resolveJobSearchConfig", () => {
       jsearchHost: "openwebninja" as const,
       adzunaAppId: "app-saved",
       adzunaKeyEnc: encryptSecret(JOB_SOURCE_KEY, "adz-saved"),
+      firecrawlKeyEnc: null,
       arbeitsagenturAcceptedAt: null,
+      blockedCompanies: ["Best Buy"],
     };
     const config = resolveJobSearchConfig(saved, { DOSSIER_JOBS_SOURCE: "jsearch", DOSSIER_JSEARCH_KEY: "ak_env", DOSSIER_JSEARCH_HOST: "rapidapi" });
     expect(config).toMatchObject({
@@ -61,6 +74,8 @@ describe("resolveJobSearchConfig", () => {
       saved: true,
       jsearch: { key: "ak_saved", host: "openwebninja", keyState: "set" },
       adzuna: { appId: "app-saved", key: "adz-saved", keyState: "set" },
+      firecrawl: { key: null, keyState: "none" },
+      blockedCompanies: ["Best Buy"],
     });
     expect(resolveJobSearchConfig({ ...saved, jobSource: "OFF" }, { DOSSIER_JOBS_SOURCE: "jsearch" })).toMatchObject({ source: null, saved: true });
   });
@@ -84,6 +99,12 @@ describe("credentialsFor", () => {
   it("gives each source its own key", () => {
     expect(credentialsFor(config, "JSEARCH")).toEqual({ key: "ak_saved", host: "rapidapi" });
     expect(credentialsFor({ ...config, arbeitsagentur: { offered: true, acceptedAt: ACCEPTED } }, "ARBEITSAGENTUR")).toEqual({});
+  });
+
+  it("gives Firecrawl its own key, with no app ID to go with it", () => {
+    const firecrawl = resolveJobSearchConfig({ ...nothingSaved, firecrawlKeyEnc: encryptSecret(JOB_SOURCE_KEY, "fc_saved") }, noEnv);
+    expect(credentialsFor(firecrawl, "FIRECRAWL")).toEqual({ key: "fc_saved" });
+    expect(() => credentialsFor(resolveJobSearchConfig(nothingSaved, noEnv), "FIRECRAWL")).toThrow("Add your Firecrawl key in Settings → Job search first.");
   });
 
   it("says what's missing", () => {

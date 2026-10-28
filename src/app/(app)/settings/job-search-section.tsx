@@ -1,20 +1,21 @@
 "use client";
 
 import { RadioGroup } from "radix-ui";
-import { useId, useState } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 
 import { ArbeitsagenturNote } from "@/components/arbeitsagentur-note";
 import { useTrackSave } from "@/components/save-tracker";
-import { toastResult } from "@/components/toast";
+import { toast, toastResult } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { RemovableChip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { JOB_SOURCES, type JobSource, type JSearchHost } from "@/lib/job-search/search";
 import { JOB_KEY_UNREADABLE, JSEARCH_KEY_URLS, SOURCE_INFO, type JobKeyState, type JobSearchSettingsView } from "@/lib/job-search/sources";
 import { cn } from "@/lib/cn";
 
-import { saveJobSearchDetails, saveJobSource, saveJobSourceKey, testJobSource } from "./actions";
+import { blockCompany, saveJobSearchDetails, saveJobSource, saveJobSourceKey, testJobSource, unblockCompany } from "./actions";
 import { SettingsSectionIntro } from "./settings-screen";
 
 type Choice = JobSource | "OFF";
@@ -75,7 +76,7 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
     apply(toastResult(await track(saveJobSearchDetails({ adzunaAppId: appId }))));
   };
 
-  const saveKey = async (keySource: "JSEARCH" | "ADZUNA", change: { action: "set"; value: string } | { action: "clear" }) => {
+  const saveKey = async (keySource: "JSEARCH" | "ADZUNA" | "FIRECRAWL", change: { action: "set"; value: string } | { action: "clear" }) => {
     changed();
     return apply(toastResult(await track(saveJobSourceKey({ source: keySource, change }))));
   };
@@ -165,6 +166,15 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
                 />
               </div>
             )}
+            {source === "FIRECRAWL" && (
+              <KeyField
+                label="API key"
+                keyState={view.firecrawl.keyState}
+                envName="DOSSIER_FIRECRAWL_KEY"
+                getKey={{ href: SOURCE_INFO.FIRECRAWL.keyUrl!, text: "Firecrawl" }}
+                onSave={(change) => saveKey("FIRECRAWL", change)}
+              />
+            )}
             {source === "ARBEITSAGENTUR" && (
               <>
                 <ArbeitsagenturNote accepted={Boolean(view.arbeitsagentur.acceptedAt)} onAccept={acceptArbeitsagentur} />
@@ -183,7 +193,94 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
           </Card>
         </>
       )}
+
+      <BlockedCompaniesCard initial={view.blockedCompanies} />
     </>
+  );
+}
+
+/**
+ * Blocked companies (this fork, E14-8): Find jobs, the job agent and the
+ * Claude connector never show, score or draft for a posting from one of
+ * these, by any source. Kept regardless of which source is chosen, or Off,
+ * so the list is ready before a source is.
+ */
+function BlockedCompaniesCard({ initial }: { initial: readonly string[] }) {
+  const track = useTrackSave();
+  const [blocked, setBlocked] = useState<readonly string[]>(initial);
+  const [draft, setDraft] = useState("");
+
+  async function add() {
+    const name = draft.trim();
+    if (!name) return;
+    if (blocked.some((entry) => entry.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setDraft("");
+      toast(`“${name}” is already blocked.`);
+      return;
+    }
+    setDraft("");
+    const before = blocked;
+    setBlocked((current) => [...current, name]);
+    const result = await track(blockCompany({ name }));
+    if (!result.ok) {
+      setBlocked(before);
+      setDraft(name);
+      toast(result.error);
+      return;
+    }
+    setBlocked(result.data.blockedCompanies);
+  }
+
+  async function remove(name: string) {
+    const before = blocked;
+    setBlocked((current) => current.filter((entry) => entry !== name));
+    const result = await track(unblockCompany({ name }));
+    if (!result.ok) {
+      setBlocked(before);
+      toast(result.error);
+      return;
+    }
+    setBlocked(result.data.blockedCompanies);
+  }
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    void add();
+  };
+
+  return (
+    <Card className="flex flex-col gap-4 px-7 py-6">
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-lead font-medium">
+          Blocked companies<span className="font-normal text-muted"> (optional)</span>
+        </h3>
+        <span className="text-meta text-muted">{blocked.length} blocked</span>
+      </div>
+      <p className="text-meta text-muted">
+        A past or current employer, or one you never want to apply to again. No search shows, scores or drafts for a posting that names one of these as
+        the company, or mentions it in the title or description — which also catches a staffing listing for a role placed there.
+      </p>
+      {blocked.length > 0 && (
+        <ul className="flex flex-wrap gap-2" aria-label="Blocked companies">
+          {blocked.map((name) => (
+            <li key={name}>
+              <RemovableChip removeLabel={`Unblock ${name}`} onRemove={() => void remove(name)}>
+                {name}
+              </RemovableChip>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Input
+        aria-label="Block a company"
+        placeholder="e.g. Best Buy"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={onKeyDown}
+        enterKeyHint="done"
+      />
+    </Card>
   );
 }
 

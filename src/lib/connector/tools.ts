@@ -10,6 +10,7 @@ import { profileForPrompt } from "@/lib/ai/tasks/prompt-parts";
 import { scoreFrom } from "@/lib/ai/tasks/score-posting";
 import { unitsSchema } from "@/lib/application-data";
 import { fitBand } from "@/lib/fit";
+import { blockedBy, compileBlocklist } from "@/lib/job-search/blocklist";
 import { countryCodeFor, countryName } from "@/lib/job-search/countries";
 import { fullText } from "@/lib/job-search/find";
 import { DEFAULT_RADIUS_KM, foundPostingSchema, POSTED_WITHIN, postingText, RADII_KM, type FoundPosting, type PostedWithin, type SearchQuery, type ShownPosting } from "@/lib/job-search/search";
@@ -21,6 +22,7 @@ import { loadSearch, runSearch, showMoreFor } from "@/lib/posting-searches";
 import { foundFromPosting, storePosting } from "@/lib/postings";
 import { prisma } from "@/lib/prisma";
 import { loadProfile } from "@/lib/profile-data";
+import { loadSettings } from "@/lib/settings-data";
 import { statusInfo } from "@/lib/status";
 import { applyStatusChange } from "@/lib/status-changes";
 import { appVersion } from "@/lib/version";
@@ -250,8 +252,10 @@ export function createDossierServer(origin: string): McpServer {
       const search = search_id ? await prisma.postingSearch.findUnique({ where: { id: search_id }, select: { postings: true } }) : null;
       if (search_id && !search) return failure("That search is no longer kept. Search again.");
       const kept = foundPostingSchema.array().catch([]).parse(search?.postings ?? []);
+      const blocklist = compileBlocklist((await loadSettings()).blockedCompanies);
       const saved: { number?: number; posting_id?: string; title: string; score: number; band: string }[] = [];
       const missing: (number | string)[] = [];
+      const blocked: { number?: number; posting_id?: string; company: string }[] = [];
       for (const entry of scores) {
         const row = entry.posting_id ? await prisma.posting.findUnique({ where: { id: entry.posting_id } }) : null;
         const posting = row ? foundFromPosting(row) : entry.number ? kept[entry.number - 1] : undefined;
@@ -259,11 +263,22 @@ export function createDossierServer(origin: string): McpServer {
           missing.push(entry.posting_id ?? entry.number ?? "?");
           continue;
         }
+        // Blocked companies (this fork, E14-8): search_jobs already filters these out, but a posting_id can point at one saved before it was blocked.
+        const matched = blockedBy(posting, blocklist);
+        if (matched) {
+          blocked.push({ number: entry.number, posting_id: entry.posting_id, company: matched });
+          continue;
+        }
         const fit = scoreFrom({ score: entry.score, reasons: entry.reasons, redFlags: entry.red_flags });
         await saveScore(posting, fit, WRITTEN_IN_CLAUDE);
         saved.push({ number: entry.number, posting_id: entry.posting_id, title: posting.title, score: fit.score, band: fitBand(fit.score) });
       }
-      return text({ saved, not_found: missing.length > 0 ? missing : undefined, link: linkTo(search_id ? `/jobs?search=${search_id}` : "/jobs?view=saved") });
+      return text({
+        saved,
+        not_found: missing.length > 0 ? missing : undefined,
+        blocked: blocked.length > 0 ? blocked : undefined,
+        link: linkTo(search_id ? `/jobs?search=${search_id}` : "/jobs?view=saved"),
+      });
     },
   );
 
@@ -392,6 +407,9 @@ export function createDossierServer(origin: string): McpServer {
     async ({ details, resume, cover_letter, match, note, ...source }) => {
       const posting = await resolvePosting(source);
       if ("error" in posting) return failure(posting.error);
+      // Blocked companies (this fork, E14-8): search_jobs already keeps these out, but save_application can be reached straight from a link or pasted text.
+      const matched = blockedBy({ company: posting.company ?? "", title: posting.title ?? "", description: posting.text }, compileBlocklist((await loadSettings()).blockedCompanies));
+      if (matched) return failure(`"${matched}" is on your blocked companies list (Settings → Job search). Dossier won't save an application for it; tell the user why, in case it's a mistake.`);
       const saved = await saveWrittenApplication({
         posting: posting.text.slice(0, 100_000),
         postingUrl: posting.url.slice(0, 2000),
@@ -428,6 +446,8 @@ export function createDossierServer(origin: string): McpServer {
       }
       const posting = await resolvePosting(source);
       if ("error" in posting) return failure(posting.error);
+      const matched = blockedBy({ company: posting.company ?? "", title: posting.title ?? "", description: posting.text }, compileBlocklist((await loadSettings()).blockedCompanies));
+      if (matched) return failure(`"${matched}" is on your blocked companies list (Settings → Job search). Dossier won't draft an application for it; tell the user why, in case it's a mistake.`);
       const jobId = await startJob(connectorDraftJob, { posting: posting.text.slice(0, 100_000), postingUrl: posting.url.slice(0, 2000), note: note ?? "", postingId: posting.postingId });
       return text({ draft_id: jobId, status: "started", next: "Call check_draft with this draft_id in a minute or so." });
     },

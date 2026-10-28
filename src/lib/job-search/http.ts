@@ -6,21 +6,36 @@ import type { JobSource } from "./search";
 // Requests to job sources (E14-1). Each source has a fixed host, so unlike
 // fetching a posting (src/lib/posting-fetch.ts) there's no address to guard;
 // requests are still limited in time and size.
-
-export const REQUEST_TIMEOUT_MS = 10_000;
+//
+// This was a hard-coded 10 s until this fork: a live test against OpenWeb
+// Ninja's JSearch took 10.3 s to answer, so every request lost the race and
+// came back "isn't answering right now" even with a working key. 25 s gives
+// a slower source, or a slower network, room to actually answer. (Not read
+// from the environment on purpose: that would make every module that
+// imports this one — including code that only registers job types, with no
+// job source configured — depend on the whole app's environment validating
+// cleanly, which it doesn't in many tests and needn't to run a job.)
+export const REQUEST_TIMEOUT_MS = 25_000;
 const MAX_BYTES = 5 * 1024 * 1024;
 
 /** GETs JSON from a source, turning every failure into a JobSearchError. */
 export async function requestJson(
   source: JobSource,
   url: URL,
-  { headers = {}, signal }: { headers?: Record<string, string>; signal?: AbortSignal } = {},
+  {
+    headers = {},
+    signal,
+    method = "GET",
+    body,
+  }: { headers?: Record<string, string>; signal?: AbortSignal; method?: "GET" | "POST"; body?: unknown } = {},
 ): Promise<unknown> {
   const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { accept: "application/json", ...headers },
+      method,
+      headers: { accept: "application/json", ...(body !== undefined ? { "content-type": "application/json" } : {}), ...headers },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       cache: "no-store",
     });

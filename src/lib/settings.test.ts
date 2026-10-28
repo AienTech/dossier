@@ -61,7 +61,9 @@ describe("stored settings", () => {
       jsearchHost: "openwebninja",
       adzunaAppId: null,
       adzunaKeyEnc: null,
+      firecrawlKeyEnc: null,
       arbeitsagenturAcceptedAt: null,
+      blockedCompanies: [],
       agentEnabled: false,
       agentQuery: { keywords: "", place: "", country: "", radiusKm: 25, remoteOnly: false, postedWithin: "any" },
       agentHour: 7,
@@ -110,11 +112,13 @@ describe("stored settings", () => {
       docLanguage: "Dutch",
       quietDays: 14,
       jobRetentionHours: 168,
+      blockedCompanies: ["Best Buy", "ProArch"],
     } satisfies Partial<SettingsData>;
     const rows = Object.entries(saved).map(([key, value]) => ({ key, value: settingValue(value)! }));
     expect(rows).toContainEqual({ key: "strict", value: "false" });
     expect(rows).toContainEqual({ key: "customLanguages", value: '["Farsi","Hebrew"]' });
     expect(rows).toContainEqual({ key: "quietDays", value: "14" });
+    expect(rows).toContainEqual({ key: "blockedCompanies", value: '["Best Buy","ProArch"]' });
     expect(settingsFromRows(rows)).toMatchObject(saved);
     expect(settingValue(null)).toBeNull();
   });

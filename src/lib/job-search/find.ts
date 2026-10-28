@@ -1,5 +1,6 @@
 import "server-only";
 
+import { compileBlocklist, isBlockedPosting } from "./blocklist";
 import { credentialsFor, loadJobSearchConfig, requestContext } from "./config";
 import { JobSearchError } from "./errors";
 import { postingDetails, searchPostings } from "./index";
@@ -11,7 +12,10 @@ import type { FoundPosting, JobSource, SearchPage, SearchProblem, SearchQuery } 
 
 /**
  * One page for `query` from `source`, the one chosen in Settings unless
- * given (a kept search goes on with the source it ran on).
+ * given (a kept search goes on with the source it ran on). Postings from a
+ * blocked company (this fork, E14-8) never reach the caller — Find jobs, the
+ * job agent and the Claude connector's search_jobs all call this, so a
+ * blocked name stays out everywhere a search runs, not just on screen.
  */
 export async function askSource(
   query: SearchQuery,
@@ -23,7 +27,8 @@ export async function askSource(
   if (!query.country) return { ok: false, problem: "no-country", message: "Choose a country to search in." };
   try {
     const page = await searchPostings(from, credentialsFor(config, from), query, next, requestContext(from));
-    return { ok: true, source: from, ...page };
+    const blocked = compileBlocklist(config.blockedCompanies);
+    return { ok: true, source: from, ...page, postings: page.postings.filter((posting) => !isBlockedPosting(posting, blocked)) };
   } catch (error) {
     if (error instanceof JobSearchError) return { ok: false, problem: error.problem, message: error.message };
     throw error;

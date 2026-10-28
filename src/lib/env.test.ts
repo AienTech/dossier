@@ -68,6 +68,15 @@ describe("parseEnv", () => {
     expect(() => parseEnv({ ...valid, DOSSIER_AI_TIMEOUT_SECONDS: "1" })).toThrow(/at least 5/);
   });
 
+  it("accepts a Firecrawl key, same as the other job sources' (this fork)", () => {
+    expect(parseEnv({ ...valid, DOSSIER_FIRECRAWL_KEY: "fc-test" }).DOSSIER_FIRECRAWL_KEY).toBe("fc-test");
+    expect(parseEnv({ ...valid, DOSSIER_FIRECRAWL_KEY: "" }).DOSSIER_FIRECRAWL_KEY).toBeUndefined();
+  });
+
+  it("accepts firecrawl as a job source (this fork)", () => {
+    expect(parseEnv({ ...valid, DOSSIER_JOBS_SOURCE: "firecrawl" }).DOSSIER_JOBS_SOURCE).toBe("firecrawl");
+  });
+
   it("resolves a relative data directory", () => {
     const env = parseEnv({ ...valid, DOSSIER_DATA_DIR: "./data" });
     expect(env.DOSSIER_DATA_DIR).toBe(path.resolve("data"));
@@ -165,7 +174,7 @@ describe("job search variables (E14-4)", () => {
 
   it("rejects sources and hosts it doesn't know, without echoing keys", () => {
     expect(problems({ ...valid, DOSSIER_JOBS_SOURCE: "linkedin", DOSSIER_JSEARCH_HOST: "google", DOSSIER_JSEARCH_KEY: "ak_secret" })).toEqual([
-      'DOSSIER_JOBS_SOURCE must be one of jsearch, adzuna, arbeitsagentur, off (got "linkedin").',
+      'DOSSIER_JOBS_SOURCE must be one of jsearch, adzuna, firecrawl, arbeitsagentur, off (got "linkedin").',
       'DOSSIER_JSEARCH_HOST must be openwebninja or rapidapi (got "google").',
     ]);
   });

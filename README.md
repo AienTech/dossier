@@ -23,6 +23,16 @@ It's for one person on a small server: one password, your data in your own Postg
 
 **Get started:** [run it on your computer](#run-it-on-your-computer) in a few minutes, or [self-host it](#self-hosting) on a server. The [installation guide](https://github.com/AienTech/dossier/wiki) covers every way: Docker with or without Compose, Node.js, a plain Ubuntu server, CapRover, Coolify and Dokploy.
 
+## This fork
+
+This is a fork of [AienTech/dossier](https://github.com/AienTech/dossier) with three changes, made for my own job search:
+
+- **JSearch's 10 s timeout was too tight.** A live request against OpenWeb Ninja's JSearch API took 10.3 s to answer, so every search lost the race against Dossier's hard-coded 10-second limit and came back "JSearch isn't answering right now" even with a working key. [`src/lib/job-search/http.ts`](src/lib/job-search/http.ts) now waits 25 s.
+- **Blocked companies.** Settings → Job search has a new "Blocked companies" list: Find jobs, the job agent and the Claude connector never show, score or draft an application for a posting that names one of these as the company, or mentions it in the title or description — which also catches a staffing listing for a role placed there. See [`src/lib/job-search/blocklist.ts`](src/lib/job-search/blocklist.ts).
+- **Firecrawl, a fourth job source.** JSearch and Adzuna each index one source; Firecrawl instead runs one web search biased toward LinkedIn, Indeed, Naukri, Glassdoor, Monster, Greenhouse, Lever, Ashby, Workday and SmartRecruiters at once — the way googling "data engineer jobs in Bengaluru" would, without Dossier maintaining a scraper per site (which breaks the moment a site's markup changes, and risks its terms of use). Get a key at [firecrawl.dev](https://www.firecrawl.dev/app/api-keys) and choose it in Settings → Job search. See [`src/lib/job-search/firecrawl.ts`](src/lib/job-search/firecrawl.ts).
+
+Everything else — the profile, resumes, cover letters, tracking, the job agent, the Claude connector — is upstream Dossier, unchanged. [Build and run this fork](#build-and-run-this-fork) below; [upstream's own instructions](#run-it-on-your-computer) pull their published image instead, without these changes.
+
 ## Demo
 
 ![Dossier in use: the dashboard, dragging a card on the board, a new application from a pasted posting, refining the tailored resume in the chat, the cover letter, and switching resume themes](.github/images/demo.gif)
@@ -33,7 +43,7 @@ It's for one person on a small server: one password, your data in your own Postg
 
 - **Profile:** basics, skills and languages, experience, projects, education, publications and references, in the order you choose, with a strength meter that counts only what a profile needs. Projects (side, open-source, course or thesis work) show what you can do where your job titles don't yet. Publications are cited in your own style, with bold and italics, and go on resumes word for word. Start it from an existing resume (PDF, Word or Markdown) if you like.
 - **Base resume:** twelve themes and a theme builder, previewed live and printed to PDF on the server. Duplicate themes, or share them as files.
-- **Find jobs:** search postings near your city, or anywhere you choose, through JSearch (LinkedIn, Indeed and more) or Adzuna. Save the good ones, dismiss the rest, score any of them against your profile, and start an application from a posting with one click.
+- **Find jobs:** search postings near your city, or anywhere you choose, through JSearch (LinkedIn, Indeed and more), Adzuna, or Firecrawl (this fork: one web search across LinkedIn, Indeed, Naukri, Glassdoor, Greenhouse, Lever and company sites at once — see [This fork](#this-fork)). Save the good ones, dismiss the rest, score any of them against your profile, and start an application from a posting with one click. Block a company in Settings → Job search (this fork) and no search shows it again.
 - **Startups:** startups that are hiring, from YC startups' job posts and Hacker News' monthly “Who is hiring?” thread, kept to the ones that hire where you live or remotely from your country and ranked against your profile, with the address each one publishes for applications. Dossier reads their sites politely and follows their robots.txt. Start an application to one with a click; you decide whom to write to.
 - **Job agent (optional):** once a day it runs one search for you, skips what you've seen, scores the new postings against your profile and keeps the best on the Agent screen, with its reasons. It can prepare tailored drafts too, which wait for your review. It never sends or applies.
 - **New application:** paste a posting; Dossier pulls out the details and requirements, matches them against your profile, and writes a tailored resume and cover letter in the tone you pick.
@@ -102,6 +112,30 @@ docker compose up -d
 The first start downloads the image (about 1.7 GB) and sets up the database. Open [http://localhost:3000](http://localhost:3000), sign in with your password, and pick an AI model in **Settings → AI provider** (see [Choosing an AI provider](https://github.com/AienTech/dossier/wiki/Choosing-an-AI-provider)).
 
 `docker compose stop` stops it and `docker compose start` starts it again, with your data kept. It's only reachable from your own computer. The [installation guide's Docker Compose page](https://github.com/AienTech/dossier/wiki/Run-locally-with-Docker-Compose) has more: another port, your time zone, upgrades and removing it.
+
+## Build and run this fork
+
+The steps above pull upstream's published image, without this fork's changes. To build this fork's own image instead:
+
+```bash
+git clone https://github.com/rahulrathore95/dossier.git
+cd dossier
+docker build -t dossier-fork:latest .
+```
+
+This runs the same `Dockerfile` the published image is built from (the `production` stage, built by default), so the result is a drop-in replacement for `ghcr.io/aientech/dossier`. Then run it with [`compose.production.yml`](compose.production.yml), pointing `DOSSIER_IMAGE` at the image you just built instead of the published one:
+
+```bash
+mkdir -p ~/dossier && cd ~/dossier
+cp /path/to/this/repo/compose.production.yml compose.yml
+echo "DOSSIER_IMAGE=dossier-fork:latest" > .env
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" >> .env
+echo "DOSSIER_SECRET=$(openssl rand -base64 32)" >> .env
+docker run --rm -it dossier-fork:latest hash-password   # add the printed line to .env as DOSSIER_PASSWORD=…
+docker compose up -d
+```
+
+Open [http://localhost:3000](http://localhost:3000) and sign in. Rebuilding after a code change is the same `docker build` command, then `docker compose up -d` again to pick it up. [Choosing a job source](https://github.com/AienTech/dossier/wiki/Choosing-a-job-source) covers JSearch and Adzuna; for Firecrawl, get a key at [firecrawl.dev](https://www.firecrawl.dev/app/api-keys) and enter it in **Settings → Job search**, or set `DOSSIER_FIRECRAWL_KEY` the same way as the other sources' keys.
 
 ## Self-hosting
 

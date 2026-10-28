@@ -38,6 +38,8 @@ const fake = vi.hoisted(() => ({
   ai: true,
   failOn: null as string | null,
   onScore: (() => {}) as (title: string) => void,
+  // Blocked companies (this fork, E14-8): empty unless a test sets it.
+  blockedCompanies: [] as string[],
 }));
 vi.mock("@/lib/job-search", () => ({
   searchPostings: vi.fn(async () => {
@@ -49,6 +51,7 @@ vi.mock("@/lib/job-search/config", () => ({
   loadJobSearchConfig: async () => ({
     source: fake.source,
     saved: true,
+    blockedCompanies: fake.blockedCompanies,
     jsearch: { key: "jsearch-key", host: "openwebninja", keyState: "set" },
     adzuna: { appId: "app", key: "adzuna-key", keyState: "set" },
   }),
@@ -103,7 +106,7 @@ const context = (abort?: AbortController): JobContext & { steps: string[] } => {
 
 beforeEach(async () => {
   await resetDatabase(prisma());
-  Object.assign(fake, { postings: page, searches: 0, source: "JSEARCH", ai: true, failOn: null, onScore: () => {} });
+  Object.assign(fake, { postings: page, searches: 0, source: "JSEARCH", ai: true, failOn: null, onScore: () => {}, blockedCompanies: [] });
   await saveSettings({ agentEnabled: true, agentQuery: query });
 });
 afterAll(() => prisma().$disconnect());
@@ -126,6 +129,15 @@ describe("runAgentScan (E16-3)", () => {
     expect((await prisma().postingScore.findMany({ orderBy: { score: "desc" } })).map((row) => [row.externalId, row.score])).toEqual([["a", 90], ["b", 75], ["c", 40]]);
     // The run is on record, with how it ended.
     expect((await loadSettings()).agentRuns).toEqual([{ at: now.toISOString(), manual: false, message: "2 new postings are waiting for a look." }]);
+  });
+
+  it("never scores or drafts a posting from a blocked company (this fork, E14-8)", async () => {
+    fake.blockedCompanies = ["Company a"];
+    const run = context();
+    const result = await runAgentScan({ manual: false }, run, now);
+    expect(result).toMatchObject({ found: 2, fresh: 2, scored: 2 });
+    const candidates = await prisma().agentCandidate.findMany();
+    expect(candidates.map((candidate) => candidate.externalId).toSorted()).toEqual(["b", "c"]);
   });
 
   it("scores the newest new postings first, up to the cap", async () => {

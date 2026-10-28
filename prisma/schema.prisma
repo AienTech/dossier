@@ -575,10 +575,11 @@ model Note {
 
 // ─── Job search (E14) ────────────────────────────────────────────────────────
 
-/// The job sources Find jobs can search (E14-1 to E14-3).
+/// The job sources Find jobs can search (E14-1 to E14-3, E14-7).
 enum PostingSource {
   JSEARCH
   ADZUNA
+  FIRECRAWL
   ARBEITSAGENTUR
 }
 

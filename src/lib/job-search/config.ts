@@ -21,6 +21,9 @@ export type JobSearchConfig = {
   saved: boolean;
   jsearch: { key: string | null; host: JSearchHost; keyState: JobKeyState };
   adzuna: { appId: string; key: string | null; keyState: JobKeyState };
+  firecrawl: { key: string | null; keyState: JobKeyState };
+  /** Companies no search ever shows a posting from (this fork, E14-8); see blocklist.ts. */
+  blockedCompanies: readonly string[];
   /**
    * The Bundesagentur für Arbeit (#223): whether this server offers it, and
    * when its note was accepted. Its searches wait until then.
@@ -28,15 +31,25 @@ export type JobSearchConfig = {
   arbeitsagentur: { offered: boolean; acceptedAt: string | null };
 };
 
-type SavedJobSettings = Pick<SettingsData, "jobSource" | "jsearchKeyEnc" | "jsearchHost" | "adzunaAppId" | "adzunaKeyEnc" | "arbeitsagenturAcceptedAt">;
+type SavedJobSettings = Pick<
+  SettingsData,
+  "jobSource" | "jsearchKeyEnc" | "jsearchHost" | "adzunaAppId" | "adzunaKeyEnc" | "firecrawlKeyEnc" | "arbeitsagenturAcceptedAt" | "blockedCompanies"
+>;
 type JobEnv = Pick<
   Env,
-  "DOSSIER_JOBS_SOURCE" | "DOSSIER_JSEARCH_KEY" | "DOSSIER_JSEARCH_HOST" | "DOSSIER_ADZUNA_APP_ID" | "DOSSIER_ADZUNA_KEY" | "DOSSIER_JOBS_ARBEITSAGENTUR"
+  | "DOSSIER_JOBS_SOURCE"
+  | "DOSSIER_JSEARCH_KEY"
+  | "DOSSIER_JSEARCH_HOST"
+  | "DOSSIER_ADZUNA_APP_ID"
+  | "DOSSIER_ADZUNA_KEY"
+  | "DOSSIER_FIRECRAWL_KEY"
+  | "DOSSIER_JOBS_ARBEITSAGENTUR"
 >;
 
 const FROM_ENV: Record<NonNullable<Env["DOSSIER_JOBS_SOURCE"]>, JobSource | null> = {
   jsearch: "JSEARCH",
   adzuna: "ADZUNA",
+  firecrawl: "FIRECRAWL",
   arbeitsagentur: "ARBEITSAGENTUR",
   off: null,
 };
@@ -71,6 +84,8 @@ export function resolveJobSearchConfig(saved: SavedJobSettings, source: JobEnv, 
       appId: saved.adzunaAppId ?? source.DOSSIER_ADZUNA_APP_ID ?? "",
       ...keyOf(saved.adzunaKeyEnc, source.DOSSIER_ADZUNA_KEY, secret),
     },
+    firecrawl: keyOf(saved.firecrawlKeyEnc, source.DOSSIER_FIRECRAWL_KEY, secret),
+    blockedCompanies: saved.blockedCompanies,
     arbeitsagentur: { offered, acceptedAt: saved.arbeitsagenturAcceptedAt },
   };
 }
@@ -96,7 +111,9 @@ export function jobSearchView(config: JobSearchConfig): JobSearchSettingsView {
     source: config.source ?? "OFF",
     jsearch: { host: config.jsearch.host, keyState: config.jsearch.keyState },
     adzuna: { appId: config.adzuna.appId, keyState: config.adzuna.keyState },
+    firecrawl: { keyState: config.firecrawl.keyState },
     arbeitsagentur: config.arbeitsagentur,
+    blockedCompanies: config.blockedCompanies,
   };
 }
 
@@ -128,6 +145,11 @@ export function credentialsFor<S extends JobSource>(config: JobSearchConfig, sou
       const { appId, key, keyState } = config.adzuna;
       if (!key || !appId) throw missing(keyState);
       return { appId, key } as SourceCredentials[S];
+    }
+    case "FIRECRAWL": {
+      const { key, keyState } = config.firecrawl;
+      if (!key) throw missing(keyState);
+      return { key } as SourceCredentials[S];
     }
     case "ARBEITSAGENTUR": {
       if (!config.arbeitsagentur.offered) throw jobSearchError("off", source);

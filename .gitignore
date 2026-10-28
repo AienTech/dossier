@@ -40,6 +40,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local port overrides for running a second dev stack side by side
+compose.override.yml
+
 # vercel
 .vercel
 
