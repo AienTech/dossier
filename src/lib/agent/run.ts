@@ -10,6 +10,7 @@ import { AiError } from "@/lib/ai/errors";
 import { loadTaskOptions } from "@/lib/ai/task-options";
 import { scorePosting } from "@/lib/ai/tasks";
 import { searchPostings } from "@/lib/job-search";
+import { compileBlocklist, isBlockedPosting } from "@/lib/job-search/blocklist";
 import { credentialsFor, loadJobSearchConfig, requestContext } from "@/lib/job-search/config";
 import { JobSearchError } from "@/lib/job-search/errors";
 import { postingKey, postingText, type FoundPosting, type SearchQuery } from "@/lib/job-search/search";
@@ -117,7 +118,10 @@ export async function runAgentScan({ manual }: { manual: boolean }, context: Job
   let postings: FoundPosting[];
   try {
     // The first page only: the agent never asks for a second.
-    postings = (await searchPostings(source, credentialsFor(config, source), settings.agentQuery, null, requestContext(source))).postings;
+    const page = await searchPostings(source, credentialsFor(config, source), settings.agentQuery, null, requestContext(source));
+    // Blocked companies (this fork, E14-8): the agent runs unattended, so a blocked employer must never reach a score or an auto-draft.
+    const blocked = compileBlocklist(config.blockedCompanies);
+    postings = page.postings.filter((posting) => !isBlockedPosting(posting, blocked));
   } catch (error) {
     if (error instanceof JobSearchError) return finish(stopped(error.message));
     throw error;

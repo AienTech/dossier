@@ -171,6 +171,34 @@ export const testJobSource = action(z.object({}), async () => {
   }
 });
 
+/** The most companies Settings → Job search keeps blocked at once; past that, ask the user to trim the list rather than letting it grow without bound. */
+const MAX_BLOCKED_COMPANIES = 50;
+
+/**
+ * Adds a company to the blocklist (E14-8): no search shows, scores or drafts
+ * for it again. Case-insensitive against what's already there, so "Best Buy"
+ * twice stays one entry.
+ */
+export const blockCompany = action(
+  z.object({ name: z.string().trim().min(1, "Type a company name first.").max(200) }),
+  async ({ name }) => {
+    const { blockedCompanies } = await loadSettings();
+    if (blockedCompanies.some((entry) => entry.toLocaleLowerCase() === name.toLocaleLowerCase())) return { blockedCompanies };
+    if (blockedCompanies.length >= MAX_BLOCKED_COMPANIES) throw new ActionError(`You can block up to ${MAX_BLOCKED_COMPANIES} companies; remove one first.`);
+    const next = [...blockedCompanies, name];
+    await saveSettings({ blockedCompanies: next });
+    return { blockedCompanies: next };
+  },
+);
+
+/** Removes a company from the blocklist. */
+export const unblockCompany = action(z.object({ name: z.string().min(1) }), async ({ name }) => {
+  const { blockedCompanies } = await loadSettings();
+  const next = blockedCompanies.filter((entry) => entry !== name);
+  await saveSettings({ blockedCompanies: next });
+  return { blockedCompanies: next };
+});
+
 /**
  * Saves the settings that are a plain choice or switch, each as it changes
  * (E10-2, E10-3). Only the fields given are touched.

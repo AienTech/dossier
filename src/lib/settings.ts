@@ -155,6 +155,14 @@ export const settingsSchema = z.object({
   adzunaKeyEnc: z.string().nullable().catch(null),
   /** When "I understand" was ticked under the Bundesagentur für Arbeit's note (#223); its searches wait for it. */
   arbeitsagenturAcceptedAt: z.iso.datetime().nullable().catch(null),
+  /**
+   * Companies Find jobs, the job agent and the Claude connector never show
+   * or save a posting for (E14-8): past or current employers, so a search
+   * never resurfaces one by name. Matched against a posting's company,
+   * title and description, case-insensitively, so a staffing listing that
+   * only names the company in the description is still caught.
+   */
+  blockedCompanies: stringList.catch([]),
   // Job agent (E16): one search, run once a day. Off until it's turned on.
   // It asks the source in Settings → Job search, with its key.
   agentEnabled: flag(false),

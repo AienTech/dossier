@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { JobSearchSettingsView } from "@/lib/job-search/sources";
 
-import { saveJobSearchDetails, saveJobSource, saveJobSourceKey, testJobSource } from "./actions";
+import { blockCompany, saveJobSearchDetails, saveJobSource, saveJobSourceKey, testJobSource, unblockCompany } from "./actions";
 import { JobSearchSection } from "./job-search-section";
 
 vi.mock("./actions", () => ({
@@ -12,6 +12,8 @@ vi.mock("./actions", () => ({
   saveJobSearchDetails: vi.fn(),
   saveJobSourceKey: vi.fn(),
   testJobSource: vi.fn(),
+  blockCompany: vi.fn(),
+  unblockCompany: vi.fn(),
 }));
 vi.mock("@/components/toast", () => ({ toast: vi.fn(), toastResult: (result: unknown) => result }));
 
@@ -20,6 +22,7 @@ const off: JobSearchSettingsView = {
   jsearch: { host: "openwebninja", keyState: "none" },
   adzuna: { appId: "", keyState: "none" },
   arbeitsagentur: { offered: true, acceptedAt: null },
+  blockedCompanies: [],
 };
 const ACCEPTED = "2026-10-23T09:00:00.000Z";
 const withSource = (view: Partial<JobSearchSettingsView>): JobSearchSettingsView => ({ ...off, ...view });
@@ -32,6 +35,10 @@ beforeEach(() => {
   }));
   vi.mocked(saveJobSourceKey).mockReset().mockResolvedValue({ ok: true, data: withSource({ source: "JSEARCH", jsearch: { host: "openwebninja", keyState: "set" } }) });
   vi.mocked(testJobSource).mockReset().mockResolvedValue({ ok: true, data: { connected: true, seconds: 0.8 } });
+  vi.mocked(blockCompany)
+    .mockReset()
+    .mockImplementation(async ({ name }) => ({ ok: true, data: { blockedCompanies: [name] } }));
+  vi.mocked(unblockCompany).mockReset().mockResolvedValue({ ok: true, data: { blockedCompanies: [] } });
 });
 
 describe("JobSearchSection", () => {
@@ -127,6 +134,17 @@ describe("JobSearchSection", () => {
   it("leaves the Arbeitsagentur out when the server doesn't offer it", () => {
     render(<JobSearchSection initial={withSource({ arbeitsagentur: { offered: false, acceptedAt: null } })} />);
     expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("aria-label"))).toEqual(["JSearch", "Adzuna", "Off"]);
+  });
+
+  it("blocks and unblocks a company, kept regardless of the chosen source", async () => {
+    render(<JobSearchSection initial={off} />);
+    await userEvent.type(screen.getByLabelText("Block a company"), "Best Buy{Enter}");
+    expect(blockCompany).toHaveBeenCalledWith({ name: "Best Buy" });
+    expect(await screen.findByText("Best Buy")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Unblock Best Buy" }));
+    expect(unblockCompany).toHaveBeenCalledWith({ name: "Best Buy" });
+    await waitFor(() => expect(screen.queryByText("Best Buy")).not.toBeInTheDocument());
   });
 
   it("shows keys from the environment and keys that can't be read", () => {

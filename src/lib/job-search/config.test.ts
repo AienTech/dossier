@@ -13,6 +13,7 @@ const nothingSaved = {
   adzunaAppId: null,
   adzunaKeyEnc: null,
   arbeitsagenturAcceptedAt: null,
+  blockedCompanies: [],
 };
 const ACCEPTED = "2026-10-23T09:00:00.000Z";
 const noEnv = {};
@@ -26,7 +27,15 @@ describe("resolveJobSearchConfig", () => {
       jsearch: { host: "openwebninja", keyState: "none" },
       adzuna: { appId: "", keyState: "none" },
       arbeitsagentur: { offered: true, acceptedAt: null },
+      blockedCompanies: [],
     });
+  });
+
+  it("carries the blocked companies list through untouched", () => {
+    expect(resolveJobSearchConfig(nothingSaved, noEnv).blockedCompanies).toEqual([]);
+    const blocked = resolveJobSearchConfig({ ...nothingSaved, blockedCompanies: ["Best Buy", "ProArch"] }, noEnv);
+    expect(blocked.blockedCompanies).toEqual(["Best Buy", "ProArch"]);
+    expect(jobSearchView(blocked).blockedCompanies).toEqual(["Best Buy", "ProArch"]);
   });
 
   it("uses the environment until something is saved", () => {
@@ -54,6 +63,7 @@ describe("resolveJobSearchConfig", () => {
       adzunaAppId: "app-saved",
       adzunaKeyEnc: encryptSecret(JOB_SOURCE_KEY, "adz-saved"),
       arbeitsagenturAcceptedAt: null,
+      blockedCompanies: ["Best Buy"],
     };
     const config = resolveJobSearchConfig(saved, { DOSSIER_JOBS_SOURCE: "jsearch", DOSSIER_JSEARCH_KEY: "ak_env", DOSSIER_JSEARCH_HOST: "rapidapi" });
     expect(config).toMatchObject({
@@ -61,6 +71,7 @@ describe("resolveJobSearchConfig", () => {
       saved: true,
       jsearch: { key: "ak_saved", host: "openwebninja", keyState: "set" },
       adzuna: { appId: "app-saved", key: "adz-saved", keyState: "set" },
+      blockedCompanies: ["Best Buy"],
     });
     expect(resolveJobSearchConfig({ ...saved, jobSource: "OFF" }, { DOSSIER_JOBS_SOURCE: "jsearch" })).toMatchObject({ source: null, saved: true });
   });

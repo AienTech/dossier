@@ -159,6 +159,7 @@ describe("job search settings (E14-4)", () => {
         jsearch: { host: "openwebninja", keyState: "none" },
         adzuna: { appId: "", keyState: "none" },
         arbeitsagentur: { offered: true, acceptedAt: null },
+        blockedCompanies: [],
       },
     });
     await saveJobSource({ source: "OFF" });

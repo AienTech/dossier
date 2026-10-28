@@ -21,6 +21,8 @@ export type JobSearchConfig = {
   saved: boolean;
   jsearch: { key: string | null; host: JSearchHost; keyState: JobKeyState };
   adzuna: { appId: string; key: string | null; keyState: JobKeyState };
+  /** Companies no search ever shows a posting from (E14-8); see blocklist.ts. */
+  blockedCompanies: readonly string[];
   /**
    * The Bundesagentur für Arbeit (#223): whether this server offers it, and
    * when its note was accepted. Its searches wait until then.
@@ -28,7 +30,10 @@ export type JobSearchConfig = {
   arbeitsagentur: { offered: boolean; acceptedAt: string | null };
 };
 
-type SavedJobSettings = Pick<SettingsData, "jobSource" | "jsearchKeyEnc" | "jsearchHost" | "adzunaAppId" | "adzunaKeyEnc" | "arbeitsagenturAcceptedAt">;
+type SavedJobSettings = Pick<
+  SettingsData,
+  "jobSource" | "jsearchKeyEnc" | "jsearchHost" | "adzunaAppId" | "adzunaKeyEnc" | "arbeitsagenturAcceptedAt" | "blockedCompanies"
+>;
 type JobEnv = Pick<
   Env,
   "DOSSIER_JOBS_SOURCE" | "DOSSIER_JSEARCH_KEY" | "DOSSIER_JSEARCH_HOST" | "DOSSIER_ADZUNA_APP_ID" | "DOSSIER_ADZUNA_KEY" | "DOSSIER_JOBS_ARBEITSAGENTUR"
@@ -71,6 +76,7 @@ export function resolveJobSearchConfig(saved: SavedJobSettings, source: JobEnv, 
       appId: saved.adzunaAppId ?? source.DOSSIER_ADZUNA_APP_ID ?? "",
       ...keyOf(saved.adzunaKeyEnc, source.DOSSIER_ADZUNA_KEY, secret),
     },
+    blockedCompanies: saved.blockedCompanies,
     arbeitsagentur: { offered, acceptedAt: saved.arbeitsagenturAcceptedAt },
   };
 }
@@ -97,6 +103,7 @@ export function jobSearchView(config: JobSearchConfig): JobSearchSettingsView {
     jsearch: { host: config.jsearch.host, keyState: config.jsearch.keyState },
     adzuna: { appId: config.adzuna.appId, keyState: config.adzuna.keyState },
     arbeitsagentur: config.arbeitsagentur,
+    blockedCompanies: config.blockedCompanies,
   };
 }
 
