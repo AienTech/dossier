@@ -3,7 +3,7 @@ import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { PaperSize } from "@/generated/prisma/enums";
 import { cn } from "@/lib/cn";
 import { hasRightToLeft, type TextDirection } from "@/lib/document-language";
-import { CONTACT_SEPARATOR } from "@/lib/resume-content";
+import { CONTACT_SEPARATOR, type ContactField } from "@/lib/resume-content";
 import { PAPER_SIZES, SIDEBAR, type ResolvedTheme } from "@/lib/themes";
 
 import styles from "./document.module.css";
@@ -120,21 +120,33 @@ export function DocumentSection({ title, children }: { title: string; children: 
 /**
  * A contact detail, kept left to right when it has no right-to-left letters
  * (email, phone, web address), so it reads right inside a Persian document.
+ * Linked when `href` is given (this fork: website, LinkedIn, email and
+ * phone), styled the same muted, underline-free way as a publication's link.
  */
-export function Contact({ children }: { children: string }) {
-  return <bdi dir={hasRightToLeft(children) ? undefined : "ltr"}>{children}</bdi>;
+export function Contact({ children, href }: { children: string; href?: string | null }) {
+  const text = <bdi dir={hasRightToLeft(children) ? undefined : "ltr"}>{children}</bdi>;
+  return href ? (
+    <a href={href} target="_blank" rel="noreferrer" className={styles.link}>
+      {text}
+    </a>
+  ) : (
+    text
+  );
 }
 
-/** Contact details on one line, separated by "  ·  ". */
-export function ContactLine({ items }: { items: string[] }) {
+/** Contact details on one line, separated by "  ·  "; a plain string has no link, a ContactField may. */
+export function ContactLine({ items }: { items: (string | ContactField)[] }) {
   return (
     <p className={styles.contactLine}>
-      {items.map((item, index) => (
-        <Fragment key={index}>
-          {index > 0 && CONTACT_SEPARATOR}
-          <Contact>{item}</Contact>
-        </Fragment>
-      ))}
+      {items.map((item, index) => {
+        const field = typeof item === "string" ? { text: item, href: null } : item;
+        return (
+          <Fragment key={index}>
+            {index > 0 && CONTACT_SEPARATOR}
+            <Contact href={field.href}>{field.text}</Contact>
+          </Fragment>
+        );
+      })}
     </p>
   );
 }

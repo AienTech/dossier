@@ -37,6 +37,17 @@ describe("contactItems", () => {
 describe("resumeContent", () => {
   const profile = demoProfile();
 
+  it("links the website, LinkedIn, email and phone (this fork); the rest has no link", () => {
+    const content = resumeContent(profile, { today });
+    expect(content.contacts).toEqual([
+      { text: "jane.doe@example.com", href: "mailto:jane.doe@example.com" },
+      { text: "+31 6 1234 5678", href: "tel:+31612345678" },
+      { text: "Rotterdam, Netherlands", href: null },
+      { text: "example.com", href: "https://example.com/" },
+      { text: "linkedin.com/in/janedoe-example", href: "https://linkedin.com/in/janedoe-example" },
+    ]);
+  });
+
   it("builds the base resume from the profile", () => {
     const content = resumeContent(profile, { today });
     expect(content.name).toBe("Jane Doe");

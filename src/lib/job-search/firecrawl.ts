@@ -11,18 +11,20 @@ import { requestJson } from "./http";
 import { fromMarkdown, plainText } from "./text";
 import { safeLink, type FoundPosting, type PostedWithin, type SearchPage, type SearchQuery } from "./search";
 
-// Firecrawl (E14-7, this fork): one web search across the open web, the way
-// a person googling "data engineer jobs in Bengaluru" would, rather than one
+// Firecrawl (E14-7, this fork): a web search across the open web, the way a
+// person googling "data engineer jobs in Bengaluru" would, rather than one
 // job board's own index. It's the answer to "I don't want to miss postings
 // that only show up on Naukri, or Greenhouse, or a company's own site" —
 // without Dossier maintaining a scraper per site, which breaks the moment a
 // site's markup changes and risks its terms of use the way the Bundesagentur
-// für Arbeit source already owns up to (sources.ts). A plain web search
-// biased toward the job boards below covers LinkedIn, Indeed, Naukri,
-// Glassdoor, Monster and the common applicant-tracking systems (Greenhouse,
-// Lever, Ashby, Workday, SmartRecruiters) in one request.
+// für Arbeit source already owns up to (sources.ts). One page merges two
+// searches (searchPage below): one biased toward the job boards and
+// applicant-tracking systems in JOB_BOARD_DOMAINS (LinkedIn, Indeed, Naukri,
+// Glassdoor, Monster, Greenhouse, Lever, Ashby, Workday, SmartRecruiters),
+// one with no site restriction at all for whatever that fixed list misses.
 //
 // Trade-offs, on purpose:
+// - Two Firecrawl credits a search, not one, for that reason.
 // - The search only returns a title, a link and a short snippet — not a
 //   separate company field the way JSearch and Adzuna's APIs do. The
 //   company is pulled from the job board's own URL shape when the result is
@@ -34,12 +36,11 @@ import { safeLink, type FoundPosting, type PostedWithin, type SearchPage, type S
 //   field comes up empty.
 // - The full posting is fetched like Adzuna's (details() below, reusing
 //   src/lib/posting-fetch.ts) rather than spent on Firecrawl's own scrape
-//   for every result: a search is one Firecrawl credit, a scrape is more,
-//   and the guarded fetcher already does this safely for every other
-//   source.
+//   for every result: scraping costs more credits than searching, and the
+//   guarded fetcher already does this safely for every other source.
 // - Firecrawl's /search has no paging cursor, so Dossier asks for one
-//   generous page (PAGE_SIZE) and never offers "Show more" for this source
-//   (next is always null).
+//   generous page (PAGE_SIZE) per half and never offers "Show more" for
+//   this source (next is always null).
 
 const BASE = "https://api.firecrawl.dev/v2";
 const SEARCH_PATH = "/search";
@@ -150,18 +151,28 @@ export function postingFromResult(result: Result): FoundPosting {
   };
 }
 
-/** "data engineer jobs in Bengaluru remote (site:linkedin.com OR site:indeed.com OR …)": a query the open web, not one API, answers. */
-function searchText(query: SearchQuery): string {
-  const where = query.place ? ` in ${query.place}` : "";
-  const remote = query.remoteOnly ? " remote" : "";
+/** "data engineer jobs in Bengaluru remote (site:linkedin.com OR site:indeed.com OR …)": the job-board-biased half of the search. */
+function biasedSearchText(query: SearchQuery): string {
   const sites = JOB_BOARD_DOMAINS.map((domain) => `site:${domain}`).join(" OR ");
-  return `${query.keywords} jobs${where}${remote} (${sites})`;
+  return `${baseSearchText(query)} (${sites})`;
 }
 
-async function searchPage(query: SearchQuery, { key }: SourceCredentials["FIRECRAWL"], _next: string | null, context: RequestContext = {}): Promise<SearchPage> {
+/** "data engineer jobs in Bengaluru remote": the same query with no site restriction at all, for whatever the biased half's domain list misses — a smaller board, or a company's own careers page. */
+function openSearchText(query: SearchQuery): string {
+  return baseSearchText(query);
+}
+
+function baseSearchText(query: SearchQuery): string {
+  const where = query.place ? ` in ${query.place}` : "";
+  const remote = query.remoteOnly ? " remote" : "";
+  return `${query.keywords} jobs${where}${remote}`;
+}
+
+/** One Firecrawl /search call, parsed into postings. */
+async function runSearch(text: string, query: SearchQuery, key: string, context: RequestContext): Promise<FoundPosting[]> {
   const url = new URL(`${context.baseUrl ?? BASE}${SEARCH_PATH}`);
   const body: Record<string, unknown> = {
-    query: searchText(query).slice(0, 500),
+    query: text.slice(0, 500),
     limit: PAGE_SIZE,
     country: (query.country || "us").toUpperCase(),
     location: query.place || countryName(query.country || "us"),
@@ -174,17 +185,37 @@ async function searchPage(query: SearchQuery, { key }: SourceCredentials["FIRECR
   );
   if (!answer.success || answer.data.success === false) throw jobSearchError("changed", "FIRECRAWL", { detail: `${url.pathname}: unexpected answer` });
 
-  const seen = new Set<string>();
   const postings: FoundPosting[] = [];
   for (const item of answer.data.data?.web ?? []) {
     const result = resultSchema.safeParse(item);
     if (!result.success) continue;
     const posting = postingFromResult(result.data);
-    if (!posting.url || !posting.title || seen.has(posting.externalId)) continue;
+    if (posting.url && posting.title) postings.push(posting);
+  }
+  return postings;
+}
+
+/**
+ * Two searches merged into one page (this fork): one biased toward the job
+ * boards in JOB_BOARD_DOMAINS, one with no site restriction at all, so a
+ * posting that's only on a smaller board or a company's own careers page —
+ * not in that fixed list — still turns up, the way actually googling it
+ * would. Costs two Firecrawl credits per Dossier search instead of one.
+ */
+async function searchPage(query: SearchQuery, { key }: SourceCredentials["FIRECRAWL"], _next: string | null, context: RequestContext = {}): Promise<SearchPage> {
+  const [biased, open] = await Promise.all([
+    runSearch(biasedSearchText(query), query, key, context),
+    runSearch(openSearchText(query), query, key, context),
+  ]);
+
+  const seen = new Set<string>();
+  const postings: FoundPosting[] = [];
+  for (const posting of [...biased, ...open]) {
+    if (seen.has(posting.externalId)) continue;
     seen.add(posting.externalId);
     postings.push(posting);
   }
-  // No cursor in Firecrawl's /search: one page is what there is.
+  // No cursor in Firecrawl's /search: one page, from both searches, is what there is.
   return { postings, next: null };
 }
 
@@ -197,7 +228,9 @@ export const firecrawl: JobSourceAdapter<"FIRECRAWL"> = {
     const page = await fetchPosting(posting.url);
     return page.ok ? page.text : null;
   },
-  test: async (credentials, context) => {
-    await searchPage({ keywords: "developer", place: "", country: "us", radiusKm: 25, remoteOnly: false, postedWithin: "any" }, credentials, null, context);
+  // One search, not the usual two (searchPage runs both halves): the smallest request that shows the key works.
+  test: async ({ key }, context = {}) => {
+    const query: SearchQuery = { keywords: "developer", place: "", country: "us", radiusKm: 25, remoteOnly: false, postedWithin: "any" };
+    await runSearch(openSearchText(query), query, key, context);
   },
 };

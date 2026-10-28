@@ -11,8 +11,12 @@ export type ResumeContent = {
   headline: string;
   /** The profile photo's data URL, or null when the resume has none (#224). */
   photo: string | null;
-  /** Email, phone, "City, Country", website, LinkedIn and "Age N", whichever are filled in. */
-  contacts: string[];
+  /**
+   * Email, phone, "City, Country", website, LinkedIn and "Age N", whichever
+   * are filled in. Website and LinkedIn link out (this fork); email and
+   * phone open the device's own app; the rest has no link.
+   */
+  contacts: ContactField[];
   summary: string;
   experience: {
     id: string;
@@ -65,19 +69,34 @@ export type ResumeOptions = {
 /** The separator between contact details on one line. */
 export const CONTACT_SEPARATOR = "  ·  ";
 
-/** Contact details in the order the resume header lists them. */
-export function contactItems(basics: Basics, today = new Date(), labels = ENGLISH_LABELS): string[] {
+/** One contact detail, with where it links to when it's the kind that does (this fork). */
+export type ContactField = { text: string; href: string | null };
+
+/** A telephone number as a "tel:" link opens it: digits and a leading "+" only. */
+const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
+
+/** Contact details in the order the resume header lists them, with a link where one makes sense. */
+function contactFields(basics: Basics, today: Date, labels: DocumentLabels): ContactField[] {
   const age = basics.showAge ? ageOn(basics.dob, today) : null;
-  return [
-    basics.email,
-    basics.phone,
-    [basics.city, basics.country].map((part) => part.trim()).filter(Boolean).join(", "),
-    basics.website,
-    basics.linkedin,
-    age === null ? "" : ageLabel(age, labels),
-  ]
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const email = basics.email.trim();
+  const phone = basics.phone.trim();
+  const website = basics.website.trim();
+  const linkedin = basics.linkedin.trim();
+  return (
+    [
+      { text: email, href: email ? `mailto:${email}` : null },
+      { text: phone, href: phone ? telHref(phone) : null },
+      { text: [basics.city, basics.country].map((part) => part.trim()).filter(Boolean).join(", "), href: null },
+      { text: website, href: website ? publicationHref(website) : null },
+      { text: linkedin, href: linkedin ? publicationHref(linkedin) : null },
+      { text: age === null ? "" : ageLabel(age, labels), href: null },
+    ] satisfies ContactField[]
+  ).filter((item) => item.text);
+}
+
+/** Contact details as plain text, for the cover letter's own sender block, which is free text the user can edit. */
+export function contactItems(basics: Basics, today = new Date(), labels = ENGLISH_LABELS): string[] {
+  return contactFields(basics, today, labels).map((item) => item.text);
 }
 
 /** A link as a resume shows it: "https://www.example.com/x/" is "example.com/x". */
@@ -138,7 +157,7 @@ export function resumeContent(
     name: basics.name.trim() || "Your name",
     headline: basics.headline.trim(),
     photo: profile.photo && (showPhoto ?? profile.photo.onResumes) ? profile.photo.src : null,
-    contacts: contactItems(basics, today, labels),
+    contacts: contactFields(basics, today, labels),
     summary: basics.summary.trim(),
     experience: profile.experience.map((entry) => experience(entry, entry.bullets)),
     projects: profile.projects.map((entry) => project(entry, entry.bullets)),

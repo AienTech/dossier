@@ -23,6 +23,8 @@ const prisma = () => db.client!;
 
 const query = { ...EMPTY_QUERY, keywords: "product designer", place: "Hamburg", country: "de" };
 const useJSearch = () => saveSettings({ jobSource: "JSEARCH", jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_test") });
+const addFirecrawlKey = () => saveSettings({ firecrawlKeyEnc: encryptSecret(JOB_SOURCE_KEY, "fc_test") });
+const firecrawlAnswer = (web: unknown[] = []) => json({ success: true, data: { web } });
 
 beforeEach(async () => {
   await resetDatabase(prisma());
@@ -67,6 +69,50 @@ describe("runSearch", () => {
       throw new Error("boom");
     });
     expect(await runSearch(query)).toMatchObject({ ok: false, problem: "unavailable" });
+  });
+});
+
+describe("falling back across sources (this fork, E14-9)", () => {
+  it("moves on to the next source with a key saved when the chosen one is exhausted", async () => {
+    await useJSearch();
+    await addFirecrawlKey();
+    const requests = stubFetch((request) =>
+      request.url.hostname === "api.openwebninja.com" ? json({}, { status: 429 }) : firecrawlAnswer([{ url: "https://example.com/job", title: "Designer" }]),
+    );
+    const result = await runSearch(query);
+    expect(result).toEqual({ ok: true, id: expect.any(String) });
+    const kept = await prisma().postingSearch.findUniqueOrThrow({ where: { id: result.ok ? result.id : "" } });
+    // Firecrawl runs two searches per page (biased and open); JSearch was asked once, first.
+    expect(requests.filter((r) => r.url.hostname === "api.openwebninja.com")).toHaveLength(1);
+    expect(requests.filter((r) => r.url.hostname === "api.firecrawl.dev")).toHaveLength(2);
+    expect(kept.source).toBe("FIRECRAWL");
+  });
+
+  it("says so, naming each one, when every configured source fails", async () => {
+    await useJSearch();
+    await addFirecrawlKey();
+    stubFetch((request) => (request.url.hostname === "api.openwebninja.com" ? json({}, { status: 429 }) : json({ success: false }, { status: 401 })));
+    const result = await runSearch(query);
+    expect(result).toMatchObject({
+      ok: false,
+      problem: "quota",
+      message: "None of your job sources could answer. JSearch: You've used up your JSearch searches for this month. Try again then, or move to a bigger plan. Firecrawl: Firecrawl didn't accept your key. Check it in Settings → Job search.",
+    });
+  });
+
+  it("stops at the one source saved, same as before there was anything to fall back to", async () => {
+    await saveSettings({ jobSource: "JSEARCH" });
+    expect(await runSearch(query)).toEqual({ ok: false, problem: "no-key", message: "Add your JSearch key in Settings → Job search first." });
+  });
+
+  it("doesn't fall back for Show more: it stays on the search's own source", async () => {
+    await useJSearch();
+    await addFirecrawlKey();
+    stubFetch(() => json(jsearchV2Page));
+    const run = await runSearch(query);
+    const id = run.ok ? run.id : "";
+    stubFetch((request) => (request.url.hostname === "api.openwebninja.com" ? json({}, { status: 429 }) : firecrawlAnswer([])));
+    expect(await showMoreFor(id)).toMatchObject({ ok: false, problem: "quota" });
   });
 });
 

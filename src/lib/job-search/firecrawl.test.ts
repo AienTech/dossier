@@ -20,32 +20,44 @@ afterEach(() => vi.unstubAllGlobals());
 
 const answer = (web: unknown[]) => json({ success: true, data: { web } });
 
+type SearchBody = { query: string; country?: string; location?: string; tbs?: string };
+const bodyOf = (request: { body: unknown }) => request.body as SearchBody;
+
 describe("Firecrawl search", () => {
-  it("POSTs /v2/search with the key, a job-board-biased query, country and location", async () => {
+  it("POSTs two /v2/search requests per search: one job-board-biased, one wide open, both with the key, country and location", async () => {
     const requests = stubFetch(() => answer([]));
     await firecrawl.search(query, creds, null);
-    const [{ url, method, headers, body }] = requests;
-    const parsed = body as { query: string; country?: string; location?: string; tbs?: string };
-    expect(method).toBe("POST");
-    expect(`${url.origin}${url.pathname}`).toBe("https://api.firecrawl.dev/v2/search");
-    expect(headers.get("authorization")).toBe("Bearer fc_test");
-    expect(parsed).toMatchObject({ country: "IN", location: "Bengaluru", tbs: "qdr:w" });
-    expect(parsed.query).toContain("data engineer jobs in Bengaluru");
-    expect(parsed.query).toContain("site:linkedin.com");
-    expect(parsed.query).toContain("site:naukri.com");
+    expect(requests).toHaveLength(2);
+    const [biased, open] = requests.map(bodyOf);
+
+    for (const { url, method, headers } of requests) {
+      expect(method).toBe("POST");
+      expect(`${url.origin}${url.pathname}`).toBe("https://api.firecrawl.dev/v2/search");
+      expect(headers.get("authorization")).toBe("Bearer fc_test");
+    }
+    expect(biased).toMatchObject({ country: "IN", location: "Bengaluru", tbs: "qdr:w" });
+    expect(biased.query).toContain("data engineer jobs in Bengaluru");
+    expect(biased.query).toContain("site:linkedin.com");
+    expect(biased.query).toContain("site:naukri.com");
+
+    expect(open).toMatchObject({ country: "IN", location: "Bengaluru", tbs: "qdr:w" });
+    expect(open.query).toBe("data engineer jobs in Bengaluru");
+    expect(open.query).not.toContain("site:");
   });
 
   it("widens a 3-day search to a week, since Google has no 3-day unit", async () => {
     const requests = stubFetch(() => answer([]));
     await firecrawl.search({ ...query, postedWithin: "3days" }, creds, null);
-    expect(requests[0].body).toMatchObject({ tbs: "qdr:w" });
+    for (const request of requests) expect(bodyOf(request)).toMatchObject({ tbs: "qdr:w" });
   });
 
   it("asks for no date range at all, and defaults the location to the whole country", async () => {
     const requests = stubFetch(() => answer([]));
     await firecrawl.search({ ...query, place: "", postedWithin: "any" }, creds, null);
-    expect(requests[0].body).not.toHaveProperty("tbs");
-    expect(requests[0].body).toMatchObject({ location: "India" });
+    for (const request of requests) {
+      expect(bodyOf(request)).not.toHaveProperty("tbs");
+      expect(bodyOf(request)).toMatchObject({ location: "India" });
+    }
   });
 
   it("never offers a next page: Firecrawl's search has no cursor", async () => {

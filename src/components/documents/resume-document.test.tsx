@@ -22,7 +22,8 @@ describe("ResumeDocument", () => {
 
   it("puts contact details in the header of single-column layouts", () => {
     render(<ResumeDocument theme={theme("editorial")} profile={profile} paper="A4" today={today} />);
-    expect(screen.getByText("jane.doe@example.com").parentElement?.textContent).toBe(
+    // Email, website and LinkedIn are links now (this fork), so the contact line is the text's closest <p>, not always its direct parent.
+    expect(screen.getByText("jane.doe@example.com").closest("p")?.textContent).toBe(
       "jane.doe@example.com  ·  +31 6 1234 5678  ·  Rotterdam, Netherlands  ·  example.com  ·  linkedin.com/in/janedoe-example",
     );
     expect(sectionTitles()).toEqual(["Profile", "Experience", "Projects", "Education", "Publications", "Skills", "Languages"]);

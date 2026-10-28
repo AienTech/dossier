@@ -58,7 +58,7 @@ export function ResumeDocument({ theme, profile, paper, layout, language, render
         <ul className={styles.contactList}>
           {content.contacts.map((item, index) => (
             <li key={index}>
-              <Contact>{item}</Contact>
+              <Contact href={item.href}>{item.text}</Contact>
             </li>
           ))}
         </ul>

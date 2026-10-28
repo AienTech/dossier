@@ -9,10 +9,10 @@ import { isAiConfigured } from "@/lib/ai/config";
 import { AiError } from "@/lib/ai/errors";
 import { loadTaskOptions } from "@/lib/ai/task-options";
 import { scorePosting } from "@/lib/ai/tasks";
-import { searchPostings } from "@/lib/job-search";
 import { compileBlocklist, isBlockedPosting } from "@/lib/job-search/blocklist";
-import { credentialsFor, loadJobSearchConfig, requestContext } from "@/lib/job-search/config";
+import { credentialsFor, loadJobSearchConfig } from "@/lib/job-search/config";
 import { JobSearchError } from "@/lib/job-search/errors";
+import { searchWithFallback } from "@/lib/job-search/find";
 import { postingKey, postingText, type FoundPosting, type SearchQuery } from "@/lib/job-search/search";
 import { startJob, type JobContext } from "@/lib/jobs/runner";
 import { logServerError } from "@/lib/log";
@@ -114,18 +114,14 @@ export async function runAgentScan({ manual }: { manual: boolean }, context: Job
 
   await context.step("Searching for new postings");
   const config = await loadJobSearchConfig();
-  const source = config.source!;
-  let postings: FoundPosting[];
-  try {
-    // The first page only: the agent never asks for a second.
-    const page = await searchPostings(source, credentialsFor(config, source), settings.agentQuery, null, requestContext(source));
-    // Blocked companies (this fork, E14-8): the agent runs unattended, so a blocked employer must never reach a score or an auto-draft.
-    const blocked = compileBlocklist(config.blockedCompanies);
-    postings = page.postings.filter((posting) => !isBlockedPosting(posting, blocked));
-  } catch (error) {
-    if (error instanceof JobSearchError) return finish(stopped(error.message));
-    throw error;
-  }
+  // The first page only: the agent never asks for a second. Falls back across every source with a key saved
+  // (this fork, E14-9) if the chosen one can't answer, except the Bundesagentur für Arbeit, which the agent
+  // never searches on its own (#223) whether it's chosen or not.
+  const answer = await searchWithFallback(config, config.source!, settings.agentQuery, null, { exclude: ["ARBEITSAGENTUR"] });
+  if (!answer.ok) return finish(stopped(answer.message));
+  // Blocked companies (this fork, E14-8): the agent runs unattended, so a blocked employer must never reach a score or an auto-draft.
+  const blocked = compileBlocklist(config.blockedCompanies);
+  const postings: FoundPosting[] = answer.postings.filter((posting) => !isBlockedPosting(posting, blocked));
 
   const fresh = await newPostings(postings);
   const counts = { found: postings.length, fresh: fresh.length, skipped: postings.length - fresh.length, drafted: 0 };
