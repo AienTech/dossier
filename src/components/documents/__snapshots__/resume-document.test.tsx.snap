@@ -23,17 +23,31 @@ exports[`ResumeDocument > renders the demo profile in Atlas 1`] = `
     <p
       class="_contactLine_fa1ef7"
     >
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="mailto:jane.doe@example.com"
+        rel="noreferrer"
+        target="_blank"
       >
-        jane.doe@example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          jane.doe@example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="tel:+31612345678"
+        rel="noreferrer"
+        target="_blank"
       >
-        +31 6 1234 5678
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          +31 6 1234 5678
+        </bdi>
+      </a>
         ·  
       <bdi
         dir="ltr"
@@ -41,17 +55,31 @@ exports[`ResumeDocument > renders the demo profile in Atlas 1`] = `
         Rotterdam, Netherlands
       </bdi>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://example.com/"
+        rel="noreferrer"
+        target="_blank"
       >
-        example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://linkedin.com/in/janedoe-example"
+        rel="noreferrer"
+        target="_blank"
       >
-        linkedin.com/in/janedoe-example
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          linkedin.com/in/janedoe-example
+        </bdi>
+      </a>
     </p>
   </header>
   <div
@@ -433,17 +461,31 @@ exports[`ResumeDocument > renders the demo profile in Chronicle 1`] = `
     <p
       class="_contactLine_fa1ef7"
     >
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="mailto:jane.doe@example.com"
+        rel="noreferrer"
+        target="_blank"
       >
-        jane.doe@example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          jane.doe@example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="tel:+31612345678"
+        rel="noreferrer"
+        target="_blank"
       >
-        +31 6 1234 5678
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          +31 6 1234 5678
+        </bdi>
+      </a>
         ·  
       <bdi
         dir="ltr"
@@ -451,17 +493,31 @@ exports[`ResumeDocument > renders the demo profile in Chronicle 1`] = `
         Rotterdam, Netherlands
       </bdi>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://example.com/"
+        rel="noreferrer"
+        target="_blank"
       >
-        example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://linkedin.com/in/janedoe-example"
+        rel="noreferrer"
+        target="_blank"
       >
-        linkedin.com/in/janedoe-example
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          linkedin.com/in/janedoe-example
+        </bdi>
+      </a>
     </p>
   </header>
   <div
@@ -843,17 +899,31 @@ exports[`ResumeDocument > renders the demo profile in Classic 1`] = `
     <p
       class="_contactLine_fa1ef7"
     >
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="mailto:jane.doe@example.com"
+        rel="noreferrer"
+        target="_blank"
       >
-        jane.doe@example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          jane.doe@example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="tel:+31612345678"
+        rel="noreferrer"
+        target="_blank"
       >
-        +31 6 1234 5678
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          +31 6 1234 5678
+        </bdi>
+      </a>
         ·  
       <bdi
         dir="ltr"
@@ -861,17 +931,31 @@ exports[`ResumeDocument > renders the demo profile in Classic 1`] = `
         Rotterdam, Netherlands
       </bdi>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://example.com/"
+        rel="noreferrer"
+        target="_blank"
       >
-        example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://linkedin.com/in/janedoe-example"
+        rel="noreferrer"
+        target="_blank"
       >
-        linkedin.com/in/janedoe-example
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          linkedin.com/in/janedoe-example
+        </bdi>
+      </a>
     </p>
   </header>
   <div
@@ -1269,18 +1353,32 @@ exports[`ResumeDocument > renders the demo profile in Console 1`] = `
           class="_contactList_fa1ef7"
         >
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="mailto:jane.doe@example.com"
+              rel="noreferrer"
+              target="_blank"
             >
-              jane.doe@example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                jane.doe@example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="tel:+31612345678"
+              rel="noreferrer"
+              target="_blank"
             >
-              +31 6 1234 5678
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                +31 6 1234 5678
+              </bdi>
+            </a>
           </li>
           <li>
             <bdi
@@ -1290,18 +1388,32 @@ exports[`ResumeDocument > renders the demo profile in Console 1`] = `
             </bdi>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://example.com/"
+              rel="noreferrer"
+              target="_blank"
             >
-              example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://linkedin.com/in/janedoe-example"
+              rel="noreferrer"
+              target="_blank"
             >
-              linkedin.com/in/janedoe-example
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                linkedin.com/in/janedoe-example
+              </bdi>
+            </a>
           </li>
         </ul>
       </section>
@@ -1678,17 +1790,31 @@ exports[`ResumeDocument > renders the demo profile in Editorial 1`] = `
     <p
       class="_contactLine_fa1ef7"
     >
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="mailto:jane.doe@example.com"
+        rel="noreferrer"
+        target="_blank"
       >
-        jane.doe@example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          jane.doe@example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="tel:+31612345678"
+        rel="noreferrer"
+        target="_blank"
       >
-        +31 6 1234 5678
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          +31 6 1234 5678
+        </bdi>
+      </a>
         ·  
       <bdi
         dir="ltr"
@@ -1696,17 +1822,31 @@ exports[`ResumeDocument > renders the demo profile in Editorial 1`] = `
         Rotterdam, Netherlands
       </bdi>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://example.com/"
+        rel="noreferrer"
+        target="_blank"
       >
-        example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://linkedin.com/in/janedoe-example"
+        rel="noreferrer"
+        target="_blank"
       >
-        linkedin.com/in/janedoe-example
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          linkedin.com/in/janedoe-example
+        </bdi>
+      </a>
     </p>
   </header>
   <div
@@ -2088,17 +2228,31 @@ exports[`ResumeDocument > renders the demo profile in Folio 1`] = `
     <p
       class="_contactLine_fa1ef7"
     >
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="mailto:jane.doe@example.com"
+        rel="noreferrer"
+        target="_blank"
       >
-        jane.doe@example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          jane.doe@example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="tel:+31612345678"
+        rel="noreferrer"
+        target="_blank"
       >
-        +31 6 1234 5678
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          +31 6 1234 5678
+        </bdi>
+      </a>
         ·  
       <bdi
         dir="ltr"
@@ -2106,17 +2260,31 @@ exports[`ResumeDocument > renders the demo profile in Folio 1`] = `
         Rotterdam, Netherlands
       </bdi>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://example.com/"
+        rel="noreferrer"
+        target="_blank"
       >
-        example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://linkedin.com/in/janedoe-example"
+        rel="noreferrer"
+        target="_blank"
       >
-        linkedin.com/in/janedoe-example
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          linkedin.com/in/janedoe-example
+        </bdi>
+      </a>
     </p>
   </header>
   <div
@@ -2514,18 +2682,32 @@ exports[`ResumeDocument > renders the demo profile in Ledger 1`] = `
           class="_contactList_fa1ef7"
         >
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="mailto:jane.doe@example.com"
+              rel="noreferrer"
+              target="_blank"
             >
-              jane.doe@example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                jane.doe@example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="tel:+31612345678"
+              rel="noreferrer"
+              target="_blank"
             >
-              +31 6 1234 5678
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                +31 6 1234 5678
+              </bdi>
+            </a>
           </li>
           <li>
             <bdi
@@ -2535,18 +2717,32 @@ exports[`ResumeDocument > renders the demo profile in Ledger 1`] = `
             </bdi>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://example.com/"
+              rel="noreferrer"
+              target="_blank"
             >
-              example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://linkedin.com/in/janedoe-example"
+              rel="noreferrer"
+              target="_blank"
             >
-              linkedin.com/in/janedoe-example
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                linkedin.com/in/janedoe-example
+              </bdi>
+            </a>
           </li>
         </ul>
       </section>
@@ -2923,17 +3119,31 @@ exports[`ResumeDocument > renders the demo profile in Minimal 1`] = `
     <p
       class="_contactLine_fa1ef7"
     >
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="mailto:jane.doe@example.com"
+        rel="noreferrer"
+        target="_blank"
       >
-        jane.doe@example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          jane.doe@example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="tel:+31612345678"
+        rel="noreferrer"
+        target="_blank"
       >
-        +31 6 1234 5678
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          +31 6 1234 5678
+        </bdi>
+      </a>
         ·  
       <bdi
         dir="ltr"
@@ -2941,17 +3151,31 @@ exports[`ResumeDocument > renders the demo profile in Minimal 1`] = `
         Rotterdam, Netherlands
       </bdi>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://example.com/"
+        rel="noreferrer"
+        target="_blank"
       >
-        example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://linkedin.com/in/janedoe-example"
+        rel="noreferrer"
+        target="_blank"
       >
-        linkedin.com/in/janedoe-example
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          linkedin.com/in/janedoe-example
+        </bdi>
+      </a>
     </p>
   </header>
   <div
@@ -3349,18 +3573,32 @@ exports[`ResumeDocument > renders the demo profile in Modern 1`] = `
           class="_contactList_fa1ef7"
         >
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="mailto:jane.doe@example.com"
+              rel="noreferrer"
+              target="_blank"
             >
-              jane.doe@example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                jane.doe@example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="tel:+31612345678"
+              rel="noreferrer"
+              target="_blank"
             >
-              +31 6 1234 5678
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                +31 6 1234 5678
+              </bdi>
+            </a>
           </li>
           <li>
             <bdi
@@ -3370,18 +3608,32 @@ exports[`ResumeDocument > renders the demo profile in Modern 1`] = `
             </bdi>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://example.com/"
+              rel="noreferrer"
+              target="_blank"
             >
-              example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://linkedin.com/in/janedoe-example"
+              rel="noreferrer"
+              target="_blank"
             >
-              linkedin.com/in/janedoe-example
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                linkedin.com/in/janedoe-example
+              </bdi>
+            </a>
           </li>
         </ul>
       </section>
@@ -3758,17 +4010,31 @@ exports[`ResumeDocument > renders the demo profile in Signal 1`] = `
     <p
       class="_contactLine_fa1ef7"
     >
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="mailto:jane.doe@example.com"
+        rel="noreferrer"
+        target="_blank"
       >
-        jane.doe@example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          jane.doe@example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="tel:+31612345678"
+        rel="noreferrer"
+        target="_blank"
       >
-        +31 6 1234 5678
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          +31 6 1234 5678
+        </bdi>
+      </a>
         ·  
       <bdi
         dir="ltr"
@@ -3776,17 +4042,31 @@ exports[`ResumeDocument > renders the demo profile in Signal 1`] = `
         Rotterdam, Netherlands
       </bdi>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://example.com/"
+        rel="noreferrer"
+        target="_blank"
       >
-        example.com
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          example.com
+        </bdi>
+      </a>
         ·  
-      <bdi
-        dir="ltr"
+      <a
+        class="_link_fa1ef7"
+        href="https://linkedin.com/in/janedoe-example"
+        rel="noreferrer"
+        target="_blank"
       >
-        linkedin.com/in/janedoe-example
-      </bdi>
+        <bdi
+          dir="ltr"
+        >
+          linkedin.com/in/janedoe-example
+        </bdi>
+      </a>
     </p>
   </header>
   <div
@@ -4497,18 +4777,32 @@ exports[`ResumeDocument > renders the demo profile in Studio 1`] = `
           class="_contactList_fa1ef7"
         >
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="mailto:jane.doe@example.com"
+              rel="noreferrer"
+              target="_blank"
             >
-              jane.doe@example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                jane.doe@example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="tel:+31612345678"
+              rel="noreferrer"
+              target="_blank"
             >
-              +31 6 1234 5678
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                +31 6 1234 5678
+              </bdi>
+            </a>
           </li>
           <li>
             <bdi
@@ -4518,18 +4812,32 @@ exports[`ResumeDocument > renders the demo profile in Studio 1`] = `
             </bdi>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://example.com/"
+              rel="noreferrer"
+              target="_blank"
             >
-              example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://linkedin.com/in/janedoe-example"
+              rel="noreferrer"
+              target="_blank"
             >
-              linkedin.com/in/janedoe-example
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                linkedin.com/in/janedoe-example
+              </bdi>
+            </a>
           </li>
         </ul>
       </section>
@@ -4609,18 +4917,32 @@ exports[`ResumeDocument > renders the demo profile in Technical 1`] = `
           class="_contactList_fa1ef7"
         >
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="mailto:jane.doe@example.com"
+              rel="noreferrer"
+              target="_blank"
             >
-              jane.doe@example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                jane.doe@example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="tel:+31612345678"
+              rel="noreferrer"
+              target="_blank"
             >
-              +31 6 1234 5678
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                +31 6 1234 5678
+              </bdi>
+            </a>
           </li>
           <li>
             <bdi
@@ -4630,18 +4952,32 @@ exports[`ResumeDocument > renders the demo profile in Technical 1`] = `
             </bdi>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://example.com/"
+              rel="noreferrer"
+              target="_blank"
             >
-              example.com
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                example.com
+              </bdi>
+            </a>
           </li>
           <li>
-            <bdi
-              dir="ltr"
+            <a
+              class="_link_fa1ef7"
+              href="https://linkedin.com/in/janedoe-example"
+              rel="noreferrer"
+              target="_blank"
             >
-              linkedin.com/in/janedoe-example
-            </bdi>
+              <bdi
+                dir="ltr"
+              >
+                linkedin.com/in/janedoe-example
+              </bdi>
+            </a>
           </li>
         </ul>
       </section>
