@@ -97,11 +97,15 @@ jobs:
           restore-keys: yarn-${{ runner.os }}-
 
       - run: yarn install --immutable
-      - run: yarn prisma generate
+      - run: yarn generate
       - run: yarn lint
       - run: yarn typecheck
       # Fails when coverage drops below the thresholds in vitest.config.mts (E11-1).
       - run: yarn test:coverage
+      # The database tests again, on SQLite (#17).
+      - run: yarn vitest run --project db
+        env:
+          DATABASE_URL: file:${{ runner.temp }}/dossier.db
       - name: Coverage summary
         if: always()
         run: node .github/scripts/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
@@ -150,7 +154,7 @@ jobs:
           restore-keys: yarn-${{ runner.os }}-
 
       - run: yarn install --immutable
-      - run: yarn prisma generate
+      - run: yarn generate
       # Headless Chromium, for the tests and for the app's PDFs.
       - run: yarn playwright install --with-deps --only-shell chromium
       - run: yarn build

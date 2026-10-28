@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { PrismaClient } from "@/generated/prisma/client";
+import { forUpdate } from "@/lib/database";
 
 import { afterFailure, GLOBAL, PER_IP, waitMs, type ThrottleState } from "./throttle";
 
@@ -31,7 +32,7 @@ export async function recordLoginFailure(db: PrismaClient, ip: string, now = new
         ON CONFLICT (key) DO NOTHING`;
       const [row] = await tx.$queryRaw<ThrottleState[]>`
         SELECT failures, "windowStart", "blockedUntil" FROM "LoginThrottle"
-        WHERE key = ${key} FOR UPDATE`;
+        WHERE key = ${key} ${forUpdate()}`;
       const next = afterFailure(row.failures === 0 ? null : row, now, policy);
       await tx.loginThrottle.update({ where: { key }, data: { ...next, updatedAt: now } });
     }

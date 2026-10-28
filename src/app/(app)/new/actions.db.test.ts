@@ -110,7 +110,7 @@ describe("createApplication", () => {
     const result = await createApplication({ writeJobId: "write-job", details, postingUrl: "jobs.ledgerly.example/42" });
     expect(result.ok).toBe(true);
     const id = result.ok ? result.data : "";
-    const application = await prisma().application.findUniqueOrThrow({ where: { id }, include: { documents: { orderBy: { kind: "asc" } }, messages: true } });
+    const application = await prisma().application.findUniqueOrThrow({ where: { id }, include: { documents: true, messages: true } });
     // Each document's history starts with the first draft (E8-10).
     expect(await prisma().documentVersion.findMany({ where: { document: { applicationId: id } }, select: { cause: true } })).toEqual([{ cause: "WRITTEN" }, { cause: "WRITTEN" }]);
     expect(application).toMatchObject({
@@ -129,9 +129,9 @@ describe("createApplication", () => {
     // "Anything I should know?" is the application's first fact (APP-15).
     expect(await prisma().fact.findMany({ where: { applicationId: id }, select: { text: true } })).toEqual([{ text: "Relocating in January." }]);
     expect(application.deadline?.toISOString().slice(0, 10)).toBe("2026-10-20");
-    expect(application.documents.map((document) => [document.kind, document.themeId, document.writtenWith])).toEqual([
-      ["RESUME", "editorial", "tailor-resume@1"],
+    expect(application.documents.map((document) => [document.kind, document.themeId, document.writtenWith]).sort()).toEqual([
       ["COVER_LETTER", "editorial", "write-cover-letter@1"],
+      ["RESUME", "editorial", "tailor-resume@1"],
     ]);
     expect(application.messages).toHaveLength(1);
     expect(application.messages[0]).toMatchObject({ role: "AI", text: expect.stringMatching(/^Here's what I tailored for Ledgerly B\.V\.:\n\n- /) });

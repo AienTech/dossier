@@ -3,10 +3,14 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// A file: DATABASE_URL is SQLite (#17), which has its own schema and
+// migrations; see DEVELOPMENT.md → "SQLite".
+const sqlite = process.env["DATABASE_URL"]?.startsWith("file:");
+
 export default defineConfig({
-  schema: "prisma/schema.prisma",
+  schema: sqlite ? "prisma/sqlite/schema.prisma" : "prisma/schema.prisma",
   migrations: {
-    path: "prisma/migrations",
+    path: sqlite ? "prisma/sqlite/migrations" : "prisma/migrations",
     // `prisma db seed` (pass `-- --demo` for sample data); see prisma/seed.ts.
     seed: "tsx prisma/seed.ts",
   },

@@ -21,7 +21,7 @@ Server code reads configuration from the validated `env` object instead of `proc
 import { env } from "@/lib/env";
 ```
 
-On every start the `app` container runs `prisma generate`, `prisma migrate deploy`, then `next dev`.
+On every start the `app` container runs `yarn generate` (the Prisma Clients for PostgreSQL and SQLite), `prisma migrate deploy`, then `next dev`.
 Postgres is also exposed on `localhost:5432` for host tools, using `DATABASE_URL` from `.env`.
 
 ## Yarn
@@ -41,10 +41,21 @@ Define models in `prisma/schema.prisma`, then create and apply a migration:
 
 ```bash
 docker/bin/yarn prisma migrate dev --name <migration-name>
+docker/bin/yarn sqlite-schema
+docker compose exec -e DATABASE_URL=file:/tmp/dossier.db app yarn prisma migrate dev --name <migration-name>
 docker compose restart app
 ```
 
-The restart regenerates the Prisma Client and picks it up; since Prisma 7, `migrate dev` no longer runs `prisma generate` on its own.
+The restart regenerates the Prisma Clients and picks them up; since Prisma 7, `migrate dev` no longer runs `prisma generate` on its own.
+
+### SQLite
+
+Dossier also runs on SQLite (#17), when `DATABASE_URL` is `file:` and an absolute path. SQLite has its own schema and migrations: `prisma/sqlite/schema.prisma` is generated from `prisma/schema.prisma` by `yarn sqlite-schema` (a test fails while it's out of date), and its migrations in `prisma/sqlite/migrations` are made by the second `migrate dev` above. `prisma7.config.ts` picks the pair that matches `DATABASE_URL`, and `createPrismaClient()` in `src/lib/database.ts` the client. The app is typed with the PostgreSQL client, so code doesn't change, except where the two databases differ:
+
+- Raw SQL: lock rows with `${forUpdate()}` instead of `FOR UPDATE`, and keep to SQL both understand.
+- `createMany({ skipDuplicates: true })` isn't available on SQLite: use an `upsert` with `update: {}`, or leave out the duplicates first.
+- Enums sort by name on SQLite, not in the order they're declared: sort in code when the order matters.
+- Skill and language names are unique ignoring case with `COLLATE NOCASE`, and built-in themes are protected by a trigger, both added to the first SQLite migration by hand. When Prisma redefines one of those tables in a later migration, add them again.
 
 To browse and edit rows in Prisma Studio, start it on demand (plain `docker compose up` leaves it off) and open [http://localhost:5555](http://localhost:5555):
 
@@ -220,8 +231,9 @@ Put tests next to the code they cover. `*.test.ts` files run in Node (server cod
 `*.test.tsx` files run in jsdom with [Testing Library](https://testing-library.com) and its `jest-dom` matchers (components and hooks).
 `*.db.test.ts` files run against a real Postgres database: `dossier_test` on the same server (or `TEST_DATABASE_URL`), which is created and migrated at the start of each run, and which each test empties with `resetDatabase()` from `src/test/db.ts`.
 They refuse to run against a database whose name doesn't end in `_test`, so your development data is never touched.
+To run them on SQLite, point `DATABASE_URL` at a file (`dossier_test.db` next to it is used): `docker compose exec -e DATABASE_URL=file:/tmp/dossier.db app yarn vitest run --project db`.
 
-GitHub Actions (`.github/workflows/ci.yml`) runs lint, type-check and tests with coverage, with a Postgres service for the database tests, on every pull request and push to `main`, and shows the coverage in the job summary. A newer push to the same branch or pull request cancels the run it replaces. On `main`, a pull request's merge commit isn't checked a second time when it holds exactly the code its pull request's run checked (the branch was up to date with `main`); every other push to `main` is. The coverage thresholds in `vitest.config.mts` ratchet: they sit a few points below the coverage when they were set, and CI fails if coverage drops below them. Raise them when you add tests.
+GitHub Actions (`.github/workflows/ci.yml`) runs lint, type-check and tests with coverage, with a Postgres service for the database tests, then the database tests again on SQLite, on every pull request and push to `main`, and shows the coverage in the job summary. A newer push to the same branch or pull request cancels the run it replaces. On `main`, a pull request's merge commit isn't checked a second time when it holds exactly the code its pull request's run checked (the branch was up to date with `main`); every other push to `main` is. The coverage thresholds in `vitest.config.mts` ratchet: they sit a few points below the coverage when they were set, and CI fails if coverage drops below them. Raise them when you add tests.
 
 ### End-to-end tests
 

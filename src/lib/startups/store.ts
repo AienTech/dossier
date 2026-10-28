@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 
 import type { Prisma, Startup } from "@/generated/prisma/client";
 import { ApplicationStatus, StartupStatus } from "@/generated/prisma/enums";
+import { usesSqlite } from "@/lib/database";
 import type { ProfileData } from "@/lib/profile";
 import { prisma } from "@/lib/prisma";
 import { loadProfile } from "@/lib/profile-data";
@@ -121,7 +122,15 @@ export async function upsertStartups(found: readonly FoundStartup[], now = new D
     else creates.push({ source: startup.source, externalId: startup.externalId, ...fields });
   }
   for (let index = 0; index < creates.length; index += 200) {
-    await prisma.startup.createMany({ data: creates.slice(index, index + 200), skipDuplicates: true });
+    const batch = creates.slice(index, index + 200);
+    // SQLite has no skipDuplicates: an upsert that changes nothing instead.
+    if (usesSqlite()) {
+      await prisma.$transaction(
+        batch.map((data) => prisma.startup.upsert({ where: { source_externalId: { source: data.source, externalId: data.externalId } }, create: data, update: {} })),
+      );
+    } else {
+      await prisma.startup.createMany({ data: batch, skipDuplicates: true });
+    }
   }
   for (let index = 0; index < updates.length; index += 50) {
     await prisma.$transaction(updates.slice(index, index + 50));
@@ -236,7 +245,7 @@ export async function removeStartup(id: string): Promise<boolean> {
   const row = await prisma.startup.findUnique({ where: { id } });
   if (!row) return false;
   await prisma.$transaction([
-    prisma.startupBlock.createMany({ data: blockHashes(startupView(row)).map((entry) => ({ hash: entry })), skipDuplicates: true }),
+    ...blockHashes(startupView(row)).map((hash) => prisma.startupBlock.upsert({ where: { hash }, create: { hash }, update: {} })),
     prisma.startup.delete({ where: { id } }),
   ]);
   return true;

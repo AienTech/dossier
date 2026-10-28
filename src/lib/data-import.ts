@@ -66,6 +66,12 @@ function omit<T extends object, K extends keyof T>(value: T, ...keys: K[]): Omit
   return Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key as K))) as Omit<T, K>;
 }
 
+/** `items` without repeats, the first of each `key` kept (createMany's skipDuplicates, which SQLite lacks). */
+function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => !seen.has(key(item)) && Boolean(seen.add(key(item))));
+}
+
 const json = (value: unknown) => (value === null || value === undefined ? Prisma.DbNull : (value as Prisma.InputJsonValue));
 /** A JSON list for a column that can't be null (#222): anything else reads as empty. */
 const jsonList = (value: unknown) => (Array.isArray(value) ? value : []) as Prisma.InputJsonValue;
@@ -120,13 +126,17 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
       await tx.language.createMany({ data: profile.languages });
       await tx.experience.createMany({ data: profile.experience.map((entry) => omit(entry, "skillIds")) });
       await tx.experienceSkill.createMany({
-        data: profile.experience.flatMap((entry) => entry.skillIds.map((skillId) => ({ experienceId: entry.id, skillId }))),
-        skipDuplicates: true,
+        data: uniqueBy(
+          profile.experience.flatMap((entry) => entry.skillIds.map((skillId) => ({ experienceId: entry.id, skillId }))),
+          (link) => `${link.experienceId} ${link.skillId}`,
+        ),
       });
       await tx.project.createMany({ data: profile.projects.map((entry) => omit(entry, "skillIds")) });
       await tx.projectSkill.createMany({
-        data: profile.projects.flatMap((entry) => entry.skillIds.map((skillId) => ({ projectId: entry.id, skillId }))),
-        skipDuplicates: true,
+        data: uniqueBy(
+          profile.projects.flatMap((entry) => entry.skillIds.map((skillId) => ({ projectId: entry.id, skillId }))),
+          (link) => `${link.projectId} ${link.skillId}`,
+        ),
       });
       await tx.education.createMany({ data: profile.education });
       await tx.publication.createMany({ data: profile.publications });
@@ -211,7 +221,7 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
           applicationId: startup.applicationId && applicationIds.has(startup.applicationId) ? startup.applicationId : null,
         })),
       });
-      await tx.startupBlock.createMany({ data: startupBlocks, skipDuplicates: true });
+      await tx.startupBlock.createMany({ data: uniqueBy(startupBlocks, (block) => block.hash) });
     },
     // A big export takes longer than the default five seconds.
     { timeout: 120_000, maxWait: 10_000 },

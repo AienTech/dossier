@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { usesSqlite } from "@/lib/database";
 import { createTestClient, resetDatabase } from "@/test/db";
 
 import { updateDocuments } from "./document-units";
@@ -44,7 +45,8 @@ describe("updateDocuments", () => {
     expect(letterAfter.updatedAt).toEqual(letterBefore.updatedAt);
   });
 
-  it("starts over when a document changed in between, so nothing is overwritten unseen", async () => {
+  // SQLite runs one transaction at a time, so nobody can save in between.
+  it.skipIf(usesSqlite())("starts over when a document changed in between, so nothing is overwritten unseen", async () => {
     const seen: string[] = [];
     await updateDocuments("app-1", async (documents) => {
       const summary = documents.RESUME![0];

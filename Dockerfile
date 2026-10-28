@@ -25,7 +25,7 @@ RUN node node_modules/playwright-core/cli.js install --with-deps --only-shell ch
 USER node
 EXPOSE 3000
 # The seed is idempotent: built-in themes, an empty profile and default settings.
-CMD ["sh", "-c", "yarn prisma generate && yarn prisma migrate deploy && yarn prisma db seed && yarn dev"]
+CMD ["sh", "-c", "yarn generate && yarn prisma migrate deploy && yarn prisma db seed && yarn dev"]
 
 # ── Production (E12-1) ───────────────────────────────────────────────────────
 # Dependencies, then the build, then a runtime with only what running needs:
@@ -39,7 +39,7 @@ RUN yarn install --immutable
 FROM deps AS build
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
-RUN yarn prisma generate && yarn build
+RUN yarn generate && yarn build
 # Prisma's CLI for `migrate deploy`, at the version in yarn.lock, with the
 # same resolutions as package.json; not the rest of the dev dependencies.
 RUN mkdir /tools && node -e ' \
@@ -53,9 +53,11 @@ RUN mkdir /tools && node -e ' \
   && cd /tools && npm install --omit=dev --no-audit --no-fund \
   && cp -r /app/prisma7.config.ts /app/prisma /tools/
 # The seed as one JavaScript file, so it runs without tsx (E12-3). Bundled
-# CommonJS packages (pg) need a real require.
+# CommonJS packages (pg) need a real require. better-sqlite3 loads its native
+# module by path, so it stays out: the seed finds the server's copy in
+# /app/node_modules.
 RUN node_modules/.bin/esbuild prisma/seed.ts --bundle --platform=node --format=esm --target=node24 \
-  --external:pg-native --outfile=/tools/seed.mjs \
+  --external:pg-native --external:better-sqlite3 --outfile=/tools/seed.mjs \
   --banner:js='import { createRequire } from "node:module"; const require = createRequire(import.meta.url);'
 # `hash-password`, which makes the hash for DOSSIER_PASSWORD, as one file too.
 RUN node_modules/.bin/esbuild scripts/hash-password.ts --bundle --platform=node --format=esm --target=node24 \

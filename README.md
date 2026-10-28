@@ -19,7 +19,7 @@
 
 Dossier keeps your career history in one profile and turns it into a clean resume. For every job you apply to, it reads the posting, shows how you match, and drafts a tailored resume and cover letter that only use facts from your profile. You refine them in a chat, download them as PDFs and track each application from draft to offer.
 
-It's for one person on a small server: one password, your data in your own PostgreSQL database, and an AI model of your choice. That can be a local model through Ollama or LM Studio, so your profile and documents stay on your own hardware, or a hosted one (any OpenAI-compatible API, Anthropic or Mistral), which then receives what it writes from. [Privacy](https://github.com/AienTech/dossier/wiki/Privacy) says what goes where.
+It's for one person on a small server: one password, your data in your own PostgreSQL database (or a single SQLite file), and an AI model of your choice. That can be a local model through Ollama or LM Studio, so your profile and documents stay on your own hardware, or a hosted one (any OpenAI-compatible API, Anthropic or Mistral), which then receives what it writes from. [Privacy](https://github.com/AienTech/dossier/wiki/Privacy) says what goes where.
 
 **Get started:** [run it on your computer](#run-it-on-your-computer) in a few minutes, or [self-host it](#self-hosting) on a server. The [installation guide](https://github.com/AienTech/dossier/wiki) covers every way: Docker with or without Compose, Node.js, a plain Ubuntu server, CapRover, Coolify and Dokploy.
 
@@ -102,6 +102,18 @@ docker compose up -d
 The first start downloads the image (about 1.7 GB) and sets up the database. Open [http://localhost:3000](http://localhost:3000), sign in with your password, and pick an AI model in **Settings → AI provider** (see [Choosing an AI provider](https://github.com/AienTech/dossier/wiki/Choosing-an-AI-provider)).
 
 `docker compose stop` stops it and `docker compose start` starts it again, with your data kept. It's only reachable from your own computer. The [installation guide's Docker Compose page](https://github.com/AienTech/dossier/wiki/Run-locally-with-Docker-Compose) has more: another port, your time zone, upgrades and removing it.
+
+### Without a database server (SQLite)
+
+Dossier can keep everything in one SQLite file instead of PostgreSQL, so it runs as a single container. Put `DOSSIER_SECRET` and `DOSSIER_PASSWORD` in `.env` as in steps 1 and 2 (skip `POSTGRES_PASSWORD`), then:
+
+```bash
+docker run -d --name dossier --restart unless-stopped --platform linux/amd64 -p 127.0.0.1:3000:3000 \
+  --env-file .env -e DATABASE_URL=file:/data/dossier.db -v dossier-data:/data \
+  ghcr.io/aientech/dossier
+```
+
+The database, the nightly backups and the export files all live in the `dossier-data` volume. To copy the database file itself, stop the container first. To move between PostgreSQL and SQLite, export your data in **Settings → Your data** and import it on the other.
 
 ## Self-hosting
 

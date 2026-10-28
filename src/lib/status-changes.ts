@@ -2,6 +2,7 @@ import "server-only";
 
 import type { PrismaClient, StatusEvent } from "@/generated/prisma/client";
 import type { ApplicationStatus } from "@/generated/prisma/enums";
+import { forUpdate } from "@/lib/database";
 
 import { advance, undoChange } from "./status";
 
@@ -22,7 +23,7 @@ export async function applyStatusChange(
 ): Promise<StatusChangeResult> {
   return db.$transaction(async (tx) => {
     // Lock the row so two changes to the same application can't interleave.
-    await tx.$queryRaw`SELECT 1 FROM "Application" WHERE id = ${applicationId} FOR UPDATE`;
+    await tx.$queryRaw`SELECT 1 FROM "Application" WHERE id = ${applicationId} ${forUpdate()}`;
     const application = await tx.application.findUnique({
       where: { id: applicationId },
       select: { status: true, furthestStage: true, sentAt: true },
@@ -53,7 +54,7 @@ export async function undoStatusChange(db: PrismaClient, eventId: string): Promi
     const event = await tx.statusEvent.findUnique({ where: { id: eventId } });
     if (!event) return { outcome: "not-found" };
 
-    await tx.$queryRaw`SELECT 1 FROM "Application" WHERE id = ${event.applicationId} FOR UPDATE`;
+    await tx.$queryRaw`SELECT 1 FROM "Application" WHERE id = ${event.applicationId} ${forUpdate()}`;
     const latest = await tx.statusEvent.findFirst({
       where: { applicationId: event.applicationId },
       orderBy: [{ at: "desc" }, { id: "desc" }],

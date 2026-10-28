@@ -103,6 +103,13 @@ describe("parseEnv", () => {
     ]);
   });
 
+  it("accepts SQLite at an absolute path, not a relative one (#17)", () => {
+    expect(parseEnv({ ...valid, DATABASE_URL: "file:/data/dossier.db" }).DATABASE_URL).toBe("file:/data/dossier.db");
+    expect(problems({ ...valid, DATABASE_URL: "file:./dossier.db" })).toEqual([
+      expect.stringMatching(/^DATABASE_URL must be .* file: and an absolute path for SQLite/),
+    ]);
+  });
+
   it("never echoes secret values", () => {
     const messages = problems({
       DOSSIER_PASSWORD: "hunter2",

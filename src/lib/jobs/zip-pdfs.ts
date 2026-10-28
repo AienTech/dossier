@@ -89,12 +89,15 @@ export const zipPdfsJob = defineJob({
       prisma.application.findMany({
         where: { documents: { some: { kind: { in: PRINTED } } } },
         orderBy: { createdAt: "asc" },
-        select: { id: true, company: true, role: true, documents: { where: { kind: { in: PRINTED } }, select: { kind: true }, orderBy: { kind: "asc" } } },
+        select: { id: true, company: true, role: true, documents: { where: { kind: { in: PRINTED } }, select: { kind: true } } },
       }),
       loadProfileName(),
       loadSettings(),
     ]);
-    const documents = applications.flatMap((application) => application.documents.map(({ kind }) => ({ application, kind })));
+    // In PRINTED's order: SQLite sorts enums by name, not as declared.
+    const documents = applications.flatMap((application) =>
+      PRINTED.filter((kind) => application.documents.some((document) => document.kind === kind)).map((kind) => ({ application, kind })),
+    );
 
     let done = 0;
     await step(`Rendering ${documents.length} documents`);

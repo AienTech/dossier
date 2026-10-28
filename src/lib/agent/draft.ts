@@ -8,6 +8,7 @@ import { ActionError } from "@/lib/action";
 import { AiError } from "@/lib/ai/errors";
 import { createApplicationFromDocuments, type ApplicationDetails } from "@/lib/application-create";
 import type { Extracted } from "@/lib/application-data";
+import { forUpdate } from "@/lib/database";
 import { fullText } from "@/lib/job-search/find";
 import { postingText, type FoundPosting } from "@/lib/job-search/search";
 import { readPostingJob } from "@/lib/jobs/read-posting";
@@ -167,7 +168,7 @@ export async function dismissCandidate(candidateId: string): Promise<{ undo: Dis
   await dismissPosting(foundFromCandidate(candidate));
   await prisma.$transaction(async (tx) => {
     // Locked, so a draft that's just being created either lands first and is deleted here, or finds it dismissed and isn't made.
-    await tx.$queryRaw`SELECT 1 FROM "AgentCandidate" WHERE id = ${candidateId} FOR UPDATE`;
+    await tx.$queryRaw`SELECT 1 FROM "AgentCandidate" WHERE id = ${candidateId} ${forUpdate()}`;
     const current = await tx.agentCandidate.findUniqueOrThrow({ where: { id: candidateId }, select: { applicationId: true } });
     if (current.applicationId) await tx.application.deleteMany({ where: { id: current.applicationId } });
     await tx.agentCandidate.update({ where: { id: candidateId }, data: { status: AgentCandidateStatus.DISMISSED, ...DISMISSED_TRIM } });
