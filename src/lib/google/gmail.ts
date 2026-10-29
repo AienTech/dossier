@@ -85,7 +85,10 @@ export function readMessage(json: unknown): ReadMail {
   const html = plain ? null : findPart(payload, "text/html");
   const text = plain ? decodeBody(plain.body!.data!) : html ? htmlToText(decodeBody(html.body!.data!)) : message.snippet;
   const dateHeader = header(payload, "Date");
-  const date = message.internalDate ? new Date(Number(message.internalDate)) : new Date(dateHeader);
+  const internalDate = message.internalDate;
+  const parsedDate =
+    internalDate && /^\d+$/.test(internalDate) ? new Date(Number(internalDate)) : new Date(dateHeader);
+  const date = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
   return {
     id: message.id,
     threadId: message.threadId,
@@ -95,7 +98,7 @@ export function readMessage(json: unknown): ReadMail {
     subject: decodeHeader(header(payload, "Subject")),
     messageId: header(payload, "Message-ID") || header(payload, "Message-Id"),
     references: header(payload, "References"),
-    date: Number.isNaN(date.getTime()) ? new Date() : date,
+    date,
     text,
   };
 }
