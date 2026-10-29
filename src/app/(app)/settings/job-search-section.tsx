@@ -171,6 +171,9 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
                 <p className="text-sm text-muted">No key needed. The job agent doesn&apos;t search this source; choose JSearch or Adzuna for it.</p>
               </>
             )}
+            {source === "FREEHIRE" && (
+              <p className="text-sm text-muted">No key needed. Searches go to FreeHire&apos;s public catalogue (or DOSSIER_FREEHIRE_URL when set).</p>
+            )}
 
             {testable && (
               <div className="flex flex-wrap items-center gap-3.5 pt-1">

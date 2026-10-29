@@ -18,9 +18,14 @@ describe("attributionHref", () => {
     expect(attributionHref("ADZUNA", "")).toBe("https://www.adzuna.co.uk");
   });
 
-  it("has no link for the other sources", () => {
+  it("has no link for sources without an attribution link", () => {
     expect(attributionHref("JSEARCH", "https://www.adzuna.de/land/ad/1")).toBeNull();
     expect(attributionHref("ARBEITSAGENTUR", "https://www.arbeitsagentur.de/jobsuche/jobdetail/1")).toBeNull();
+  });
+
+  it("links FreeHire to freehire.me, or keeps the origin when the posting is on it", () => {
+    expect(attributionHref("FREEHIRE", "https://boards.greenhouse.io/acme/jobs/1")).toBe("https://freehire.me");
+    expect(attributionHref("FREEHIRE", "https://freehire.me/jobs/senior-go-engineer-acme-1a2b")).toBe("https://freehire.me");
   });
 });
 

@@ -75,6 +75,16 @@ export const SOURCE_INFO: Record<JobSource, SourceInfo> = {
     attributionLink: null,
     countries: ["de"],
   },
+  FREEHIRE: {
+    name: "FreeHire",
+    description: "IT postings crawled from company career pages (Greenhouse, Lever, Workday and more). No recruiter reposts.",
+    tag: "Most countries · free, no key · no city radius",
+    keyUrl: null,
+    quotaPeriod: null,
+    attribution: "Jobs by FreeHire",
+    attributionLink: { home: "https://freehire.me", local: /^freehire\.me$/ },
+    countries: null,
+  },
 };
 
 /** Whether a source lists jobs in a country ("de"). */
