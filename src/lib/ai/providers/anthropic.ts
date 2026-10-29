@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 
 import { AiError } from "../errors";
-import { BaseProvider, type ChatAnswer, type ChatCall, type Effort } from "../provider";
+import { BaseProvider, type ChatAnswer, type ChatCall, type Effort, withJsonSchema } from "../provider";
 import { keyGuardedFetch } from "./guarded-fetch";
 
 /** Offered when the model list can't be fetched, e.g. before a key is saved. */
@@ -20,6 +20,9 @@ const THINKING_TOKENS = 12_000;
 // The effort levels each server and model takes, looked up once: older
 // models, such as Claude Haiku 4.5, refuse the parameter.
 const effortLevels = new Map<string, ReadonlySet<Effort>>();
+
+/** The 400 a schema too complex for structured outputs gets. */
+const GRAMMAR_TOO_LARGE = /compiled grammar is too large/i;
 
 /** Claude through the Messages API with the user's own key. */
 export class AnthropicProvider extends BaseProvider {
@@ -44,17 +47,29 @@ export class AnthropicProvider extends BaseProvider {
   protected async chat(call: ChatCall): Promise<ChatAnswer> {
     if (!this.client) throw AiError.config("Add your Anthropic API key in Settings → AI provider first.");
     const effort = call.effort && (await this.effortLevels(this.client, call.model, call.signal)).has(call.effort) ? call.effort : undefined;
-    const outputConfig = { ...(call.json ? { format: zodOutputFormat(call.json.schema) } : {}), ...(effort ? { effort } : {}) };
-    const message = await this.client.messages.create(
-      {
-        model: call.model,
-        max_tokens: call.maxTokens + THINKING_TOKENS,
-        system: call.system,
-        messages: call.messages,
-        ...(Object.keys(outputConfig).length > 0 ? { output_config: outputConfig } : {}),
-      },
-      { signal: call.signal },
-    );
+    const send = (structured: boolean) => {
+      const outputConfig = { ...(structured && call.json ? { format: zodOutputFormat(call.json.schema) } : {}), ...(effort ? { effort } : {}) };
+      return this.client!.messages.create(
+        {
+          model: call.model,
+          max_tokens: call.maxTokens + THINKING_TOKENS,
+          system: !structured && call.json ? withJsonSchema(call.system, call.json.schema) : call.system,
+          messages: call.messages,
+          ...(Object.keys(outputConfig).length > 0 ? { output_config: outputConfig } : {}),
+        },
+        { signal: call.signal },
+      );
+    };
+    let message: Anthropic.Message;
+    try {
+      message = await send(true);
+    } catch (error) {
+      // Structured outputs refuse schemas with many nullable fields (the
+      // profile import has 32) with a 400; the schema then goes in the prompt
+      // instead, and the answer is still validated against it (#24).
+      if (!call.json || !(error instanceof Anthropic.BadRequestError) || !GRAMMAR_TOO_LARGE.test(error.message)) throw error;
+      message = await send(false);
+    }
     if (message.stop_reason === "refusal") {
       throw new AiError("provider", "The model declined to answer this one. Try rewording it, or try again.", "refusal");
     }
