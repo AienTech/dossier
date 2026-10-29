@@ -11,7 +11,7 @@ const GENERATE_SECRET = "for example the output of `openssl rand -base64 32`";
 const HASH_PASSWORD = "Make one with `docker run --rm -it ghcr.io/aientech/dossier hash-password`";
 
 export const AI_PROVIDERS = ["local", "openai", "anthropic", "mistral", "lmstudio"] as const;
-export const JOB_SOURCE_NAMES = ["jsearch", "adzuna", "arbeitsagentur", "off"] as const;
+export const JOB_SOURCE_NAMES = ["jsearch", "adzuna", "arbeitsagentur", "freehire", "off"] as const;
 
 // An empty value (`DOSSIER_AI_KEY=` in .env) counts as unset.
 const unsetIfEmpty = (value: unknown) =>
@@ -122,6 +122,11 @@ const schema = z.object({
   ),
   DOSSIER_ADZUNA_APP_ID: optional(z.string()),
   DOSSIER_ADZUNA_KEY: optional(z.string()),
+  // FreeHire origin; unset uses https://freehire.me. Point at a self-hosted
+  // FreeHire, or leave unset for the public catalogue.
+  DOSSIER_FREEHIRE_URL: optional(
+    z.url({ protocol: /^https?$/, error: "DOSSIER_FREEHIRE_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
+  ),
   // Off takes the Bundesagentur für Arbeit out everywhere (#223): it isn't an
   // official API, so a server can choose not to offer it. Unset means on.
   DOSSIER_JOBS_ARBEITSAGENTUR: optional(
