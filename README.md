@@ -71,8 +71,23 @@ It's for one person on a small server: one password, your data in your own Postg
 <sub>The screenshots show the demo data: Jane Doe is made up.</sub>
 
 ## Run it on your computer
+**Prerequisites**
 
-All you need is [Docker Desktop](https://docs.docker.com/desktop/) on macOS or Windows, or Docker Engine with its Compose plugin on Linux, and about 2 GB of free memory. Run the commands in a terminal: macOS's Terminal, Linux, or WSL on Windows.
+Before proceeding, ensure you have:
+
+- **Docker:** [Docker Desktop](https://docs.docker.com/desktop/) on macOS or Windows, or Docker Engine with the Compose plugin on Linux.
+- **OpenSSL:** Required to generate the PostgreSQL password and Dossier secret used in the installation commands.
+- **Memory:** Approximately 2 GB of free RAM.
+
+Verify that OpenSSL is available by running:
+
+```bash
+openssl version
+```
+
+If OpenSSL is not installed, install it using your operating system's package manager before proceeding.
+
+On Windows, run the installation commands in WSL with OpenSSL available.
 
 **1. Fetch the Compose file** into a folder of its own, and make the secrets Dossier needs:
 
