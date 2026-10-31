@@ -7,6 +7,7 @@ import { AiError } from "./errors";
 import { providerOption } from "./provider-options";
 import type { AIProvider } from "./provider";
 import { AnthropicProvider } from "./providers/anthropic";
+import { AzureProvider } from "./providers/azure";
 import { LocalProvider } from "./providers/local";
 import { LmStudioProvider } from "./providers/lmstudio";
 import { MistralProvider } from "./providers/mistral";
@@ -28,6 +29,8 @@ export function createProvider(config: AiConfig): AIProvider {
       return new AnthropicProvider(baseUrl, apiKey, model, timeoutMs);
     case AiProvider.MISTRAL:
       return new MistralProvider(baseUrl, apiKey, model, timeoutMs);
+    case AiProvider.AZURE:
+      return new AzureProvider(baseUrl, apiKey, model, timeoutMs);
     case AiProvider.LMSTUDIO:
       return new LmStudioProvider(baseUrl, apiKey, model, timeoutMs);
   }

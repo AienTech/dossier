@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { AiError } from "./errors";
 import { AnthropicProvider, ANTHROPIC_FALLBACK_MODELS } from "./providers/anthropic";
+import { azureBaseUrl } from "./providers/azure";
 import { LMSTUDIO_UNREACHABLE, LmStudioProvider } from "./providers/lmstudio";
 import { LocalProvider } from "./providers/local";
 import { MISTRAL_FALLBACK_MODELS, MistralProvider } from "./providers/mistral";
@@ -560,5 +561,17 @@ describe("MockProvider", () => {
     expect(provider.calls).toHaveLength(2);
     const wrong = new MockProvider({ reply: () => ({ name: "Jane" }) });
     expect(await failure(wrong.complete({ ...ask, schema: Person }))).toMatchObject({ kind: "invalid-output" });
+  });
+});
+
+describe("azureBaseUrl", () => {
+  it("points a resource address at the v1 API", () => {
+    expect(azureBaseUrl("https://res.openai.azure.com")).toBe("https://res.openai.azure.com/openai/v1");
+    expect(azureBaseUrl(" https://res.openai.azure.com/ ")).toBe("https://res.openai.azure.com/openai/v1");
+    expect(azureBaseUrl("https://res.openai.azure.com/openai")).toBe("https://res.openai.azure.com/openai/v1");
+  });
+
+  it("leaves an address that already has it", () => {
+    expect(azureBaseUrl("https://res.openai.azure.com/openai/v1/")).toBe("https://res.openai.azure.com/openai/v1");
   });
 });

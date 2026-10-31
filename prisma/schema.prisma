@@ -308,6 +308,8 @@ enum AiProvider {
   MISTRAL
   /// LM Studio on the user's own hardware (#210).
   LMSTUDIO
+  /// Azure OpenAI / Azure AI Foundry, through the resource's OpenAI v1 endpoint.
+  AZURE
 }
 
 enum Creativity {
