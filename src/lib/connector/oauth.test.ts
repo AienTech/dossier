@@ -39,10 +39,15 @@ describe("the Claude connector's sign-in (#221)", () => {
     expect(allowedRedirect("https://claude.com/api/mcp/auth_callback")).toBe(true);
     expect(allowedRedirect("http://localhost:33418/callback")).toBe(true);
     expect(allowedRedirect("http://127.0.0.1:9/callback")).toBe(true);
+    expect(allowedRedirect("http://localhost:19876/mcp/oauth/callback")).toBe(true);
+    expect(allowedRedirect("http://127.0.0.1:19876/mcp/oauth/callback")).toBe(true);
     expect(allowedRedirect("https://evil.example/api/mcp/auth_callback")).toBe(false);
     expect(allowedRedirect("https://claude.ai/api/mcp/auth_callback/../evil")).toBe(false);
     expect(allowedRedirect("http://localhost:33418/other")).toBe(false);
     expect(allowedRedirect("https://localhost/callback")).toBe(false);
+    expect(allowedRedirect("https://localhost/mcp/oauth/callback")).toBe(false);
+    expect(allowedRedirect("http://localhost:33418/mcp/oauth/callback/../evil")).toBe(false);
+    expect(allowedRedirect("http://evil.example/mcp/oauth/callback")).toBe(false);
     expect(allowedRedirect("not a url")).toBe(false);
   });
 
@@ -51,6 +56,7 @@ describe("the Claude connector's sign-in (#221)", () => {
     const client = await readClient(clientId);
     expect(client).toEqual({ name: "Claude CLI", redirectUris: ["http://localhost:1234/callback"] });
     expect(clientAllows(client!, "http://localhost:5678/callback")).toBe(true);
+    expect(clientAllows(client!, "http://localhost:5678/mcp/oauth/callback")).toBe(false);
     expect(clientAllows(client!, CLAUDE)).toBe(false);
     expect(await readClient("forged")).toBeNull();
   });
@@ -66,6 +72,17 @@ describe("the Claude connector's sign-in (#221)", () => {
     const renewed = await refresh({ refreshToken: tokens.refresh_token, clientId });
     expect(await verifyAccessToken(renewed.access_token)).toEqual({ clientId });
     await expect(refresh({ refreshToken: tokens.refresh_token, clientId: "someone else" })).rejects.toThrow("The refresh token is invalid or has expired.");
+  });
+
+  it("trades an OpenCode callback code for tokens and refreshes them", async () => {
+    const redirectUri = "http://127.0.0.1:19876/mcp/oauth/callback";
+    const clientId = await registerClient({ name: "OpenCode", redirectUris: [redirectUri] });
+    const code = await issueCode({ clientId, redirectUri, codeChallenge: challengeOf(VERIFIER), resource: "https://dossier.example/api/mcp" });
+    const tokens = await exchangeCode({ code, clientId, redirectUri, verifier: VERIFIER });
+    expect(tokens).toMatchObject({ token_type: "Bearer", expires_in: 3600, scope: "dossier" });
+    expect(await verifyAccessToken(tokens.access_token)).toEqual({ clientId });
+    const renewed = await refresh({ refreshToken: tokens.refresh_token, clientId });
+    expect(await verifyAccessToken(renewed.access_token)).toEqual({ clientId });
   });
 
   it("refuses a wrong verifier, another client or another redirect", async () => {
@@ -93,7 +110,7 @@ describe("the Claude connector's sign-in (#221)", () => {
     const freshTokens = await exchangeCode({ code: fresh.code, clientId: fresh.clientId, redirectUri: CLAUDE, verifier: VERIFIER });
     settings.connectorEnabledAt = null;
     expect(await verifyAccessToken(freshTokens.access_token)).toBeNull();
-    await expect(signIn()).rejects.toThrow("The Claude connector is off.");
+    await expect(signIn()).rejects.toThrow("The connector is off.");
 
     // A new password, like every browser session.
     settings.connectorEnabledAt = "2026-10-23T11:00:00.000Z";

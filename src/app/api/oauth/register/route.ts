@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const body = registration.safeParse(await request.json().catch(() => null));
   if (!body.success) return Response.json({ error: "invalid_client_metadata", error_description: "Send redirect_uris." }, { status: 400 });
   if (body.data.redirect_uris.some((uri) => !allowedRedirect(uri))) {
-    return Response.json({ error: "invalid_redirect_uri", error_description: "Only Claude's own callback addresses are allowed." }, { status: 400 });
+    return Response.json({ error: "invalid_redirect_uri", error_description: "Only Claude's and OpenCode's callback addresses are allowed." }, { status: 400 });
   }
   const name = body.data.client_name?.trim() || "Claude";
   const clientId = await registerClient({ name, redirectUris: body.data.redirect_uris });

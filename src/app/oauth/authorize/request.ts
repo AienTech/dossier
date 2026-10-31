@@ -22,9 +22,9 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 export async function checkAuthorizeRequest(params: Record<string, string | string[] | undefined>): Promise<AuthorizeRequest | { error: string }> {
   if (!(await connectorSince())) return { error: "The Claude connector is off. Turn it on in Settings → Claude connector, then connect again from Claude." };
   const client = await readClient(one(params.client_id));
-  if (!client) return { error: "Claude's sign-in link isn't valid any more. Remove the connector in Claude and add it again." };
+  if (!client) return { error: "The app's sign-in link isn't valid any more. Remove the connector and add it again." };
   const redirectUri = one(params.redirect_uri);
-  if (!allowedRedirect(redirectUri) || !clientAllows(client, redirectUri)) return { error: "This sign-in would send you somewhere other than Claude, so it was stopped." };
+  if (!allowedRedirect(redirectUri) || !clientAllows(client, redirectUri)) return { error: "This sign-in would send you somewhere other than the app, so it was stopped." };
   if (one(params.response_type) !== "code") return { error: "Claude asked for a kind of sign-in Dossier doesn't offer." };
   const codeChallenge = one(params.code_challenge);
   if (one(params.code_challenge_method) !== "S256" || !/^[A-Za-z0-9_-]{43,128}$/.test(codeChallenge)) {

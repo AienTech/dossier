@@ -37,14 +37,19 @@ export async function connectorSince(): Promise<string | null> {
 }
 
 /**
- * Whether Claude may be sent back to `uri`: Claude's own callback, or a
- * loopback address on any port (Claude's command-line app signs in through one).
+ * Loopback callback paths that MCP clients use to receive the authorization code.
+ */
+const LOOPBACK_CALLBACK_PATHS = new Set(["/callback", "/mcp/oauth/callback"]);
+
+/** Whether Claude may be sent back to `uri`: Claude's own callback, or a
+ * loopback address on any port (Claude's and OpenCode's command-line apps sign
+ * in through one).
  */
 export function allowedRedirect(uri: string): boolean {
   if (HOSTED_CALLBACKS.has(uri)) return true;
   try {
     const url = new URL(uri);
-    return url.protocol === "http:" && isLoopback(url) && url.pathname === "/callback";
+    return url.protocol === "http:" && isLoopback(url) && LOOPBACK_CALLBACK_PATHS.has(url.pathname);
   } catch {
     return false;
   }
@@ -122,7 +127,7 @@ export class OAuthError extends Error {
 /** The one-time code handed back once the user allows Claude in, valid for five minutes. */
 export async function issueCode(grant: { clientId: string; redirectUri: string; codeChallenge: string; resource: string }): Promise<string> {
   const current = await stamp();
-  if (!current) throw new OAuthError("invalid_request", "The Claude connector is off.");
+  if (!current) throw new OAuthError("invalid_request", "The connector is off.");
   return sign("code", { cid: grant.clientId, uri: grant.redirectUri, chl: grant.codeChallenge, res: grant.resource, ...current }, CODE_SECONDS);
 }
 
