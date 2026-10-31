@@ -9,7 +9,7 @@ Please read the three rules below before you start. I'll close a pull request th
 Many AI services speak OpenAI's API, and Dossier's **OpenAI-compatible** provider works with any of them: you enter the server's address, your API key and the model. OpenRouter, DeepSeek, Ollama's cloud, vLLM and Azure OpenAI are all used this way. So try the service with OpenAI-compatible first.
 
 - **It works:** there's nothing to add. If the [Choosing an AI provider](https://github.com/AienTech/dossier/wiki/Choosing-an-AI-provider) page doesn't mention it, open an issue and I'll add it there.
-- **It almost works,** because the server differs in a small way (its API is at another path, it needs a header, every request needs a field): open an issue that says what's different, rather than a pull request with a provider of its own.
+- **It almost works,** because the server differs in a small way (its API is at another path, it needs a header, every request needs a field): add an entry in [`src/lib/ai/providers/servers.ts`](src/lib/ai/providers/servers.ts) and a test in `servers.test.ts`, not a provider of its own. The AI provider section of DEVELOPMENT.md explains how.
 - **It can't work:** only then add a provider. That means the service's API isn't OpenAI's, as with Anthropic, or a feature needs the server's own API, as with LM Studio loading a model with enough context. Say in the pull request what you tried with OpenAI-compatible and what failed.
 
 ## 2. Before adding a job source, check what it does with the user's data
