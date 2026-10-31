@@ -20,7 +20,7 @@ const handler = createMcpHandler(({ authInfo }) => createDossierServer(typeof au
 /** "Sign in first", with where Claude finds out how (RFC 9728). */
 function unauthorized(origin: string): Response {
   return Response.json(
-    { error: "invalid_token", error_description: "Connect Claude to Dossier first." },
+    { error: "invalid_token", error_description: "Connect Claude or OpenCode to Dossier first." },
     { status: 401, headers: { "www-authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/api/mcp", scope="${SCOPE}"` } },
   );
 }

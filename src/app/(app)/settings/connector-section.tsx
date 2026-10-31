@@ -82,6 +82,11 @@ export function ConnectorSection({ initial, address }: { initial: { on: boolean 
               In Claude&apos;s command-line app: <code className="font-mono text-label">claude mcp add --transport http dossier {address}</code>, then{" "}
               <code className="font-mono text-label">/mcp</code> to sign in.
             </p>
+            <p className="text-meta text-muted">
+              In OpenCode: add the address as a remote MCP server named <code className="font-mono text-label">dossier</code> (OpenCode v2 uses <code className="font-mono text-label">mcp.servers</code>), then{" "}
+              <code className="font-mono text-label">opencode mcp auth dossier</code> to sign in.
+            </p>
+
             {!publicHttps && (
               <p role="note" className="rounded-card bg-warning-surface px-4 py-3 text-meta text-warning">
                 {local ? "This is a local address. " : "This address isn't HTTPS. "}

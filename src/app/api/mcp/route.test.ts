@@ -103,6 +103,23 @@ describe("the Claude connector at /api/mcp (#221)", () => {
       "set_application_status",
     ]);
   });
+  it("handles OpenCode's default MCP protocol version", async () => {
+    const token = await accessToken();
+    const init = await POST(
+      new Request("https://dossier.example/api/mcp", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          "mcp-protocol-version": "2025-11-25",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "opencode", version: "2.1.4" } } }),
+      }),
+    );
+    expect(init.status).toBe(200);
+  });
+
 
   it("gives Claude the profile without contact details", async () => {
     const { isError, text } = await tool("get_profile", {});
