@@ -48,7 +48,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
   private readonly noThinking: boolean;
 
   constructor(
-    readonly kind: "OPENAI" | "LOCAL" | "MISTRAL" | "LMSTUDIO",
+    readonly kind: "OPENAI" | "LOCAL" | "MISTRAL" | "LMSTUDIO" | "AZURE",
     private readonly baseURL: string,
     apiKey: string | null,
     model: string | null,

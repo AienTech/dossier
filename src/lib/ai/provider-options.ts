@@ -84,6 +84,20 @@ export const PROVIDER_OPTIONS: readonly {
     defaultModel: "mistral-medium-latest",
     apiKey: { label: "API key" },
   },
+
+  {
+    value: AiProvider.AZURE,
+    name: "Azure OpenAI",
+    vendor: "Microsoft Azure",
+    description: "Models deployed in your own Azure OpenAI or AI Foundry resource.",
+    tag: "Hosted · your Azure tenant",
+    local: false,
+    defaultUrl: "",
+    urlPlaceholder: "https://your-resource.openai.azure.com",
+    urlHint: "Your resource's endpoint from the Azure portal. For the model, enter the name of your deployment, not the underlying model.",
+    defaultModel: "",
+    apiKey: { label: "API key" },
+  },
 ];
 
 export function providerOption(provider: AiProvider) {

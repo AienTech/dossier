@@ -28,6 +28,9 @@ export const PROVIDER_DEFAULTS: Record<AiProvider, { baseUrl: string; model: str
   [AiProvider.MISTRAL]: { baseUrl: "https://api.mistral.ai/v1", model: "mistral-medium-latest", timeoutSeconds: 120 },
   // As generous as a local model, and loading one can take a while too.
   [AiProvider.LMSTUDIO]: { baseUrl: "http://host.docker.internal:1234", model: null, timeoutSeconds: 300 },
+
+  // No default address: every Azure resource has its own.
+  [AiProvider.AZURE]: { baseUrl: "", model: null, timeoutSeconds: 120 },
 };
 
 const FROM_ENV: Record<NonNullable<Env["DOSSIER_AI_PROVIDER"]>, AiProvider> = {
@@ -36,6 +39,7 @@ const FROM_ENV: Record<NonNullable<Env["DOSSIER_AI_PROVIDER"]>, AiProvider> = {
   anthropic: AiProvider.ANTHROPIC,
   mistral: AiProvider.MISTRAL,
   lmstudio: AiProvider.LMSTUDIO,
+  azure: AiProvider.AZURE,
 };
 
 type SavedSettings = {
@@ -126,6 +130,6 @@ export async function isAiUsable(): Promise<boolean> {
   if (!(await isAiConfigured())) return false;
   const config = await loadAiConfig();
   if (!config.model || config.apiKeyProblem) return false;
-  const needsKey = config.provider === AiProvider.ANTHROPIC || config.provider === AiProvider.MISTRAL;
+  const needsKey = config.provider === AiProvider.ANTHROPIC || config.provider === AiProvider.MISTRAL || config.provider === AiProvider.AZURE;
   return !needsKey || Boolean(config.apiKey);
 }
