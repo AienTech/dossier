@@ -9,7 +9,7 @@
 # Add COMPOSE_PROFILES=ai to .env to run Ollama for a local model as well.
 
 services:
-  db:
+  prod_db:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
@@ -25,14 +25,14 @@ services:
       timeout: 5s
       retries: 10
 
-  app:
+  prod_app:
     image: ${DOSSIER_IMAGE:-ghcr.io/aientech/dossier:latest}
     restart: unless-stopped
     depends_on:
-      db:
+      prod_db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD}@db:5432/dossier
+      DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD}@prod_db:5432/dossier
       DOSSIER_PASSWORD: ${DOSSIER_PASSWORD:?Set DOSSIER_PASSWORD in .env to a hash from hash-password}
       DOSSIER_SECRET: ${DOSSIER_SECRET:?Set DOSSIER_SECRET in .env}
       DOSSIER_BACKUP_RETENTION_DAYS: ${DOSSIER_BACKUP_RETENTION_DAYS:-}
@@ -58,7 +58,7 @@ services:
       DOSSIER_PUBLIC_URL: ${DOSSIER_PUBLIC_URL:-}
     # Only on the server itself: put a reverse proxy with HTTPS in front.
     ports:
-      - "127.0.0.1:${DOSSIER_PORT:-3000}:3000"
+      - "3000:3000"
     volumes:
       - data:/data
     # Room for Chromium, which prints the PDFs.
