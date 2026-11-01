@@ -35,6 +35,7 @@ const card = (id: string, score: number, extra: Partial<AgentCandidateView> = {}
   applicationId: null,
   draftJobId: null,
   foundBy: [],
+  emails: [],
   ...extra,
 });
 const view: AgentView = {
@@ -168,6 +169,11 @@ describe("AgentScreen (E16-6)", () => {
 
     open({ budgets: [{ source: "JSEARCH", name: "JSearch", left: 0, limit: 3, freeAt: "Wed 21 Oct, 08:00" }] });
     expect(screen.getByText("Requests left today").nextElementSibling).toHaveTextContent("JSearch: 0 of 3 · one more Wed 21 Oct, 08:00");
+  });
+
+  it("shows a startup's addresses", () => {
+    open({ scored: [card("s1", 84, { emails: ["jobs@acme.example"] })] });
+    expect(screen.getByText("Write to jobs@acme.example")).toBeInTheDocument();
   });
 
   it("says when there's nothing yet", () => {

@@ -33,6 +33,8 @@ export type AgentSettings = {
   maxSearches: number;
   maxPages: number;
   budgets: JobSourceBudgets;
+  startups: boolean;
+  startupMinMatch: number;
 };
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -41,6 +43,7 @@ const SCORE_COUNTS = Array.from({ length: 30 }, (_, index) => index + 1);
 const DRAFT_COUNTS = Array.from({ length: 11 }, (_, index) => index);
 const SEARCH_LIMITS = Array.from({ length: 10 }, (_, index) => index + 1);
 const PAGE_COUNTS = [1, 2, 3, 4, 5];
+const STARTUP_MATCHES = [0, 20, 30, 40, 50, 60, 70, 80];
 const BUDGET_COUNTS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 50, 100];
 const clock = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
@@ -149,6 +152,30 @@ export function AgentSection({
             onMove={async (by) => void saved(await track(moveAgentSearch({ id: search.id, by })))}
           />
         ))}
+        <Toggle
+          label="Include Startups"
+          description={
+            settings.startups
+              ? `On. Each run also takes startups from Startups that match at least ${settings.startupMinMatch} of 100, refreshing them once a day, and scores them with the postings.`
+              : "Off. Startups stays a list of its own."
+          }
+          checked={settings.startups}
+          onCheckedChange={(startups) => change({ startups })}
+        />
+        {settings.startups && (
+          <Select
+            label="Startups' match, at least"
+            className="sm:max-w-[240px]"
+            value={String(settings.startupMinMatch)}
+            onChange={(event) => change({ startupMinMatch: Number(event.target.value) })}
+          >
+            {[...new Set([...STARTUP_MATCHES, settings.startupMinMatch])].sort((a, b) => a - b).map((score) => (
+              <option key={score} value={score}>
+                {score} of 100
+              </option>
+            ))}
+          </Select>
+        )}
         {adding ? (
           <SearchEditor
             initial={{ id: "", name: "", query: starter, sources: [], enabled: true }}

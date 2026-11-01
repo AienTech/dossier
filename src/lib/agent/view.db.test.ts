@@ -49,6 +49,10 @@ describe("the Agent screen's data (E16-6)", () => {
     await candidate("draft", 90, { status: "DRAFTED", applicationId: application.id });
     const good = await candidate("good", 75);
     await prisma().agentCandidateSearch.create({ data: { candidateId: good.id, searchName: "Data scientists" } });
+    const startup = await prisma().startup.create({
+      data: { source: "YC", externalId: "acme", company: "Acme", roles: [], links: [], reasons: [], emails: [{ email: "jobs@acme.example", label: "Hiring", from: "", onRequest: false, foundAt: "2026-10-18T00:00:00.000Z" }, { email: "ann@acme.example", label: "Person", from: "", onRequest: true, foundAt: "2026-10-18T00:00:00.000Z" }] },
+    });
+    await candidate("acme", 80, { source: "STARTUP", startupId: startup.id, via: "Y Combinator" });
     await candidate("better", 88);
     await candidate("low", 30);
     await candidate("gone", 95, { status: "DISMISSED" });
@@ -57,9 +61,12 @@ describe("the Agent screen's data (E16-6)", () => {
 
     const view = await loadAgentView(now);
     expect(view.drafts.map((entry) => entry.title)).toEqual(["Posting draft"]);
-    expect(view.scored.map((entry) => entry.title)).toEqual(["Posting better", "Posting good"]);
+    expect(view.scored.map((entry) => entry.title)).toEqual(["Posting better", "Posting acme", "Posting good"]);
+    // A startup: where it's from, and where to write.
+    expect(view.scored[1]).toMatchObject({ origin: "Posted 2 days ago · From Startups, via Y Combinator", emails: ["jobs@acme.example"] });
+    expect(view.scored[0]).toMatchObject({ emails: [] });
     expect(view.belowMinimum.map((entry) => entry.title)).toEqual(["Posting low"]);
-    expect(view.scored[1]).toMatchObject({ facts: "Berlin · Remote", origin: "Posted 2 days ago · via LinkedIn on JSearch", draftJobId: job.id, foundBy: ["Data scientists"] });
+    expect(view.scored[2]).toMatchObject({ facts: "Berlin · Remote", origin: "Posted 2 days ago · via LinkedIn on JSearch", draftJobId: job.id, foundBy: ["Data scientists"] });
     expect(view).toMatchObject({
       searches: [{ label: "Data scientist · Berlin, 25 km", sources: "JSearch" }],
       setupProblem: null,
@@ -72,7 +79,7 @@ describe("the Agent screen's data (E16-6)", () => {
       nextRun: "Wed 21 Oct, 07:00",
     });
     // The badge: scored at or above the minimum, and drafts.
-    expect(await countAgentQueue()).toBe(3);
+    expect(await countAgentQueue()).toBe(4);
   });
 
   it("says what's missing, and when a source's requests are used up", async () => {

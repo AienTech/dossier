@@ -35,10 +35,13 @@ export const saveAgentSettings = action(
     autoDraft: z.boolean().optional(),
     maxSearches: z.number().int().min(1).max(10).optional(),
     maxPages: z.number().int().min(1).max(5).optional(),
+    startups: z.boolean().optional(),
+    startupMinMatch: z.number().int().min(0).max(100).optional(),
     budgets: z.object({ JSEARCH: budget, ADZUNA: budget, FREEHIRE: budget }).optional(),
   }),
   async (changes) => {
-    if (changes.enabled && !(await loadAgentSearches()).some((search) => search.enabled && agentQueryReady(search.query))) {
+    const startups = changes.startups ?? (await loadSettings()).agentStartups;
+    if (changes.enabled && !startups && !(await loadAgentSearches()).some((search) => search.enabled && agentQueryReady(search.query))) {
       throw new ActionError("Add a search with what to look for and a country before turning the agent on.");
     }
     if (changes.maxSearches !== undefined && (await prisma.agentSearch.count()) > changes.maxSearches) {
@@ -53,6 +56,8 @@ export const saveAgentSettings = action(
       agentAutoDraft: changes.autoDraft,
       agentMaxSearches: changes.maxSearches,
       agentMaxPages: changes.maxPages,
+      agentStartups: changes.startups,
+      agentStartupMinMatch: changes.startupMinMatch,
       jobSourceBudgets: changes.budgets,
     });
     revalidatePath("/agent");

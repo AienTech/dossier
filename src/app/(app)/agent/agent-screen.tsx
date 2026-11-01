@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useJob } from "@/hooks/use-job";
 import type { AgentCandidateView, AgentView } from "@/lib/agent/view";
+import { isJobSource } from "@/lib/job-search/search";
 
 import { approveAgentDraft, dismissAgentCandidate, prepareAgentDraft, restoreAgentCandidate, runAgentNow } from "./actions";
 
@@ -313,8 +314,9 @@ function CandidateCard({ candidate, children }: { candidate: AgentCandidateView;
           {candidate.facts && <p className="text-meta text-muted">{candidate.facts}</p>}
           {candidate.origin && <p className="text-xs text-muted">{candidate.origin}</p>}
           {candidate.foundBy.length > 0 && <p className="text-xs text-muted">Found by {candidate.foundBy.join(", ")}</p>}
+          {candidate.emails.length > 0 && <p className="text-xs text-muted">Write to {candidate.emails.join(", ")}</p>}
           {/* As the source's terms ask (E14-2); the origin names the others. */}
-          {linksAttribution(candidate.source) && (
+          {isJobSource(candidate.source) && linksAttribution(candidate.source) && (
             <SourceAttribution source={candidate.source} url={candidate.url} className="mt-1.5 self-start" />
           )}
         </div>

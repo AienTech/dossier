@@ -3,11 +3,14 @@ import "server-only";
 import { AgentCandidateStatus, JobStatus } from "@/generated/prisma/enums";
 import { formatDateTime } from "@/lib/dates";
 import { agentSources, loadJobSearchConfig } from "@/lib/job-search/config";
-import { postedAgo, type JobSource } from "@/lib/job-search/search";
+import { isJobSource, postedAgo, type JobSource } from "@/lib/job-search/search";
+import type { PostingSource } from "@/generated/prisma/enums";
 import { SOURCE_INFO } from "@/lib/job-search/sources";
 import { prisma } from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings-data";
 import { lastKnownTimeZone } from "@/lib/time-zone";
+
+import { startupEmailSchema } from "@/lib/startups/types";
 
 import { stringsOf } from "./candidates";
 import { AGENT_JOB_KEY } from "./jobs";
@@ -24,9 +27,10 @@ export type AgentCandidateView = {
   company: string;
   /** "Rotterdam · Remote · €70k", what's known of them. */
   facts: string;
-  /** "Posted 2 days ago · via LinkedIn on JSearch". */
+  /** "Posted 2 days ago · via LinkedIn on JSearch", or "From Startups, via Y Combinator". */
   origin: string;
-  source: JobSource;
+  /** STARTUP for a startup from Startups (#222). */
+  source: PostingSource;
   url: string;
   score: number;
   reasons: string[];
@@ -39,6 +43,8 @@ export type AgentCandidateView = {
   draftJobId: string | null;
   /** The saved searches that found it, by name. */
   foundBy: string[];
+  /** A startup's addresses for applications (#222); empty for a posting. */
+  emails: string[];
 };
 
 export type AgentView = {
@@ -100,7 +106,7 @@ export async function loadAgentView(now = new Date()): Promise<AgentView> {
     prisma.agentCandidate.findMany({
       where: { status: { in: [AgentCandidateStatus.SCORED, AgentCandidateStatus.DRAFTING, AgentCandidateStatus.DRAFTED] } },
       orderBy: [{ score: "desc" }, { createdAt: "desc" }],
-      include: { searches: { select: { searchName: true }, orderBy: { createdAt: "asc" } } },
+      include: { searches: { select: { searchName: true }, orderBy: { createdAt: "asc" } }, startup: { select: { emails: true } } },
     }),
     prisma.job.findMany({
       where: { type: "agent-draft", status: { in: [JobStatus.QUEUED, JobStatus.RUNNING] } },
@@ -137,7 +143,9 @@ export async function loadAgentView(now = new Date()): Promise<AgentView> {
     facts: [candidate.place, candidate.remote ? "Remote" : "", candidate.salary].filter(Boolean).join(" · "),
     origin: [
       candidate.postedAt ? `Posted ${posted(postedAgo(candidate.postedAt.toISOString(), now))}` : "",
-      [candidate.via ? `via ${candidate.via}` : "", `on ${SOURCE_INFO[candidate.source].name}`].filter(Boolean).join(" "),
+      isJobSource(candidate.source)
+        ? [candidate.via ? `via ${candidate.via}` : "", `on ${SOURCE_INFO[candidate.source].name}`].filter(Boolean).join(" ")
+        : `From Startups${candidate.via ? `, via ${candidate.via}` : ""}`,
     ]
       .filter(Boolean)
       .join(" · "),
@@ -150,6 +158,12 @@ export async function loadAgentView(now = new Date()): Promise<AgentView> {
     applicationId: candidate.applicationId,
     draftJobId: draftJob.get(candidate.id) ?? null,
     foundBy: [...new Set(candidate.searches.map((link) => link.searchName))],
+    emails: startupEmailSchema
+      .array()
+      .catch([])
+      .parse(candidate.startup?.emails ?? [])
+      .filter((entry) => entry.label !== "Person")
+      .map((entry) => entry.email),
   });
   const drafts = candidates.filter((candidate) => candidate.status === AgentCandidateStatus.DRAFTED && candidate.applicationId).map(view);
   const waiting = candidates.filter((candidate) => candidate.status !== AgentCandidateStatus.DRAFTED);

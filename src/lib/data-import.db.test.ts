@@ -222,6 +222,13 @@ describe("importExport (E10-6)", () => {
     expect(decryptSecret(JOB_SOURCE_KEY, rapid.value, secret)).toBe("ak-rapid");
   });
 
+  it("restores a candidate taken from Startups with its startup", async () => {
+    const startup = await prisma().startup.create({ data: { source: "YC", externalId: "acme", company: "Acme", roles: [], emails: [], links: [], reasons: [] } });
+    await prisma().agentCandidate.create({ data: { source: "STARTUP", externalId: startup.id, dedupeKey: "key-s", startupId: startup.id } });
+    await importExport(prisma(), await asFile());
+    expect(await prisma().agentCandidate.findFirstOrThrow({ where: { source: "STARTUP" } })).toMatchObject({ startupId: startup.id });
+  });
+
   it("restores the job agent's saved searches and which found each candidate", async () => {
     const search = await prisma().agentSearch.create({ data: { name: "Leads", query: { keywords: "tech lead", country: "de" }, sources: ["ADZUNA"] } });
     const candidate = await prisma().agentCandidate.create({ data: { source: "JSEARCH", externalId: "job-9", dedupeKey: "key-9" } });

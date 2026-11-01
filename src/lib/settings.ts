@@ -193,6 +193,9 @@ export const settingsSchema = z.object({
   agentMaxSearches: z.coerce.number().int().min(1).max(10).catch(3),
   /** The most result pages a run asks each source for, per search; each page is one request. */
   agentMaxPages: z.coerce.number().int().min(1).max(5).catch(1),
+  /** Whether a run also takes startups from Startups (#222) as candidates, and the least match they need. */
+  agentStartups: flag(false),
+  agentStartupMinMatch: z.coerce.number().int().min(0).max(100).catch(50),
   /** Requests per source in any 24 hours. */
   jobSourceBudgets: json(jobSourceBudgetsSchema).catch(DEFAULT_JOB_SOURCE_BUDGETS),
   /** The requests sent in the past 24 hours. They belong to the install: exports leave them out (INSTALL_SETTINGS). */

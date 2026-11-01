@@ -6,6 +6,7 @@ import { agentDedupeKey } from "@/lib/job-search/dedupe";
 import { askSources } from "@/lib/job-search/find";
 import {
   EMPTY_QUERY,
+  isJobSource,
   postingKey,
   searchQuerySchema,
   sourceResultSchema,
@@ -82,7 +83,7 @@ export async function loadSearch(id?: string, { timeZone, now = new Date() }: { 
   if (!search) return null;
   return {
     id: search.id,
-    sources: search.sources,
+    sources: search.sources.filter(isJobSource),
     query: queryOf(search.query),
     ranAt: ranAtLabel(search.createdAt, timeZone, now),
     postings: await withStates(postingsOf(search.postings)),
@@ -99,7 +100,7 @@ export async function showMoreFor(id: string): Promise<{ ok: true; postings: Sho
   if (!search) return { ok: false, problem: "changed", message: "That search is no longer kept. Search again." };
   const before = resultsOf(search.results);
   if (!before.some((result) => result.next !== null)) return { ok: true, postings: [], results: before };
-  const answer = await askSources(queryOf(search.query), { sources: search.sources, cursors: before });
+  const answer = await askSources(queryOf(search.query), { sources: search.sources.filter(isJobSource), cursors: before });
   if (!answer.ok) return answer;
   const kept = postingsOf(search.postings);
   const seen = new Set([...kept.map(postingKey), ...kept.map(agentDedupeKey)]);
@@ -125,7 +126,7 @@ export async function listSearches({ timeZone, now = new Date() }: { timeZone?: 
     const ago = daysBetween(search.createdAt, now, timeZone);
     const day = ago === 0 ? "Today" : ago === 1 ? "Yesterday" : formatDay(search.createdAt, timeZone, now);
     if (days.at(-1)?.day !== day) days.push({ day, searches: [] });
-    days.at(-1)!.searches.push({ id: search.id, sources: search.sources, query: queryOf(search.query), found: search.found, time: formatTime(search.createdAt, timeZone) });
+    days.at(-1)!.searches.push({ id: search.id, sources: search.sources.filter(isJobSource), query: queryOf(search.query), found: search.found, time: formatTime(search.createdAt, timeZone) });
   }
   return days;
 }

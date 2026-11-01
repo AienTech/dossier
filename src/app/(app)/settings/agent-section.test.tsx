@@ -28,6 +28,8 @@ const initial: AgentSettings = {
   maxSearches: 3,
   maxPages: 1,
   budgets: { JSEARCH: 3, ADZUNA: 3, FREEHIRE: null },
+  startups: false,
+  startupMinMatch: 50,
 };
 const countries = [
   { code: "de", name: "Germany" },
@@ -109,6 +111,16 @@ describe("Settings → Job agent (E16-7)", () => {
     expect(screen.getByLabelText("JSearch requests per 24 hours")).toHaveAccessibleDescription("A run sends it up to 3 requests.");
     await user.selectOptions(screen.getByLabelText("JSearch requests per 24 hours"), "No limit");
     expect(saveAgentSettings).toHaveBeenLastCalledWith({ budgets: { JSEARCH: null, ADZUNA: 3, FREEHIRE: null } });
+  });
+
+  it("takes startups from Startups when asked, at a match chosen", async () => {
+    const user = userEvent.setup();
+    open();
+    expect(screen.queryByLabelText("Startups' match, at least")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("switch", { name: "Include Startups" }));
+    expect(saveAgentSettings).toHaveBeenLastCalledWith({ startups: true });
+    await user.selectOptions(screen.getByLabelText("Startups' match, at least"), "70 of 100");
+    expect(saveAgentSettings).toHaveBeenLastCalledWith({ startupMinMatch: 70 });
   });
 
   it("prepares no drafts on its own unless asked, and then up to the cap", async () => {

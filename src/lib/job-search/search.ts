@@ -14,7 +14,14 @@ import { SOURCE_INFO } from "./sources";
 
 /** The job sources Dossier can search (E14-1 to E14-3, FreeHire), in the order Settings lists them; one is chosen there. */
 export const JOB_SOURCES = [PostingSource.JSEARCH, PostingSource.ADZUNA, PostingSource.FREEHIRE, PostingSource.ARBEITSAGENTUR] as const;
-export type JobSource = PostingSource;
+/** A job source: every PostingSource but STARTUP, which is the job agent's name for a candidate from Startups. */
+export type JobSource = Exclude<PostingSource, "STARTUP">;
+export const isJobSource = (source: PostingSource): source is JobSource => source !== PostingSource.STARTUP;
+/** A stored source that must be a job source: Find jobs' postings and searches never hold a startup. */
+export function asJobSource(source: PostingSource): JobSource {
+  if (!isJobSource(source)) throw new Error("A startup isn't a job source.");
+  return source;
+}
 
 /** Where a JSearch key comes from: OpenWeb Ninja directly, or the RapidAPI marketplace. */
 export const JSEARCH_HOSTS = ["openwebninja", "rapidapi"] as const;

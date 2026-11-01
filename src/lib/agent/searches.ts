@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { countryName } from "@/lib/job-search/countries";
-import { describeSearch, EMPTY_QUERY, JOB_SOURCES, searchQuerySchema, type JobSource, type SearchQuery } from "@/lib/job-search/search";
+import { describeSearch, EMPTY_QUERY, isJobSource, JOB_SOURCES, searchQuerySchema, type JobSource, type SearchQuery } from "@/lib/job-search/search";
 import { prisma } from "@/lib/prisma";
 
 // The job agent's saved searches (E16, #11): each a query, on the sources
@@ -40,7 +40,7 @@ export const agentSearchLabel = (search: Pick<AgentSearch, "name" | "query" | "s
 /** The saved searches, in their order. */
 export async function loadAgentSearches(db: Prisma.TransactionClient = prisma): Promise<AgentSearch[]> {
   const rows = await db.agentSearch.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] });
-  return rows.map((row) => ({ id: row.id, name: row.name, query: queryOf(row.query), sources: row.sources, enabled: row.enabled }));
+  return rows.map((row) => ({ id: row.id, name: row.name, query: queryOf(row.query), sources: row.sources.filter(isJobSource), enabled: row.enabled }));
 }
 
 /** The sources a search asks: its own, of the ones the agent searches, or all of those. */

@@ -255,6 +255,8 @@ const agentCandidate = z.object({
   error: text.nullable(),
   applicationId: text.nullable(),
   dedupeKey: text,
+  /** The startup it is (version 8), when it came from Startups. */
+  startupId: text.nullable().default(null),
   createdAt: date,
   updatedAt: date,
 });

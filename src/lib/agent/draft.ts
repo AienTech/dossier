@@ -9,7 +9,7 @@ import { AiError } from "@/lib/ai/errors";
 import { createApplicationFromDocuments, type ApplicationDetails } from "@/lib/application-create";
 import type { Extracted } from "@/lib/application-data";
 import { fullText } from "@/lib/job-search/find";
-import { postingText, type FoundPosting } from "@/lib/job-search/search";
+import { asJobSource, isJobSource, postingText, type FoundPosting } from "@/lib/job-search/search";
 import { readPostingJob } from "@/lib/jobs/read-posting";
 import { cancelJob, defineJob, findUnfinishedJobs, type JobContext } from "@/lib/jobs/runner";
 import { writeDocumentsJob } from "@/lib/jobs/write-documents";
@@ -30,7 +30,7 @@ export const draftJobKey = (candidateId: string) => `agent-candidate:${candidate
 /** A candidate in the shape search results have. */
 export function foundFromCandidate(candidate: AgentCandidate): FoundPosting {
   return {
-    source: candidate.source,
+    source: asJobSource(candidate.source),
     externalId: candidate.externalId,
     title: candidate.title,
     company: candidate.company,
@@ -75,11 +75,10 @@ export async function draftCandidate(candidateId: string, context: JobContext): 
 
   const name = candidate.company || candidate.title || "the posting";
   try {
-    const found = foundFromCandidate(candidate);
-    // The source may have given only a snippet; the whole text writes a better draft.
-    const description = (await fullText(found)) ?? candidate.description;
+    // The source may have given only a snippet; the whole text writes a better draft. A startup's is all there is.
+    const description = (isJobSource(candidate.source) ? await fullText(foundFromCandidate(candidate)) : null) ?? candidate.description;
     if (!description.trim()) throw new ActionError("That posting has no text to write from. Open it and start an application by hand.");
-    const posting = postingText({ ...found, description });
+    const posting = postingText({ ...candidate, description });
 
     await context.step(`Reading the posting from ${name}`);
     const reading = await readPostingJob.run({ posting }, context);
@@ -106,6 +105,8 @@ export async function draftCandidate(candidateId: string, context: JobContext): 
     });
     // The job holds nothing of the draft, but goes with it all the same.
     await prisma.job.updateMany({ where: { id: context.id }, data: { applicationId } });
+    // Startups shows the application with the startup, as "Write to them" does.
+    if (candidate.startupId) await prisma.startup.updateMany({ where: { id: candidate.startupId, applicationId: null }, data: { applicationId } });
     return applicationId;
   } catch (error) {
     const known = error instanceof AiError || error instanceof ActionError;

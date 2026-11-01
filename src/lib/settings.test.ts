@@ -66,6 +66,8 @@ describe("stored settings", () => {
       agentEnabled: false,
       agentMaxSearches: 3,
       agentMaxPages: 1,
+      agentStartups: false,
+      agentStartupMinMatch: 50,
       jobSourceBudgets: { JSEARCH: 3, ADZUNA: 3, FREEHIRE: null },
       agentRequests: [],
       agentHour: 7,

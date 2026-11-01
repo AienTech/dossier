@@ -601,6 +601,8 @@ enum PostingSource {
   ADZUNA
   ARBEITSAGENTUR
   FREEHIRE
+  /// A startup from Startups (#222) the job agent took as a candidate; never a job source.
+  STARTUP
 }
 
 /// A posting from Find jobs that the user kept (E14-5): saved, dismissed, or
@@ -693,6 +695,9 @@ model AgentCandidate {
   dedupeKey     String               @unique
   /// The saved searches that found it.
   searches      AgentCandidateSearch[]
+  /// The startup it is, when it came from Startups (#222).
+  startupId     String?
+  startup       Startup?             @relation(fields: [startupId], references: [id], onDelete: SetNull)
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
@@ -831,6 +836,8 @@ model Startup {
   /// The application started from it ("Write to them"); deleting the application keeps the startup.
   applicationId      String?       @unique
   application        Application?  @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  /// The job agent's candidates made from it.
+  candidates         AgentCandidate[]
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 

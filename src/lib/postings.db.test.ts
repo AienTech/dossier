@@ -34,8 +34,8 @@ beforeEach(() => resetDatabase(prisma()));
 afterAll(() => prisma().$disconnect());
 
 describe("postings", () => {
-  it("lists the same sources as the schema's enum", () => {
-    expect([...JOB_SOURCES].sort()).toEqual(Object.values(PostingSource).sort());
+  it("lists the same sources as the schema's enum, but the job agent's STARTUP", () => {
+    expect([...JOB_SOURCES].sort()).toEqual(Object.values(PostingSource).filter((source) => source !== "STARTUP").sort());
   });
 
   it("saves a posting with everything the screen needs, and reads it back in the same shape", async () => {

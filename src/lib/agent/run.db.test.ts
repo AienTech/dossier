@@ -365,6 +365,29 @@ describe("runAgentScan (E16-3)", () => {
     expect(startJob).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: "agent-draft" }), { candidateId: best.id }, { key: `agent-candidate:${best.id}` });
   });
 
+  it("takes startups from Startups too when asked, in turn with the searches, and drafts from their own text (#222)", async () => {
+    const make = (externalId: string, company: string, score: number, extra: Record<string, unknown> = {}) =>
+      prisma().startup.create({
+        data: { source: "YC", externalId, company, website: `https://${externalId}.example`, summary: `${company} builds tools.`, details: "We hire designers.", roles: ["Product Designer"], emails: [], links: [], reasons: [], score, postedAt: new Date("2026-10-19T12:00:00Z"), ...extra },
+      });
+    const good = await make("acme", "Acme", 80);
+    await make("weak", "Weak", 20);
+    await make("busy", "Busy", 90, { noApplicationsFrom: "https://busy.example/jobs" });
+    await saveSettings({ agentStartups: true, agentStartupMinMatch: 50, startupsLastRefresh: { at: now.toISOString(), added: 0, sources: [], emailsFound: 0 } });
+
+    const result = await runAgentScan({ manual: false }, context(), now);
+    expect(result).toMatchObject({ found: 4, scored: 4 });
+    const startup = await prisma().agentCandidate.findFirstOrThrow({ where: { source: "STARTUP" } });
+    expect(startup).toMatchObject({ externalId: good.id, startupId: good.id, company: "Acme", title: "Product Designer", url: "https://acme.example", complete: true });
+    expect(startup.description).toContain("We hire designers.");
+    // Not in Find jobs' scores.
+    expect(await prisma().postingScore.count({ where: { source: "STARTUP" } })).toBe(0);
+
+    // It doesn't come back, and needs no search when Startups is on.
+    await prisma().agentSearch.deleteMany();
+    expect(await runAgentScan({ manual: true }, context(), new Date(now.getTime() + hour))).toMatchObject({ found: 0, message: "The searches found no postings this time." });
+  });
+
   it("says when nothing reached the minimum score", async () => {
     fake.postings = [page[2]];
     expect((await runAgentScan({ manual: false }, context(), now)).message).toBe("Scored 1 new posting; none reached your minimum score of 70.");

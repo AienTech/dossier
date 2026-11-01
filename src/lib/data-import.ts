@@ -262,10 +262,24 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
           postings: (search.postings ?? []) as Prisma.InputJsonValue,
         })),
       });
+      // Startups (#222) with what the user did with them; an application that isn't in the file leaves one unlinked.
+      await tx.startup.createMany({
+        data: startups.map((startup) => ({
+          ...startup,
+          roles: jsonList(startup.roles),
+          emails: jsonList(startup.emails),
+          links: jsonList(startup.links),
+          reasons: jsonList(startup.reasons),
+          applicationId: startup.applicationId && applicationIds.has(startup.applicationId) ? startup.applicationId : null,
+        })),
+      });
       // The job agent's candidates (E16), so what it saw stays seen; a draft that isn't in the file leaves it unlinked.
+      const startupIds = new Set(startups.map((startup) => startup.id));
       await tx.agentCandidate.createMany({
         data: agentCandidates.map((candidate) => ({
           ...candidate,
+          // A startup that isn't in the file leaves it unlinked.
+          startupId: candidate.startupId && startupIds.has(candidate.startupId) ? candidate.startupId : null,
           reasons: json(candidate.reasons),
           redFlags: json(candidate.redFlags),
           applicationId: candidate.applicationId && applicationIds.has(candidate.applicationId) ? candidate.applicationId : null,
@@ -280,17 +294,6 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
           .filter((link) => candidateIds.has(link.candidateId))
           .map((link) => ({ ...link, searchId: link.searchId && searchIds.has(link.searchId) ? link.searchId : null })),
         skipDuplicates: true,
-      });
-      // Startups (#222) with what the user did with them; an application that isn't in the file leaves one unlinked.
-      await tx.startup.createMany({
-        data: startups.map((startup) => ({
-          ...startup,
-          roles: jsonList(startup.roles),
-          emails: jsonList(startup.emails),
-          links: jsonList(startup.links),
-          reasons: jsonList(startup.reasons),
-          applicationId: startup.applicationId && applicationIds.has(startup.applicationId) ? startup.applicationId : null,
-        })),
       });
       await tx.startupBlock.createMany({ data: startupBlocks, skipDuplicates: true });
     },

@@ -70,6 +70,8 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             autoDraft: settings.agentAutoDraft,
             maxSearches: settings.agentMaxSearches,
             maxPages: settings.agentMaxPages,
+            startups: settings.agentStartups,
+            startupMinMatch: settings.agentStartupMinMatch,
             budgets: settings.jobSourceBudgets,
           }}
           searches={await loadAgentSearches()}

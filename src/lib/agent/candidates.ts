@@ -1,15 +1,19 @@
 import type { Prisma } from "@/generated/prisma/client";
+import type { PostingSource } from "@/generated/prisma/enums";
 import { agentDedupeKey } from "@/lib/job-search/dedupe";
 import type { FoundPosting } from "@/lib/job-search/search";
 
 export { agentDedupeKey };
+
+/** What the agent scores: a posting from a saved search, or a startup from Startups (#222), whose source is STARTUP. */
+export type AgentPosting = Omit<FoundPosting, "source"> & { source: PostingSource; startupId?: string };
 
 // The job agent's candidates (E16): postings it found and scored. A dismissed
 // one stays, so the posting never comes back, but keeps only what dedupe
 // needs.
 
 /** A posting as a new candidate, with its score. */
-export function candidateData(posting: FoundPosting, score: { score: number; reasons: string[]; redFlags: string[] }): Prisma.AgentCandidateCreateInput {
+export function candidateData(posting: AgentPosting, score: { score: number; reasons: string[]; redFlags: string[] }): Prisma.AgentCandidateCreateInput {
   return {
     source: posting.source,
     externalId: posting.externalId,
@@ -27,6 +31,7 @@ export function candidateData(posting: FoundPosting, score: { score: number; rea
     reasons: score.reasons,
     redFlags: score.redFlags,
     dedupeKey: agentDedupeKey(posting),
+    ...(posting.startupId ? { startup: { connect: { id: posting.startupId } } } : {}),
   };
 }
 

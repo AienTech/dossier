@@ -9,7 +9,7 @@ import { searchPostings } from "@/lib/job-search";
 import { agentSources, credentialsFor, loadJobSearchConfig, requestContext, type JobSearchConfig } from "@/lib/job-search/config";
 import { mergePostings } from "@/lib/job-search/dedupe";
 import { JobSearchError } from "@/lib/job-search/errors";
-import { postingKey, type FoundPosting, type JobSource, type SearchPage } from "@/lib/job-search/search";
+import { isJobSource, postingKey, type FoundPosting, type JobSource, type SearchPage } from "@/lib/job-search/search";
 import { SOURCE_INFO } from "@/lib/job-search/sources";
 import { startJob, type JobContext } from "@/lib/jobs/runner";
 import { logServerError } from "@/lib/log";
@@ -20,8 +20,11 @@ import { loadProfile } from "@/lib/profile-data";
 import { loadPostingScorer, scoringProblem } from "@/lib/scoring";
 import type { AgentRun, JobSourceBudgets, SettingsData } from "@/lib/settings";
 import { loadSettings } from "@/lib/settings-data";
+import { refreshStartups } from "@/lib/startups/refresh";
+import { startupPostingText, startupView } from "@/lib/startups/store";
+import { STARTUP_SOURCE_INFO } from "@/lib/startups/types";
 
-import { agentDedupeKey, candidateData } from "./candidates";
+import { agentDedupeKey, candidateData, type AgentPosting } from "./candidates";
 import { agentDraftJob, draftJobKey } from "./draft";
 import { budgetProblem, recordRequest, recordRunEnd, recordRunStart, requestsLeft } from "./runs";
 import { agentQueryReady, agentSearchLabel, loadAgentSearches, searchSources, type AgentSearch } from "./searches";
@@ -82,12 +85,60 @@ async function searchesProblem(list: readonly AgentSearch[]): Promise<string | n
   return sources.length === 0 ? problem : null;
 }
 
-/** Why the agent can't run at all, in words, or null when it's set up. */
+/** Why the agent can't run at all, in words, or null when it's set up. With Startups on, it runs without searches too. */
 export async function agentSetupProblem(searches?: readonly AgentSearch[]): Promise<string | null> {
-  const problem = await searchesProblem(searches ?? (await loadAgentSearches()));
-  if (problem) return problem;
+  const [list, settings] = await Promise.all([searches ?? loadAgentSearches(), loadSettings()]);
+  const problem = await searchesProblem(list);
+  if (problem && !settings.agentStartups) return problem;
   // Scoring is what a run does; drafts ask the AI provider when there are any.
   return scoringProblem();
+}
+
+/** Startups refresh before a run takes from them unless they did in this long. */
+const STARTUPS_FRESH_MS = 22 * 60 * 60 * 1000;
+
+/**
+ * Startups as candidates (#222): refreshed first unless that happened in
+ * the past 22 hours, then the best new and saved ones that match well
+ * enough, have no application and no candidate yet, and take applications.
+ */
+async function startupLane(settings: SettingsData, context: JobContext, now: Date): Promise<AgentPosting[]> {
+  if (!settings.agentStartups) return [];
+  const last = settings.startupsLastRefresh?.at;
+  if (!last || now.getTime() - Date.parse(last) >= STARTUPS_FRESH_MS) {
+    try {
+      await refreshStartups(context.step, context.signal, now);
+    } catch (error) {
+      if (context.signal.aborted) throw error;
+      // What Startups kept before still counts.
+      logServerError("job agent startups", error);
+    }
+  }
+  const rows = await prisma.startup.findMany({
+    where: { status: { in: ["NEW", "SAVED"] }, score: { gte: settings.agentStartupMinMatch }, applicationId: null, noApplicationsFrom: "", candidates: { none: {} } },
+    orderBy: { score: "desc" },
+    take: settings.agentMaxScores,
+  });
+  const postings = rows.map((row): AgentPosting => {
+    const startup = startupView(row);
+    return {
+      source: "STARTUP",
+      externalId: startup.id,
+      startupId: startup.id,
+      title: startup.roles.join(", ") || "Open application",
+      company: startup.company,
+      place: startup.location,
+      remote: startup.remote,
+      salary: "",
+      postedAt: startup.postedAt,
+      url: startup.website,
+      via: STARTUP_SOURCE_INFO[startup.source].name,
+      description: startupPostingText(startup),
+      complete: true,
+    };
+  });
+  const known = new Set((await prisma.agentCandidate.findMany({ where: { dedupeKey: { in: postings.map(agentDedupeKey) } }, select: { dedupeKey: true } })).map((row) => row.dedupeKey));
+  return postings.filter((posting) => !known.has(agentDedupeKey(posting)));
 }
 
 /** The postings from a page that are new to the agent: not saved, dismissed or applied for, and not a candidate already. */
@@ -117,7 +168,7 @@ const newestFirst = (a: Pick<FoundPosting, "postedAt">, b: Pick<FoundPosting, "p
  * One posting from each lane in turn, newest first within each, each job
  * once (#11): one broad search can't crowd out the others.
  */
-export function roundRobin<T extends FoundPosting>(lanes: readonly T[][]): T[] {
+export function roundRobin<T extends AgentPosting>(lanes: readonly T[][]): T[] {
   const sorted = lanes.map((lane) => lane.toSorted(newestFirst));
   const taken = new Set<string>();
   const ordered: T[] = [];
@@ -225,7 +276,8 @@ export async function runAgentScan({ manual }: { manual: boolean }, context: Job
   const config = await loadJobSearchConfig();
   const asked = [...new Set(searches.flatMap((search) => searchSources(search, usableSources(config).sources)))];
   const budget = budgetProblem(settings.agentRequests, settings.jobSourceBudgets, asked, now);
-  if (budget) return stopped(budget);
+  // Startups need no requests from a source's budget.
+  if (budget && !settings.agentStartups) return stopped(budget);
 
   const run = await recordRunStart(now, manual);
   let results: AgentRun["searches"] = [];
@@ -235,12 +287,14 @@ export async function runAgentScan({ manual }: { manual: boolean }, context: Job
   };
 
   await context.step(searches.length === 1 ? "Searching for new postings" : `Running ${searches.length} searches`);
-  const lanes = await collect(searches, settings, context, clock);
+  const lanes = budget ? [] : await collect(searches, settings, context, clock);
   results = lanes.flatMap((lane) => lane.results);
   await attribute(lanes);
+  const startups = await startupLane(settings, context, now);
 
-  const found = new Set(lanes.flatMap((lane) => lane.postings.map(agentDedupeKey))).size;
-  const ordered = roundRobin(await Promise.all(lanes.map((lane) => newPostings(lane.postings))));
+  const found = new Set(lanes.flatMap((lane) => lane.postings.map(agentDedupeKey))).size + startups.length;
+  const freshLanes: AgentPosting[][] = await Promise.all(lanes.map((lane) => newPostings(lane.postings)));
+  const ordered = roundRobin([...freshLanes, startups]);
   const counts = { found, fresh: ordered.length, skipped: found - ordered.length, drafted: 0 };
   if (ordered.length === 0) {
     const failed = results.find((result) => result.error);
@@ -263,8 +317,8 @@ export async function runAgentScan({ manual }: { manual: boolean }, context: Job
     try {
       const { data, scoredWith } = await score(posting, profile, context.signal);
       const candidate = await prisma.agentCandidate.create({ data: candidateData(posting, data), select: { id: true } });
-      // Find jobs shows it too (#208).
-      await saveScore(posting, data, scoredWith);
+      // Find jobs shows it too (#208); a startup isn't in Find jobs.
+      if (isJobSource(posting.source)) await saveScore({ source: posting.source, externalId: posting.externalId }, data, scoredWith);
       kept.push(candidate.id);
       scored += 1;
       if (data.score >= settings.agentMinScore) queued += 1;
