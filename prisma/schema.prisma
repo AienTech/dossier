@@ -338,6 +338,22 @@ enum Tone {
   FORMAL
 }
 
+/// A saved AI provider: kind, address, model and key. Settings name the
+/// default one and the ones used for scoring and writing (aiDefaultProfileId,
+/// aiTaskProfiles).
+model AiProfile {
+  id        String     @id @default(cuid())
+  name      String     @default("")
+  provider  AiProvider
+  baseUrl   String?
+  model     String?
+  /// Encrypted like the other keys (AI_API_KEY); never sent to the client.
+  apiKeyEnc String?
+  sort      Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
 /// App settings, one row per saved setting; a missing key means the default.
 /// The keys, their types and defaults are in src/lib/settings.ts
 /// (settingsSchema); the enums above type its values.

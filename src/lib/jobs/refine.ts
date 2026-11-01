@@ -70,7 +70,7 @@ export const refineJob = defineJob({
     );
     const targetUnit = target && unitsOf(target.document).find((unit) => unit.id === target.unitId);
 
-    const [provider, options, profile, facts] = await Promise.all([getAiProvider(), loadTaskOptions(), loadProfile(), loadFactTexts(applicationId)]);
+    const [provider, options, profile, facts] = await Promise.all([getAiProvider("writing"), loadTaskOptions(), loadProfile(), loadFactTexts(applicationId)]);
     const { data, promptVersion } = await refineChat(
       provider,
       {

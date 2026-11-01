@@ -35,8 +35,10 @@ beforeEach(async () => {
   // A version, so the round trip covers document history (E8-10).
   const resume = await prisma().document.findFirstOrThrow({ where: { applicationId: ledgerly.id, kind: "RESUME" } });
   await prisma().documentVersion.create({ data: { documentId: resume.id, units: resume.units ?? [], cause: "WRITTEN", createdAt: now } });
-  await prisma().setting.create({ data: { key: "apiKeyEnc", value: encryptApiKey("sk-current", secret) } });
+  await prisma().aiProfile.create({ data: { id: "ai-profile-default", provider: "ANTHROPIC", apiKeyEnc: encryptApiKey("sk-current", secret) } });
+  await prisma().setting.create({ data: { key: "aiDefaultProfileId", value: "ai-profile-default" } });
 });
+const profileKey = async (id = "ai-profile-default") => decryptApiKey((await prisma().aiProfile.findUniqueOrThrow({ where: { id } })).apiKeyEnc!, secret);
 afterAll(() => prisma().$disconnect());
 
 describe("importExport (E10-6)", () => {
@@ -102,10 +104,9 @@ describe("importExport (E10-6)", () => {
     expect(await prisma().job.count()).toBe(0);
   });
 
-  it("keeps the current API key when the file has none", async () => {
+  it("keeps the current API key of the same profile when the file has none", async () => {
     await importExport(prisma(), await asFile());
-    const saved = await prisma().setting.findUniqueOrThrow({ where: { key: "apiKeyEnc" } });
-    expect(decryptApiKey(saved.value, secret)).toBe("sk-current");
+    expect(await profileKey()).toBe("sk-current");
   });
 
   it("keeps this install's usage ping ID, day and answer, whatever the file says", async () => {
@@ -135,12 +136,22 @@ describe("importExport (E10-6)", () => {
     ]);
   });
 
-  it("saves the file's API key, encrypted for this server", async () => {
+  it("saves the file's AI profile keys, encrypted for this server", async () => {
     const file = await asFile();
-    await importExport(prisma(), { ...file, apiKey: "sk-from-file" });
-    const saved = await prisma().setting.findUniqueOrThrow({ where: { key: "apiKeyEnc" } });
-    expect(saved.value).not.toContain("sk-from-file");
-    expect(decryptApiKey(saved.value, secret)).toBe("sk-from-file");
+    await importExport(prisma(), { ...file, aiProfileKeys: { "ai-profile-default": "sk-from-file" } });
+    const saved = await prisma().aiProfile.findUniqueOrThrow({ where: { id: "ai-profile-default" } });
+    expect(saved.apiKeyEnc).not.toContain("sk-from-file");
+    expect(await profileKey()).toBe("sk-from-file");
+  });
+
+  it("turns an older file's provider settings and API key into the default profile", async () => {
+    const file = await asFile();
+    const settings = [...file.settings, { key: "provider", value: "OPENAI" }, { key: "baseUrl", value: "https://llm.example/v1" }, { key: "model", value: "gpt-x" }];
+    await importExport(prisma(), { ...file, schemaVersion: 7, aiProfiles: undefined, settings, apiKey: "sk-old" });
+    expect(await prisma().aiProfile.findMany()).toEqual([expect.objectContaining({ id: "ai-profile-default", provider: "OPENAI", baseUrl: "https://llm.example/v1", model: "gpt-x" })]);
+    expect(await profileKey()).toBe("sk-old");
+    expect(await prisma().setting.findUnique({ where: { key: "aiDefaultProfileId" } })).toMatchObject({ value: "ai-profile-default" });
+    expect(await prisma().setting.findUnique({ where: { key: "provider" } })).toBeNull();
   });
 
   it("restores Find jobs' postings with their applications, and leaves a missing one unlinked (E14-9)", async () => {
@@ -346,7 +357,7 @@ describe("importExport (E10-6)", () => {
     const value = async (key: string) => decryptSecret(JOB_SOURCE_KEY, (await prisma().setting.findUniqueOrThrow({ where: { key } })).value, secret);
     expect(await value("jsearchKeyEnc")).toBe("ak-from-file");
     expect(await value("adzunaKeyEnc")).toBe("adz-current");
-    expect(decryptApiKey((await prisma().setting.findUniqueOrThrow({ where: { key: "apiKeyEnc" } })).value, secret)).toBe("sk-current");
+    expect(await profileKey()).toBe("sk-current");
   });
 
   it("never exports the TypeSafe key, and keeps this server's on import (#274)", async () => {

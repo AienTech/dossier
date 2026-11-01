@@ -6,9 +6,11 @@ import { AiError } from "./errors";
 import { createProvider } from "./index";
 
 vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
-vi.mock("@/lib/prisma", () => ({ prisma: {} }));
-const saved = vi.hoisted(() => ({ settings: { provider: null, baseUrl: null, model: null, apiKeyEnc: null } as Record<string, unknown> }));
-vi.mock("@/lib/settings-data", () => ({ loadSettings: async () => saved.settings }));
+const saved = vi.hoisted(() => ({ profile: null as Record<string, unknown> | null }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: { aiProfile: { count: async () => (saved.profile ? 1 : 0), findMany: async () => (saved.profile ? [saved.profile] : []) } },
+}));
+vi.mock("@/lib/settings-data", () => ({ loadSettings: async () => ({ aiDefaultProfileId: null, aiTaskProfiles: {} }) }));
 
 const noEnv = {} as Parameters<typeof resolveAiConfig>[1];
 const nothingSaved = { provider: null, baseUrl: null, model: null, apiKeyEnc: null };
@@ -91,13 +93,13 @@ describe("createProvider", () => {
 });
 
 describe("isAiUsable (#221)", () => {
-  const usable = async (settings: Record<string, unknown>) => {
-    saved.settings = { provider: null, baseUrl: null, model: null, apiKeyEnc: null, ...settings };
+  const usable = async (profile: Record<string, unknown> | null) => {
+    saved.profile = profile && { id: "p1", name: "", provider: null, baseUrl: null, model: null, apiKeyEnc: null, ...profile };
     return isAiUsable();
   };
 
   it("needs a provider with its model", async () => {
-    expect(await usable({})).toBe(false);
+    expect(await usable(null)).toBe(false);
     expect(await usable({ provider: "LOCAL" })).toBe(false);
     expect(await usable({ provider: "LOCAL", model: "qwen2.5:7b" })).toBe(true);
     // An OpenAI-compatible server may need no key.

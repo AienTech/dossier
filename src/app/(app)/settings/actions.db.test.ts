@@ -17,8 +17,13 @@ import {
   addConnectorRedirect,
   disconnectApps,
   removeConnectorRedirect,
+  addAiProfile,
+  deleteAiProfile,
   listAiModels,
+  saveAiProfileName,
   saveAiProvider,
+  saveAiTaskProfiles,
+  setDefaultAiProfile,
   saveApiKey,
   saveJobSearchDetails,
   saveJobSource,
@@ -60,62 +65,102 @@ beforeEach(async () => {
 });
 afterAll(() => prisma().$disconnect());
 
+const profiles = () => prisma().aiProfile.findMany({ orderBy: { sort: "asc" } });
+
 describe("saveAiProvider", () => {
-  it("saves the provider, address and model (SET-1)", async () => {
-    expect(await saveAiProvider({ provider: "LOCAL", baseUrl: " http://ollama:11434 ", model: "qwen2.5:3b" })).toEqual({
-      ok: true,
-      data: { keyState: "none" },
-    });
-    expect(await settings()).toMatchObject({ provider: "LOCAL", baseUrl: "http://ollama:11434", model: "qwen2.5:3b" });
+  it("makes the first profile from the first save and makes it the default (SET-1)", async () => {
+    const result = await saveAiProvider({ profileId: null, provider: "LOCAL", baseUrl: " http://ollama:11434 ", model: "qwen2.5:3b" });
+    expect(result).toEqual({ ok: true, data: { id: expect.any(String), keyState: "none" } });
+    const [saved] = await profiles();
+    expect(saved).toMatchObject({ provider: "LOCAL", baseUrl: "http://ollama:11434", model: "qwen2.5:3b" });
+    expect((await settings()).aiDefaultProfileId).toBe(saved.id);
   });
 
   it("removes the key when the provider changes, so it never reaches another server", async () => {
-    await saveAiProvider({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5" });
-    await saveApiKey({ provider: "ANTHROPIC", change: { action: "set", value: "sk-ant-secret" } });
-    await saveAiProvider({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-opus-5-5" });
-    expect((await settings()).apiKeyEnc).not.toBeNull();
-    expect(await saveAiProvider({ provider: "OPENAI", baseUrl: "https://llm.example/v1", model: "" })).toMatchObject({ data: { keyState: "none" } });
-    expect(await settings()).toMatchObject({ provider: "OPENAI", model: null, apiKeyEnc: null });
+    const created = await saveAiProvider({ profileId: null, provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5" });
+    const profileId = created.ok ? created.data.id : null;
+    await saveApiKey({ profileId, provider: "ANTHROPIC", change: { action: "set", value: "sk-ant-secret" } });
+    await saveAiProvider({ profileId, provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-opus-5-5" });
+    expect((await profiles())[0].apiKeyEnc).not.toBeNull();
+    expect(await saveAiProvider({ profileId, provider: "OPENAI", baseUrl: "https://llm.example/v1", model: "" })).toMatchObject({ data: { keyState: "none" } });
+    expect((await profiles())[0]).toMatchObject({ provider: "OPENAI", model: null, apiKeyEnc: null });
+  });
+
+  it("refuses a profile that no longer exists", async () => {
+    expect(await saveAiProvider({ profileId: "gone", provider: "LOCAL", baseUrl: "", model: "" })).toMatchObject({ ok: false });
   });
 });
 
 describe("saveApiKey", () => {
   it("stores the key encrypted and only says that it's set", async () => {
-    await saveAiProvider({ provider: "ANTHROPIC", baseUrl: "", model: "claude-sonnet-5" });
-    const result = await saveApiKey({ provider: "ANTHROPIC", change: { action: "set", value: " sk-ant-secret " } });
-    expect(result).toEqual({ ok: true, data: { keyState: "set" } });
+    const created = await saveAiProvider({ profileId: null, provider: "ANTHROPIC", baseUrl: "", model: "claude-sonnet-5" });
+    const profileId = created.ok ? created.data.id : null;
+    const result = await saveApiKey({ profileId, provider: "ANTHROPIC", change: { action: "set", value: " sk-ant-secret " } });
+    expect(result).toEqual({ ok: true, data: { id: profileId, keyState: "set" } });
     expect(JSON.stringify(result)).not.toContain("sk-ant");
-    const { apiKeyEnc } = await settings();
+    const { apiKeyEnc } = (await profiles())[0];
     expect(apiKeyEnc).toMatch(/^v1\./);
     expect(decryptApiKey(apiKeyEnc!)).toBe("sk-ant-secret");
   });
 
-  it("saves the provider too when it only came from the environment", async () => {
-    await saveApiKey({ provider: "ANTHROPIC", change: { action: "set", value: "sk-ant" } });
-    expect(await settings()).toMatchObject({ provider: "ANTHROPIC" });
+  it("saves a profile too when the provider only came from the environment", async () => {
+    await saveApiKey({ profileId: null, provider: "ANTHROPIC", change: { action: "set", value: "sk-ant" } });
+    expect(await profiles()).toEqual([expect.objectContaining({ provider: "ANTHROPIC" })]);
   });
 
   it("removes the key only when asked", async () => {
-    await saveAiProvider({ provider: "ANTHROPIC", baseUrl: "", model: "" });
-    await saveApiKey({ provider: "ANTHROPIC", change: { action: "set", value: "sk-ant" } });
-    expect(await saveApiKey({ provider: "ANTHROPIC", change: { action: "clear" } })).toMatchObject({ data: { keyState: "none" } });
-    expect((await settings()).apiKeyEnc).toBeNull();
+    const created = await saveApiKey({ profileId: null, provider: "ANTHROPIC", change: { action: "set", value: "sk-ant" } });
+    const profileId = created.ok ? created.data.id : null;
+    expect(await saveApiKey({ profileId, provider: "ANTHROPIC", change: { action: "clear" } })).toMatchObject({ data: { keyState: "none" } });
+    expect((await profiles())[0].apiKeyEnc).toBeNull();
   });
 
   it("refuses an empty key", async () => {
-    expect(await saveApiKey({ provider: "ANTHROPIC", change: { action: "set", value: "  " } })).toMatchObject({ ok: false });
+    expect(await saveApiKey({ profileId: null, provider: "ANTHROPIC", change: { action: "set", value: "  " } })).toMatchObject({ ok: false });
+  });
+
+  it("keeps each profile's key to itself", async () => {
+    const first = await saveApiKey({ profileId: null, provider: "OPENAI", change: { action: "set", value: "sk-one" } });
+    const added = await addAiProfile({});
+    const secondId = added.ok ? added.data.id : null;
+    await saveAiProvider({ profileId: secondId, provider: "OPENAI", baseUrl: "https://other.example/v1", model: "m" });
+    await saveApiKey({ profileId: secondId, provider: "OPENAI", change: { action: "set", value: "sk-two" } });
+    const keys = Object.fromEntries((await profiles()).map((profile) => [profile.id, decryptApiKey(profile.apiKeyEnc!)]));
+    expect(keys).toEqual({ [first.ok ? first.data.id : ""]: "sk-one", [secondId!]: "sk-two" });
+  });
+});
+
+describe("AI profiles", () => {
+  it("adds, chooses per task, and deletes, falling back to the default", async () => {
+    const first = await saveAiProvider({ profileId: null, provider: "LOCAL", baseUrl: "", model: "qwen2.5:3b" });
+    const firstId = first.ok ? first.data.id : "";
+    const added = await addAiProfile({});
+    const secondId = added.ok ? added.data.id : "";
+    expect(added).toMatchObject({ ok: true, data: { view: { defaultId: firstId, profiles: [{ id: firstId }, { id: secondId }] } } });
+
+    expect(await saveAiTaskProfiles({ scoring: secondId, writing: "unknown" })).toMatchObject({ ok: true, data: { tasks: { scoring: secondId, writing: null } } });
+    expect(await setDefaultAiProfile({ profileId: secondId })).toMatchObject({ data: { defaultId: secondId } });
+
+    expect(await deleteAiProfile({ profileId: secondId })).toMatchObject({ ok: true, data: { defaultId: firstId, tasks: { scoring: null } } });
+    expect(await settings()).toMatchObject({ aiDefaultProfileId: firstId, aiTaskProfiles: {} });
+  });
+
+  it("renames a profile", async () => {
+    const created = await saveAiProvider({ profileId: null, provider: "LOCAL", baseUrl: "", model: "" });
+    await saveAiProfileName({ profileId: created.ok ? created.data.id : "", name: " Laptop " });
+    expect((await profiles())[0].name).toBe("Laptop");
   });
 });
 
 describe("testAiConnection and listAiModels", () => {
   it("time a short prompt to the saved provider and list its models (SET-2)", async () => {
-    expect(await testAiConnection({})).toEqual({ ok: true, data: { connected: true, model: "qwen2.5:3b", seconds: expect.any(Number) } });
-    expect(await listAiModels({})).toEqual({ ok: true, data: { models: ["qwen2.5:3b", "llama3.1:8b"], problem: null } });
+    expect(await testAiConnection({ profileId: null })).toEqual({ ok: true, data: { connected: true, model: "qwen2.5:3b", seconds: expect.any(Number) } });
+    expect(await listAiModels({ profileId: null })).toEqual({ ok: true, data: { models: ["qwen2.5:3b", "llama3.1:8b"], problem: null } });
   });
 
   it("report a failure in plain words", async () => {
     provider.current = new MockProvider({ model: null });
-    expect(await testAiConnection({})).toEqual({
+    expect(await testAiConnection({ profileId: null })).toEqual({
       ok: true,
       data: { connected: false, message: "Choose a model in Settings → AI provider first." },
     });

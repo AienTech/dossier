@@ -2,13 +2,15 @@ import "server-only";
 
 import { AiProvider } from "@/generated/prisma/enums";
 import { env, type Env } from "@/lib/env";
+import { prisma } from "@/lib/prisma";
+import type { AiTask, SettingsData } from "@/lib/settings";
 import { loadSettings } from "@/lib/settings-data";
 
 import { API_KEY_UNREADABLE, ApiKeyUnreadable, apiKeyState, decryptApiKey } from "./api-key";
-import type { AiSettingsView, KeyState } from "./provider-options";
+import type { AiProfileView, AiSettingsView, KeyState } from "./provider-options";
 
-// Which provider to use and how to reach it (E6-1): what's saved in Settings,
-// or else the DOSSIER_AI_* variables, or else the defaults below.
+// Which provider to use and how to reach it (E6-1): the saved profile a task
+// uses, or else the DOSSIER_AI_* variables, or else the defaults below.
 
 export type AiConfig = {
   provider: AiProvider;
@@ -51,7 +53,7 @@ type AiEnv = Pick<
 >;
 
 /**
- * Settings win once a provider is saved there; until then the environment
+ * A saved profile wins; without one the environment
  * decides. The two are never mixed, except that an env key still serves a
  * saved provider of the same kind that has no key of its own.
  */
@@ -84,23 +86,56 @@ export function resolveAiConfig(saved: SavedSettings | null, source: AiEnv, secr
   };
 }
 
-/** The AI configuration in effect right now. */
-export async function loadAiConfig(): Promise<AiConfig> {
-  return resolveAiConfig(await loadSettings(), env);
+export type SavedProfile = SavedSettings & { id: string; name: string };
+
+const PROFILE_SELECT = { id: true, name: true, provider: true, baseUrl: true, model: true, apiKeyEnc: true } as const;
+
+/** Saved profiles, in their order. */
+export async function loadAiProfiles(): Promise<SavedProfile[]> {
+  return prisma.aiProfile.findMany({ select: PROFILE_SELECT, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] });
+}
+
+/** The profile `task` uses: its own, else the default, else the first. Null when none is saved. */
+export function profileFor(profiles: readonly SavedProfile[], settings: Pick<SettingsData, "aiDefaultProfileId" | "aiTaskProfiles">, task: AiTask = "other"): SavedProfile | null {
+  const byId = (id: string | null | undefined) => (id ? profiles.find((profile) => profile.id === id) : undefined);
+  const own = task === "other" ? undefined : byId(settings.aiTaskProfiles[task]);
+  return own ?? byId(settings.aiDefaultProfileId) ?? profiles[0] ?? null;
+}
+
+/** The AI configuration `task` uses right now. */
+export async function loadAiConfig(task: AiTask = "other"): Promise<AiConfig> {
+  const [profiles, settings] = await Promise.all([loadAiProfiles(), loadSettings()]);
+  return resolveAiConfig(profileFor(profiles, settings, task), env);
+}
+
+/** One profile's configuration, or the environment's when `id` is null. */
+export async function loadAiProfileConfig(id: string | null): Promise<AiConfig> {
+  const profile = id ? await prisma.aiProfile.findUnique({ where: { id }, select: PROFILE_SELECT }) : null;
+  return resolveAiConfig(profile, env);
 }
 
 /**
- * The AI settings as the settings screen shows them: what's in effect,
- * whether it comes from Settings or DOSSIER_AI_*, and never the key.
+ * The AI settings as the settings screen shows them: each profile as in
+ * effect, or what DOSSIER_AI_* sets when none is saved, and never a key.
  */
 export async function loadAiSettingsView(): Promise<AiSettingsView> {
-  const saved = await loadSettings();
-  const config = resolveAiConfig(saved, env);
+  const [profiles, settings] = await Promise.all([loadAiProfiles(), loadSettings()]);
+  const viewOf = (profile: SavedProfile | null): AiProfileView => {
+    const config = resolveAiConfig(profile, env);
+    return {
+      id: profile?.id ?? null,
+      name: profile?.name ?? "",
+      provider: config.provider,
+      baseUrl: config.baseUrl,
+      model: config.model ?? "",
+      keyState: keyStateOf(profile, config),
+    };
+  };
+  const fallback = profileFor(profiles, settings);
   return {
-    provider: config.provider,
-    baseUrl: config.baseUrl,
-    model: config.model ?? "",
-    keyState: keyStateOf(saved, config),
+    profiles: profiles.length > 0 ? profiles.map(viewOf) : [viewOf(null)],
+    defaultId: fallback?.id ?? null,
+    tasks: { scoring: settings.aiTaskProfiles.scoring ?? null, writing: settings.aiTaskProfiles.writing ?? null },
   };
 }
 
@@ -113,18 +148,18 @@ export function keyStateOf(saved: { provider: AiProvider | null; apiKeyEnc: stri
 /** Whether an AI provider has been chosen, in Settings or with DOSSIER_AI_PROVIDER. */
 export async function isAiConfigured(): Promise<boolean> {
   if (env.DOSSIER_AI_PROVIDER) return true;
-  return Boolean((await loadSettings()).provider);
+  return (await prisma.aiProfile.count()) > 0;
 }
 
 /**
- * Whether Dossier's own AI model can be called: a provider with its model,
- * and a key for the hosted ones that always need one. Without it, and with
- * the Claude connector on, the AI buttons hand the work to Claude chat
- * (src/lib/connector/handoff.ts, #221).
+ * Whether Dossier's own AI model can be called for `task`: a provider with
+ * its model, and a key for the hosted ones that always need one. Without
+ * it, and with the Claude connector on, the AI buttons hand the work to
+ * Claude chat (src/lib/connector/handoff.ts, #221).
  */
-export async function isAiUsable(): Promise<boolean> {
+export async function isAiUsable(task: AiTask = "other"): Promise<boolean> {
   if (!(await isAiConfigured())) return false;
-  const config = await loadAiConfig();
+  const config = await loadAiConfig(task);
   if (!config.model || config.apiKeyProblem) return false;
   const needsKey = config.provider === AiProvider.ANTHROPIC || config.provider === AiProvider.MISTRAL;
   return !needsKey || Boolean(config.apiKey);

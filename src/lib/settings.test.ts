@@ -28,10 +28,8 @@ describe("document dates", () => {
 describe("stored settings", () => {
   it("reads an empty table as the prototype's defaults", () => {
     expect(settingsFromRows([])).toEqual({
-      provider: null,
-      baseUrl: null,
-      model: null,
-      apiKeyEnc: null,
+      aiDefaultProfileId: null,
+      aiTaskProfiles: {},
       creativity: "BALANCED",
       strict: true,
       showDiff: true,
@@ -106,7 +104,7 @@ describe("stored settings", () => {
 
   it("reads back what it stores", () => {
     const saved = {
-      provider: "OPENAI",
+      aiDefaultProfileId: "p1",
       strict: false,
       paper: "LETTER",
       customLanguages: ["Farsi", "Hebrew"],
@@ -124,7 +122,7 @@ describe("stored settings", () => {
 
   it("reads values that don't fit as the default, and ignores unknown keys", () => {
     const settings = settingsFromRows([
-      { key: "provider", value: "GEMINI" },
+      { key: "aiTaskProfiles", value: "nope" },
       { key: "paper", value: "A5" },
       { key: "strict", value: "maybe" },
       { key: "customLanguages", value: "Farsi, Hebrew" },
@@ -132,7 +130,7 @@ describe("stored settings", () => {
       { key: "jobRetentionHours", value: "5" },
       { key: "theme", value: "dark" },
     ]);
-    expect(settings).toMatchObject({ provider: null, paper: "A4", strict: true, customLanguages: [], quietDays: 7, jobRetentionHours: 24 });
+    expect(settings).toMatchObject({ aiTaskProfiles: {}, paper: "A4", strict: true, customLanguages: [], quietDays: 7, jobRetentionHours: 24 });
     expect(settings).not.toHaveProperty("theme");
   });
 

@@ -32,14 +32,14 @@ afterAll(() => prisma().$disconnect());
 
 describe("settings and themes", () => {
   it("saves settings as text rows and reads them back", async () => {
-    await saveSettings({ provider: "LOCAL", strict: false, customLanguages: ["Farsi"], docLanguage: "Dutch" });
+    await saveSettings({ aiDefaultProfileId: "p1", strict: false, customLanguages: ["Farsi"], docLanguage: "Dutch" });
     expect(await prisma().setting.findMany({ select: { key: true, value: true }, orderBy: { key: "asc" } })).toEqual([
+      { key: "aiDefaultProfileId", value: "p1" },
       { key: "customLanguages", value: '["Farsi"]' },
       { key: "docLanguage", value: "Dutch" },
-      { key: "provider", value: "LOCAL" },
       { key: "strict", value: "false" },
     ]);
-    expect(await loadSettings()).toMatchObject({ provider: "LOCAL", strict: false, customLanguages: ["Farsi"], docLanguage: "Dutch", paper: "A4" });
+    expect(await loadSettings()).toMatchObject({ aiDefaultProfileId: "p1", strict: false, customLanguages: ["Farsi"], docLanguage: "Dutch", paper: "A4" });
   });
 
   it("removes a setting saved as null, so it reads as not set", async () => {

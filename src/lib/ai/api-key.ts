@@ -40,7 +40,7 @@ export function apiKeyState(stored: string | null, secret?: string): ApiKeyState
 /** How a settings save changes the key (see SecretChange). */
 export type ApiKeyChange = SecretChange;
 
-/** The new value of `Settings.apiKeyEnc` after `change`. */
+/** The new value of `AiProfile.apiKeyEnc` after `change`. */
 export function applyApiKeyChange(stored: string | null, change: ApiKeyChange, secret?: string): string | null {
   return applySecretChange(AI_API_KEY, stored, change, secret);
 }

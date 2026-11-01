@@ -31,7 +31,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
     userTimeZone(),
     countPostings(),
     countSearches(),
-    isAiUsable().then(handsOffToClaude),
+    isAiUsable("scoring").then(handsOffToClaude),
   ]);
   const now = new Date();
 

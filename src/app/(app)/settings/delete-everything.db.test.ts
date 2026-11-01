@@ -64,6 +64,8 @@ describe("deleteEverything (E10-8)", () => {
     await prisma().postingSearch.create({ data: { source: "JSEARCH", query: {}, postings: [] } });
     // And what the job agent found (E16).
     await prisma().agentCandidate.create({ data: { source: "JSEARCH", externalId: "job-1", dedupeKey: "key-1" } });
+    // And the AI profiles.
+    await prisma().aiProfile.create({ data: { provider: "LOCAL" } });
     await prisma().postingScore.create({ data: { source: "JSEARCH", externalId: "job-1", score: 80, reasons: [], redFlags: [], scoredWith: "score-posting@1" } });
     // And Startups, with the fingerprints of ones removed for good (#222).
     await prisma().startup.create({ data: { source: "HN", externalId: "1", company: "Acme", roles: [], emails: [], links: [], reasons: [] } });
@@ -77,6 +79,7 @@ describe("deleteEverything (E10-8)", () => {
       prisma().posting.count(),
       prisma().postingSearch.count(),
       prisma().agentCandidate.count(),
+      prisma().aiProfile.count(),
       prisma().postingScore.count(),
       prisma().startup.count(),
       prisma().startupBlock.count(),
@@ -92,7 +95,7 @@ describe("deleteEverything (E10-8)", () => {
       prisma().job.count(),
       prisma().theme.count({ where: { builtIn: false } }),
     ]);
-    expect(counts).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(counts.every((count) => count === 0)).toBe(true);
     expect(await prisma().theme.count({ where: { builtIn: true } })).toBe(12);
     expect(await readdir(dataDir.path)).toEqual([]);
   });

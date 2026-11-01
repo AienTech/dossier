@@ -47,7 +47,7 @@ export const regenerateUnitJob = defineJob({
     const unit = units?.find((entry) => entry.id === unitId);
     if (!application || !units || !unit || unit.text !== from) return { outcome: "changed" as const };
 
-    const [provider, options, profile, facts] = await Promise.all([getAiProvider(), loadTaskOptions(), loadProfile(), loadFactTexts(applicationId)]);
+    const [provider, options, profile, facts] = await Promise.all([getAiProvider("writing"), loadTaskOptions(), loadProfile(), loadFactTexts(applicationId)]);
     const { data } = await regenerateUnit(
       provider,
       {

@@ -86,7 +86,7 @@ export const restorePosting = action(postingRef.extend({ saved: z.boolean() }), 
  */
 export const startScoringPosting = action(z.object({ posting: foundPostingSchema }), async ({ posting }): Promise<{ jobId: string } | { handoff: string }> => {
   const scoring = await loadScoringConfig();
-  if (scoring.scorer === "AI" && (await handsOffToClaude(await isAiUsable()))) return { handoff: await handOffFoundPosting(posting, "score") };
+  if (scoring.scorer === "AI" && (await handsOffToClaude(await isAiUsable("scoring")))) return { handoff: await handOffFoundPosting(posting, "score") };
   const problem = await scoringProblem(scoring);
   if (problem) throw new ActionError(problem);
   const key = scoreJobKey(posting);

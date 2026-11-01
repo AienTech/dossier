@@ -2,6 +2,8 @@ import "server-only";
 
 import { AiProvider } from "@/generated/prisma/enums";
 
+import type { AiTask } from "@/lib/settings";
+
 import { loadAiConfig, type AiConfig } from "./config";
 import { AiError } from "./errors";
 import { providerOption } from "./provider-options";
@@ -33,7 +35,7 @@ export function createProvider(config: AiConfig): AIProvider {
   }
 }
 
-/** The provider configured in Settings, or by the DOSSIER_AI_* variables. */
-export async function getAiProvider(): Promise<AIProvider> {
-  return createProvider(await loadAiConfig());
+/** The provider `task` uses: its profile in Settings, or the DOSSIER_AI_* variables. */
+export async function getAiProvider(task: AiTask = "other"): Promise<AIProvider> {
+  return createProvider(await loadAiConfig(task));
 }

@@ -2,7 +2,8 @@ import "server-only";
 
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { encryptApiKey } from "@/lib/ai/api-key";
-import { EXPORT_FORMAT, EXPORT_SCHEMA_VERSION, EXPORT_SCHEMA_VERSIONS, exportSchema, INSTALL_SETTINGS, SECRET_SETTINGS, type DossierExport } from "@/lib/data-export";
+import { AiProvider } from "@/generated/prisma/enums";
+import { EXPORT_FORMAT, EXPORT_SCHEMA_VERSION, EXPORT_SCHEMA_VERSIONS, exportSchema, INSTALL_SETTINGS, LEGACY_AI_SETTINGS, SECRET_SETTINGS, type DossierExport } from "@/lib/data-export";
 import { encryptSecret, JOB_SOURCE_KEY } from "@/lib/secrets";
 
 // Restoring from an export file (E10-6, SET-10): everything is replaced in
@@ -70,6 +71,23 @@ const json = (value: unknown) => (value === null || value === undefined ? Prisma
 /** A JSON list for a column that can't be null (#222): anything else reads as empty. */
 const jsonList = (value: unknown) => (Array.isArray(value) ? value : []) as Prisma.InputJsonValue;
 
+/** The settings older files hold that are now rows: the AI provider. */
+const LEGACY_SETTINGS: readonly string[] = LEGACY_AI_SETTINGS;
+
+/** The file's AI profiles; a file before version 8 has its provider in settings, which becomes the default profile. */
+function aiProfilesFrom(data: DossierExport): { aiProfiles: NonNullable<DossierExport["aiProfiles"]>; aiProfileKeys: Record<string, string>; aiDefaultProfileId: string | null } {
+  if (data.aiProfiles) return { aiProfiles: data.aiProfiles, aiProfileKeys: data.aiProfileKeys ?? {}, aiDefaultProfileId: null };
+  const setting = (key: string) => data.settings.find((entry) => entry.key === key)?.value || null;
+  const provider = setting("provider");
+  if (!provider || !(Object.values(AiProvider) as string[]).includes(provider)) return { aiProfiles: [], aiProfileKeys: {}, aiDefaultProfileId: null };
+  const id = "ai-profile-default";
+  return {
+    aiProfiles: [{ id, name: "", provider: provider as AiProvider, baseUrl: setting("baseUrl"), model: setting("model"), sort: 0, createdAt: data.exportedAt, updatedAt: data.exportedAt }],
+    aiProfileKeys: data.apiKey ? { [id]: data.apiKey } : {},
+    aiDefaultProfileId: id,
+  };
+}
+
 /**
  * Replaces all user data with the export's, in one transaction. Each saved
  * key (the AI provider's, the job sources') stays as it is unless the file
@@ -78,9 +96,9 @@ const jsonList = (value: unknown) => (Array.isArray(value) ? value : []) as Pris
  * settings (the usage ping's) stay as they are.
  */
 export async function importExport(db: PrismaClient, data: DossierExport): Promise<void> {
-  const { profile, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks, apiKey, jobSourceKeys } = data;
+  const { profile, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks, jobSourceKeys } = data;
+  const { aiProfiles, aiProfileKeys, aiDefaultProfileId } = aiProfilesFrom(data);
   const fromFile: Record<string, string | null> = {
-    apiKeyEnc: apiKey ? encryptApiKey(apiKey) : null,
     jsearchKeyEnc: jobSourceKeys?.jsearch ? encryptSecret(JOB_SOURCE_KEY, jobSourceKeys.jsearch) : null,
     adzunaKeyEnc: jobSourceKeys?.adzuna ? encryptSecret(JOB_SOURCE_KEY, jobSourceKeys.adzuna) : null,
   };
@@ -134,7 +152,18 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
       await tx.reference.createMany({ data: profile.references });
       await tx.fact.createMany({ data: profile.facts });
       await tx.theme.createMany({ data: themes.map((theme) => ({ ...theme, builtIn: false })) });
-      await tx.setting.createMany({ data: settings.filter((setting) => !SECRET_SETTINGS.includes(setting.key) && !INSTALL_SETTINGS.includes(setting.key)) });
+      await tx.setting.createMany({
+        data: settings.filter(
+          (setting) => !SECRET_SETTINGS.includes(setting.key) && !INSTALL_SETTINGS.includes(setting.key) && !LEGACY_SETTINGS.includes(setting.key),
+        ),
+      });
+      if (aiDefaultProfileId) await tx.setting.upsert({ where: { key: "aiDefaultProfileId" }, create: { key: "aiDefaultProfileId", value: aiDefaultProfileId }, update: { value: aiDefaultProfileId } });
+      // A profile's key comes from the file, else stays as saved here for the same profile.
+      const keptProfileKeys = new Map((await tx.aiProfile.findMany({ select: { id: true, apiKeyEnc: true } })).map((entry) => [entry.id, entry.apiKeyEnc]));
+      await tx.aiProfile.deleteMany();
+      await tx.aiProfile.createMany({
+        data: aiProfiles.map((entry) => ({ ...entry, apiKeyEnc: aiProfileKeys[entry.id] ? encryptApiKey(aiProfileKeys[entry.id]) : (keptProfileKeys.get(entry.id) ?? null) })),
+      });
       for (const [key, value] of Object.entries(fromFile)) if (value) await tx.setting.create({ data: { key, value } });
 
       const themeIds = new Set((await tx.theme.findMany({ select: { id: true } })).map((theme) => theme.id));

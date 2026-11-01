@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AiProvider, Creativity, DateFormat, PaperSize, Tone } from "@/generated/prisma/enums";
+import { Creativity, DateFormat, PaperSize, Tone } from "@/generated/prisma/enums";
 import { EMPTY_QUERY, JOB_SOURCES, JSEARCH_HOSTS, searchQuerySchema } from "@/lib/job-search/search";
 import { SCORERS } from "@/lib/scoring/scorers";
 import { startupsRefreshSchema } from "@/lib/startups/types";
@@ -100,14 +100,18 @@ export type AgentRun = z.infer<typeof agentRunSchema>;
 /** How many runs are kept: more than a day's worth, for the limit and the screen. */
 export const AGENT_RUNS_KEPT = 10;
 
+/** The task groups that can use their own AI profile. */
+export const AI_TASKS = ["scoring", "writing"] as const;
+export type AiTask = (typeof AI_TASKS)[number] | "other";
+const aiTaskProfilesSchema = z.object({ scoring: z.string().optional(), writing: z.string().optional() });
+export type AiTaskProfiles = z.infer<typeof aiTaskProfilesSchema>;
+
 export const settingsSchema = z.object({
-  // AI provider (SET-1). Null means "not set in the app": fall back to the
-  // DOSSIER_AI_* environment variables, then to the built-in defaults.
-  provider: z.enum(AiProvider).nullable().catch(null),
-  baseUrl: z.string().nullable().catch(null),
-  model: z.string().nullable().catch(null),
-  /** Encrypted with a key derived from DOSSIER_SECRET (E6-2); never sent to the client. */
-  apiKeyEnc: z.string().nullable().catch(null),
+  // AI providers (SET-1) are AiProfile rows. Null means "not set in the app":
+  // the first profile, else the DOSSIER_AI_* environment variables.
+  aiDefaultProfileId: z.string().nullable().catch(null),
+  /** The profile for each task group; a missing one uses the default. */
+  aiTaskProfiles: json(aiTaskProfilesSchema).catch({}),
   creativity: z.enum(Creativity).catch(Creativity.BALANCED),
   /** "Never invent experience" (SET-4). */
   strict: flag(true),
@@ -162,7 +166,7 @@ export const settingsSchema = z.object({
   scorer: z.enum(SCORERS).nullable().catch(null),
   typesafeKeyEnc: z.string().nullable().catch(null),
   // Job agent (E16): one search, run once a day. Off until it's turned on.
-  // It asks the source in Settings → Job search, with its key.
+  // It asks the sources in Settings → Job search, with their keys.
   agentEnabled: flag(false),
   /** The search it runs, as Find jobs asks it; it needs keywords and a country to run. */
   agentQuery: json(searchQuerySchema).catch(EMPTY_QUERY),

@@ -2,7 +2,7 @@
 
 Dossier is a single-user app you run on your own server. This page is for whoever runs it: what Dossier keeps and for how long, what leaves your server and who receives it, and what deleting something removes. For how the data is protected, see [SECURITY.md](SECURITY.md).
 
-In short: everything you enter is kept in your own PostgreSQL database and data directory. What leaves your server goes to the AI provider and job source you choose, to Google if you connect Gmail and Calendar, to Hacker News and startups' own sites once you use Startups, to TypeSafe if you choose Jev for scoring, to Anthropic through Claude, or another app you connect, if you turn on the MCP connector, plus an update check you can turn off and a daily usage ping, only if you agree to it. With a local model, your profile, postings and documents never leave your server. With a hosted one, keeping the database on your server covers only part of where your data goes.
+In short: everything you enter is kept in your own PostgreSQL database and data directory. What leaves your server goes to the AI providers and job source you choose, to Google if you connect Gmail and Calendar, to Hacker News and startups' own sites once you use Startups, to TypeSafe if you choose Jev for scoring, to Anthropic through Claude, or another app you connect, if you turn on the MCP connector, plus an update check you can turn off and a daily usage ping, only if you agree to it. With a local model, your profile, postings and documents never leave your server. With a hosted one, keeping the database on your server covers only part of where your data goes.
 
 ## What Dossier keeps
 

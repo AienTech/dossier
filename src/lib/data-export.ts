@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma/client";
 import {
   AgentCandidateStatus,
+  AiProvider,
   ApplicationOrigin,
   ApplicationStatus,
   ChatRole,
@@ -40,12 +41,14 @@ import { appVersion } from "@/lib/version";
 // behind: they belong to the server or the mailbox, not the user's data.
 
 export const EXPORT_FORMAT = "dossier-export";
-/** Bump when the file's shape changes; imports refuse versions they don't know. 2 added Find jobs' postings and keys (E14-9), 3 projects (PRO-13) and the job agent (E16), 4 facts (PRO-14, APP-15), 5 publications (#218), the profile photo's theme and application options (#224) and Startups (#222), 6 the line about a role's company (#257), 7 skill groups (#280). */
-export const EXPORT_SCHEMA_VERSION = 7;
+/** Bump when the file's shape changes; imports refuse versions they don't know. 2 added Find jobs' postings and keys (E14-9), 3 projects (PRO-13) and the job agent (E16), 4 facts (PRO-14, APP-15), 5 publications (#218), the profile photo's theme and application options (#224) and Startups (#222), 6 the line about a role's company (#257), 7 skill groups (#280), 8 AI profiles. */
+export const EXPORT_SCHEMA_VERSION = 8;
 /** The versions imports can read. */
-export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
+export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
-/** The setting that holds the encrypted API key, which only this server can read. */
+/** Up to version 7, the AI provider was these settings, and its key the top-level `apiKey`; imports turn them into a profile. */
+export const LEGACY_AI_SETTINGS: readonly string[] = ["provider", "baseUrl", "model"];
+/** The setting that held the encrypted API key up to version 7. */
 const API_KEY_SETTING = "apiKeyEnc";
 /** The settings that hold encrypted keys, which only this server can read: never exported as they are. */
 export const SECRET_SETTINGS: readonly string[] = [API_KEY_SETTING, "jsearchKeyEnc", "adzunaKeyEnc", "typesafeKeyEnc"];
@@ -319,10 +322,22 @@ const postingSearch = z.object({
   updatedAt: date,
 });
 
+/** A saved AI provider, without its key. */
+const aiProfile = z.object({
+  id: text,
+  name: text,
+  provider: z.enum(AiProvider),
+  baseUrl: text.nullable(),
+  model: text.nullable(),
+  sort: int,
+  createdAt: date,
+  updatedAt: date,
+});
+
 /** An export file as read back (E10-6). */
 export const exportSchema = z.object({
   format: z.literal(EXPORT_FORMAT),
-  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8]),
   appVersion: text,
   exportedAt: date,
   profile: z.object({
@@ -341,8 +356,12 @@ export const exportSchema = z.object({
   }),
   themes: z.array(theme),
   settings: z.array(keyValue),
-  /** The AI provider's key in plain text, only when the user asked for it. */
+  /** Up to version 7: the AI provider's key in plain text, only when the user asked for it. */
   apiKey: text.optional(),
+  /** AI profiles (version 8); absent in older files, whose settings hold the provider. */
+  aiProfiles: z.array(aiProfile).optional(),
+  /** Each profile's key in plain text by profile ID, only when the user asked for it. */
+  aiProfileKeys: z.record(z.string(), text).optional(),
   /** The job sources' keys in plain text, likewise (E14-9). */
   jobSourceKeys: z.object({ jsearch: text.optional(), adzuna: text.optional() }).optional(),
   applications: z.array(application),
@@ -376,7 +395,7 @@ export async function buildExport(
   { includeApiKey = false, now = new Date() }: { includeApiKey?: boolean; now?: Date } = {},
 ): Promise<DossierExport> {
   return db.$transaction(async (tx) => {
-    const [fields, skills, languages, experience, projects, education, publications, references, facts, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks] = await Promise.all([
+    const [fields, skills, languages, experience, projects, education, publications, references, facts, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks, aiProfiles] = await Promise.all([
       tx.profileField.findMany({ select: { key: true, value: true }, orderBy: { key: "asc" } }),
       tx.skill.findMany({ select: { id: true, name: true, sort: true, group: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
       tx.language.findMany({ select: { id: true, name: true, level: true, sort: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
@@ -409,6 +428,7 @@ export async function buildExport(
       tx.agentCandidate.findMany({ orderBy: { createdAt: "asc" } }),
       tx.startup.findMany({ orderBy: { createdAt: "asc" } }),
       tx.startupBlock.findMany({ orderBy: { createdAt: "asc" } }),
+      tx.aiProfile.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
     ]);
 
     // Keys only when asked for, decrypted; one that's unreadable here too (DOSSIER_SECRET changed) has nothing to export.
@@ -420,7 +440,11 @@ export async function buildExport(
         return undefined;
       }
     };
-    const apiKey = readable(stored(API_KEY_SETTING), (value) => decryptApiKey(value));
+    const aiProfileKeys = Object.fromEntries(
+      aiProfiles
+        .map((profile) => [profile.id, includeApiKey ? readable(profile.apiKeyEnc ?? undefined, (value) => decryptApiKey(value)) : undefined] as const)
+        .filter(([, value]) => value),
+    ) as Record<string, string>;
     const jobSourceKeys = Object.fromEntries(
       Object.entries({
         jsearch: readable(stored("jsearchKeyEnc"), (value) => decryptSecret(JOB_SOURCE_KEY, value)),
@@ -446,7 +470,11 @@ export async function buildExport(
       },
       themes,
       settings: settings.filter((setting) => !SECRET_SETTINGS.includes(setting.key) && !INSTALL_SETTINGS.includes(setting.key)),
-      ...(apiKey ? { apiKey } : {}),
+      aiProfiles: aiProfiles.map(({ apiKeyEnc, ...profile }) => {
+        void apiKeyEnc;
+        return profile;
+      }),
+      ...(Object.keys(aiProfileKeys).length > 0 ? { aiProfileKeys } : {}),
       ...(Object.keys(jobSourceKeys).length > 0 ? { jobSourceKeys } : {}),
       applications,
       postings,

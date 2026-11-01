@@ -20,7 +20,7 @@ beforeEach(async () => {
   await seedBuiltIns(prisma());
   await seedDemo(prisma(), { now });
   await prisma().theme.create({ data: { id: "mine", name: "Mine", headFont: "GEIST", bodyFont: "GEIST", accent: "#224466" } });
-  await prisma().setting.create({ data: { key: "apiKeyEnc", value: encryptApiKey("sk-test-123", "s".repeat(32)) } });
+  await prisma().aiProfile.create({ data: { id: "p1", provider: "ANTHROPIC", model: "claude-sonnet-5", apiKeyEnc: encryptApiKey("sk-test-123", "s".repeat(32)) } });
 });
 afterAll(() => prisma().$disconnect());
 
@@ -53,14 +53,15 @@ describe("buildExport (E10-4)", () => {
     expect(ledgerly.documents[0].id).toBe((await prisma().document.findFirstOrThrow({ where: { applicationId: ledgerly.id, kind: ledgerly.documents[0].kind } })).id);
   });
 
-  it("leaves the API key out unless asked, and then gives it in plain text", async () => {
+  it("has the AI profiles without keys, unless asked, and then gives them in plain text", async () => {
     const without = await buildExport(prisma(), { now });
-    expect(without).not.toHaveProperty("apiKey");
+    expect(without.aiProfiles).toEqual([expect.objectContaining({ id: "p1", provider: "ANTHROPIC", model: "claude-sonnet-5" })]);
+    expect(without).not.toHaveProperty("aiProfileKeys");
     expect(JSON.stringify(without)).not.toContain("apiKeyEnc");
 
     const withKey = await buildExport(prisma(), { now, includeApiKey: true });
-    expect(withKey.apiKey).toBe("sk-test-123");
-    expect(withKey.settings.map((setting) => setting.key)).not.toContain("apiKeyEnc");
+    expect(withKey.aiProfileKeys).toEqual({ p1: "sk-test-123" });
+    expect(JSON.stringify(withKey)).not.toContain("apiKeyEnc");
   });
 
   it("leaves out the install's own settings: the usage ping's ID, day and answer", async () => {

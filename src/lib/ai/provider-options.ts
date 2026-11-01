@@ -96,10 +96,26 @@ export const API_KEY_UNREADABLE = "Your saved API key can't be read. Please ente
 /** What Settings may know about the API key: never the key itself. */
 export type KeyState = "none" | "set" | "unreadable" | "env";
 
-/** What the AI provider section starts from. */
-export type AiSettingsView = {
+/** One saved profile as Settings shows it; `id` is null for the DOSSIER_AI_* setup before any is saved. */
+export type AiProfileView = {
+  id: string | null;
+  name: string;
   provider: AiProvider;
   baseUrl: string;
   model: string;
   keyState: KeyState;
 };
+
+/** What the AI provider section starts from. */
+export type AiSettingsView = {
+  profiles: AiProfileView[];
+  defaultId: string | null;
+  tasks: { scoring: string | null; writing: string | null };
+};
+
+/** "Anthropic · claude-sonnet-5", or the name it was given. */
+export function profileLabel(profile: Pick<AiProfileView, "name" | "provider" | "model">): string {
+  if (profile.name.trim()) return profile.name.trim();
+  const name = providerOption(profile.provider).name;
+  return profile.model ? `${name} · ${profile.model}` : name;
+}

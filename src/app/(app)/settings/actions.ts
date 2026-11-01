@@ -8,7 +8,7 @@ import { AiProvider, Creativity, DateFormat, JobStatus, PaperSize, Tone } from "
 import { action, ActionError } from "@/lib/action";
 import { AiError, createProvider } from "@/lib/ai";
 import { applyApiKeyChange } from "@/lib/ai/api-key";
-import { keyStateOf, loadAiConfig, resolveAiConfig } from "@/lib/ai/config";
+import { keyStateOf, loadAiConfig, loadAiProfileConfig, loadAiSettingsView, resolveAiConfig } from "@/lib/ai/config";
 import type { KeyState } from "@/lib/ai/provider-options";
 import { DOCUMENT_LANGUAGES } from "@/lib/document-language";
 import { deleteAllBackups } from "@/lib/backups";
@@ -28,66 +28,126 @@ import { askJev } from "@/lib/scoring/typesafe";
 import { applySecretChange, JOB_SOURCE_KEY, TYPESAFE_KEY } from "@/lib/secrets";
 
 import { seedBuiltIns } from "../../../../prisma/seed/built-ins";
-import { isJobRetention } from "@/lib/settings";
+import { isJobRetention, settingsFromRows } from "@/lib/settings";
 import { loadSettings, saveSettings } from "@/lib/settings-data";
 
-// Settings → AI provider (E6-3). Every field saves on its own, so a test
-// or a model list always reflects what's saved.
+// Settings → AI provider (E6-3). Providers are saved as profiles; every
+// field saves on its own, so a test or a model list always reflects what's
+// saved. Before any profile exists, the first save makes one from what
+// DOSSIER_AI_* sets.
 
-/** The key state after a change, for the settings screen. */
-async function currentKeyState(): Promise<KeyState> {
-  const saved = await loadSettings();
-  return keyStateOf(saved, resolveAiConfig(saved, env));
+const profileId = z.string().min(1).max(100).nullable();
+
+/** The key state of a profile after a change, for the settings screen. */
+async function profileKeyState(id: string): Promise<KeyState> {
+  const profile = await prisma.aiProfile.findUniqueOrThrow({ where: { id } });
+  return keyStateOf(profile, resolveAiConfig(profile, env));
+}
+
+async function nextProfileSort(): Promise<number> {
+  const last = await prisma.aiProfile.findFirst({ orderBy: { sort: "desc" }, select: { sort: true } });
+  return (last?.sort ?? -1) + 1;
+}
+
+/** The profile to change, made when it doesn't exist yet; the first one becomes the default. */
+async function profileToChange(id: string | null, provider: AiProvider): Promise<{ id: string; provider: AiProvider; apiKeyEnc: string | null }> {
+  if (id) {
+    const found = await prisma.aiProfile.findUnique({ where: { id } });
+    if (!found) throw new ActionError("That AI profile no longer exists. Reload the page.");
+    return found;
+  }
+  const config = await loadAiConfig();
+  const same = provider === config.provider;
+  const created = await prisma.aiProfile.create({
+    data: { provider, baseUrl: same ? config.baseUrl : null, model: same ? config.model : null, sort: await nextProfileSort() },
+  });
+  if (!(await loadSettings()).aiDefaultProfileId) await saveSettings({ aiDefaultProfileId: created.id });
+  return created;
 }
 
 /**
- * Saves the provider, server address and model (SET-1). A key belongs to
- * its provider: switching provider removes it, so it's never sent to
- * another company's server.
+ * Saves a profile's provider, server address and model (SET-1). A key
+ * belongs to its provider: switching provider removes it, so it's never
+ * sent to another company's server.
  */
 export const saveAiProvider = action(
   z.object({
+    profileId,
     provider: z.enum(AiProvider),
     // Saved as typed: a half-typed address is harmless, and the connection test explains a wrong one.
     baseUrl: z.string().trim().max(500),
     model: z.string().trim().max(200),
   }),
-  async ({ provider, baseUrl, model }) => {
-    const current = await loadSettings();
-    await saveSettings({
-      provider,
-      baseUrl: baseUrl || null,
-      model: model || null,
-      ...(current.provider !== provider ? { apiKeyEnc: null } : {}),
+  async ({ profileId: id, provider, baseUrl, model }) => {
+    const current = await profileToChange(id, provider);
+    await prisma.aiProfile.update({
+      where: { id: current.id },
+      data: { provider, baseUrl: baseUrl || null, model: model || null, ...(current.provider !== provider ? { apiKeyEnc: null } : {}) },
     });
-    return { keyState: await currentKeyState() };
+    return { id: current.id, keyState: await profileKeyState(current.id) };
   },
 );
 
-/** Saves a new API key, encrypted (E6-2), or removes it. The key never comes back to the browser. */
+/** Saves a profile's new API key, encrypted (E6-2), or removes it. The key never comes back to the browser. */
 export const saveApiKey = action(
   z.object({
+    profileId,
     provider: z.enum(AiProvider),
     change: z.discriminatedUnion("action", [
       z.object({ action: z.literal("set"), value: z.string().trim().min(1).max(1000) }),
       z.object({ action: z.literal("clear") }),
     ]),
   }),
-  async ({ provider, change }) => {
-    const current = await loadSettings();
-    await saveSettings({
-      apiKeyEnc: applyApiKeyChange(current.apiKeyEnc, change),
-      // Until now the provider came from DOSSIER_AI_*; the key makes it a saved choice.
-      ...(current.provider ? {} : { provider }),
-    });
-    return { keyState: await currentKeyState() };
+  async ({ profileId: id, provider, change }) => {
+    const current = await profileToChange(id, provider);
+    await prisma.aiProfile.update({ where: { id: current.id }, data: { apiKeyEnc: applyApiKeyChange(current.apiKeyEnc, change) } });
+    return { id: current.id, keyState: await profileKeyState(current.id) };
   },
 );
 
-/** The models the saved server offers, for the model select. */
-export const listAiModels = action(z.object({}), async () => {
+/** Renames a profile; empty shows its provider and model instead. */
+export const saveAiProfileName = action(z.object({ profileId: z.string().min(1), name: z.string().trim().max(80) }), async ({ profileId: id, name }) => {
+  await prisma.aiProfile.updateMany({ where: { id }, data: { name } });
+});
+
+/** Adds a profile, a local model until another provider is picked. The setup from DOSSIER_AI_* is saved first. */
+export const addAiProfile = action(z.object({}), async () => {
+  if ((await prisma.aiProfile.count()) === 0) await profileToChange(null, (await loadAiConfig()).provider);
+  const created = await prisma.aiProfile.create({ data: { provider: AiProvider.LOCAL, sort: await nextProfileSort() } });
+  return { id: created.id, view: await loadAiSettingsView() };
+});
+
+/** Deletes a profile. Tasks that used it go back to the default; the default moves to the first one left. */
+export const deleteAiProfile = action(z.object({ profileId: z.string().min(1) }), async ({ profileId: id }) => {
+  await prisma.$transaction(async (tx) => {
+    await tx.aiProfile.deleteMany({ where: { id } });
+    const settings = settingsFromRows(await tx.setting.findMany());
+    const first = await tx.aiProfile.findFirst({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }], select: { id: true } });
+    const tasks = Object.fromEntries(Object.entries(settings.aiTaskProfiles).filter(([, value]) => value !== id));
+    await saveSettings({ aiTaskProfiles: tasks, ...(settings.aiDefaultProfileId === id ? { aiDefaultProfileId: first?.id ?? null } : {}) }, tx);
+  });
+  return loadAiSettingsView();
+});
+
+/** The profile tasks use unless one is chosen for them. */
+export const setDefaultAiProfile = action(z.object({ profileId: z.string().min(1) }), async ({ profileId: id }) => {
+  if (!(await prisma.aiProfile.findUnique({ where: { id }, select: { id: true } }))) throw new ActionError("That AI profile no longer exists. Reload the page.");
+  await saveSettings({ aiDefaultProfileId: id });
+  return loadAiSettingsView();
+});
+
+/** Which profile scoring and writing use; null means the default. */
+export const saveAiTaskProfiles = action(z.object({ scoring: profileId, writing: profileId }), async ({ scoring, writing }) => {
+  const ids = new Set((await prisma.aiProfile.findMany({ select: { id: true } })).map((profile) => profile.id));
+  const pick = (id: string | null) => (id && ids.has(id) ? id : undefined);
+  await saveSettings({ aiTaskProfiles: { scoring: pick(scoring), writing: pick(writing) } });
+  return loadAiSettingsView();
+});
+
+/** The models a profile's server offers, for the model select. */
+export const listAiModels = action(z.object({ profileId }), async ({ profileId: id }) => {
   try {
-    const provider = createProvider(await loadAiConfig());
+    const provider = createProvider(await loadAiProfileConfig(id));
     return { models: await provider.listModels(AbortSignal.timeout(15_000)), problem: null };
   } catch (error) {
     if (error instanceof AiError) return { models: [], problem: error.message };
@@ -98,10 +158,10 @@ export const listAiModels = action(z.object({}), async () => {
 /** A test connection on a stop-watch has no business waiting minutes. */
 const TEST_TIMEOUT_MS = 60_000;
 
-/** "Test connection" (SET-2): a short prompt to the saved provider, timed. */
-export const testAiConnection = action(z.object({}), async () => {
+/** "Test connection" (SET-2): a short prompt to a profile's provider, timed. */
+export const testAiConnection = action(z.object({ profileId }), async ({ profileId: id }) => {
   try {
-    const config = await loadAiConfig();
+    const config = await loadAiProfileConfig(id);
     const provider = createProvider({ ...config, timeoutMs: Math.min(config.timeoutMs, TEST_TIMEOUT_MS) });
     const { model, latencyMs } = await provider.test();
     return { connected: true as const, model, seconds: Math.round(latencyMs / 100) / 10 };
@@ -311,6 +371,7 @@ export const deleteEverything = action(z.object({ confirm: z.literal("DELETE") }
     await tx.fact.deleteMany();
     await tx.profileField.deleteMany();
     await tx.theme.deleteMany({ where: { builtIn: false } });
+    await tx.aiProfile.deleteMany();
     await tx.setting.deleteMany();
   });
   // An empty profile and default settings need no rows; the built-in themes do.

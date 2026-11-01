@@ -17,7 +17,7 @@ export default async function NewApplicationPage({ searchParams }: PageProps<"/n
   const { fresh, posting, startup: startupId } = await searchParams;
   const [aiReady, writeInClaude, applications, settings, fromFindJobs, startup] = await Promise.all([
     isAiConfigured(),
-    isAiUsable().then(handsOffToClaude),
+    isAiUsable("writing").then(handsOffToClaude),
     prisma.application.count({ where: { awaitingReview: false } }),
     loadSettings(),
     // "Start application" on Find jobs (E14-8).

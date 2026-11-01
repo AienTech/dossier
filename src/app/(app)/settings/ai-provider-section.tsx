@@ -10,11 +10,21 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { AiProvider } from "@/generated/prisma/enums";
-import { API_KEY_UNREADABLE, PROVIDER_OPTIONS, providerOption, type AiSettingsView } from "@/lib/ai/provider-options";
+import { API_KEY_UNREADABLE, PROVIDER_OPTIONS, profileLabel, providerOption, type AiProfileView, type AiSettingsView } from "@/lib/ai/provider-options";
 import { cn } from "@/lib/cn";
 import { useAutosave } from "@/hooks/use-autosave";
 
-import { listAiModels, saveAiProvider, saveApiKey, testAiConnection } from "./actions";
+import {
+  addAiProfile,
+  deleteAiProfile,
+  listAiModels,
+  saveAiProfileName,
+  saveAiProvider,
+  saveAiTaskProfiles,
+  saveApiKey,
+  setDefaultAiProfile,
+  testAiConnection,
+} from "./actions";
 import { SettingsSectionIntro } from "./settings-screen";
 
 type Connection =
@@ -36,12 +46,143 @@ const SENT_TO_HOSTED =
   "your profile without contact details, your facts about you, the postings you add and the facts you give for each one, and, when you refine, the drafts and your chat messages. Importing a resume sends its whole text, contact details included. With Gmail connected, it also gets each reply it reads or answers, with earlier mail in the thread. The notes you keep on an application are never sent.";
 
 /**
- * Settings → AI provider (E6-3, SET-1, SET-2). Each field saves on its own:
- * picking a card or a model right away, typing once you pause. The key is
- * saved when you leave its field and never shown again.
+ * Settings → AI provider (E6-3, SET-1, SET-2): saved profiles, the default
+ * one, and the ones scoring and writing use.
  */
 export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   const track = useTrackSave();
+  const [view, setView] = useState(initial);
+  const [selected, setSelected] = useState(() => Math.max(0, initial.profiles.findIndex((profile) => profile.id === initial.defaultId)));
+  // A new editor for each profile shown, so its fields start from that profile.
+  const [editor, setEditor] = useState(0);
+  const profile = view.profiles[Math.min(selected, view.profiles.length - 1)];
+  const [name, setName] = useState(profile.name);
+
+  const show = (next: AiSettingsView, index: number) => {
+    setView(next);
+    const at = Math.max(0, Math.min(index, next.profiles.length - 1));
+    setSelected(at);
+    setName(next.profiles[at].name);
+    setEditor((count) => count + 1);
+  };
+
+  const patchProfile = (patch: Partial<AiProfileView>) =>
+    setView((current) => ({
+      ...current,
+      defaultId: current.defaultId ?? patch.id ?? null,
+      profiles: current.profiles.map((entry, index) => (index === selected ? { ...entry, ...patch } : entry)),
+    }));
+
+  const add = async () => {
+    const result = toastResult(await track(addAiProfile({})));
+    if (result.ok) show(result.data.view, result.data.view.profiles.findIndex((entry) => entry.id === result.data.id));
+  };
+
+  const remove = async () => {
+    if (!profile.id) return;
+    const result = toastResult(await track(deleteAiProfile({ profileId: profile.id })));
+    if (result.ok) show(result.data, 0);
+  };
+
+  const makeDefault = async () => {
+    if (!profile.id) return;
+    const result = toastResult(await track(setDefaultAiProfile({ profileId: profile.id })));
+    if (result.ok) setView(result.data);
+  };
+
+  const saveName = async () => {
+    if (!profile.id || name.trim() === profile.name) return;
+    const result = toastResult(await track(saveAiProfileName({ profileId: profile.id, name })));
+    if (result.ok) patchProfile({ name: name.trim() });
+  };
+
+  const saveTask = async (task: "scoring" | "writing", id: string) => {
+    const tasks = { ...view.tasks, [task]: id || null };
+    const result = toastResult(await track(saveAiTaskProfiles(tasks)));
+    if (result.ok) setView(result.data);
+  };
+
+  const saved = view.profiles.filter((entry) => entry.id !== null);
+
+  return (
+    <>
+      <SettingsSectionIntro title="AI provider">
+        This is what reads job postings and writes your drafts. A local model keeps everything on your machine.
+      </SettingsSectionIntro>
+
+      <Card className="grid grid-cols-1 gap-x-[18px] gap-y-4 sm:grid-cols-2">
+        <Select
+          label="Profile"
+          value={String(selected)}
+          onChange={(event) => show(view, Number(event.target.value))}
+        >
+          {view.profiles.map((entry, index) => (
+            <option key={entry.id ?? "env"} value={index}>
+              {profileLabel(entry)}
+              {entry.id !== null && entry.id === view.defaultId ? " (default)" : ""}
+            </option>
+          ))}
+        </Select>
+        <Input
+          label="Name"
+          value={name}
+          placeholder={profileLabel({ ...profile, name: "" })}
+          disabled={!profile.id}
+          hint={profile.id ? undefined : "Saved once you change the provider below."}
+          onChange={(event) => setName(event.target.value)}
+          onBlur={() => void saveName()}
+        />
+        <div className="flex flex-wrap gap-2.5 sm:col-span-2">
+          <Button variant="secondary" size="sm" onClick={() => void add()}>
+            Add profile
+          </Button>
+          {profile.id && profile.id !== view.defaultId && (
+            <Button variant="secondary" size="sm" onClick={() => void makeDefault()}>
+              Make default
+            </Button>
+          )}
+          {profile.id && saved.length > 1 && (
+            <Button variant="text" size="sm" onClick={() => void remove()}>
+              Delete profile
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      <ProfileEditor key={editor} initial={profile} onSaved={patchProfile} />
+
+      {saved.length > 1 && (
+        <Card className="grid grid-cols-1 gap-x-[18px] gap-y-4 sm:grid-cols-2">
+          {(["scoring", "writing"] as const).map((task) => (
+            <Select
+              key={task}
+              label={task === "scoring" ? "Scoring postings uses" : "Writing drafts uses"}
+              value={view.tasks[task] ?? ""}
+              onChange={(event) => void saveTask(task, event.target.value)}
+            >
+              <option value="">The default profile</option>
+              {saved.map((entry) => (
+                <option key={entry.id} value={entry.id!}>
+                  {profileLabel(entry)}
+                </option>
+              ))}
+            </Select>
+          ))}
+        </Card>
+      )}
+    </>
+  );
+}
+
+/**
+ * One profile's provider, address, model and key. Each field saves on its
+ * own: picking a card or a model right away, typing once you pause. The key
+ * is saved when you leave its field and never shown again.
+ */
+function ProfileEditor({ initial, onSaved }: { initial: AiProfileView; onSaved: (patch: Partial<AiProfileView>) => void }) {
+  const track = useTrackSave();
+  // Null until the first save makes the profile.
+  const id = useRef(initial.id);
   const [provider, setProvider] = useState(initial.provider);
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl);
   const [model, setModel] = useState(initial.model);
@@ -55,13 +196,13 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
 
   const reloadModels = () => {
     setModelList({ loading: true });
-    void listAiModels({}).then((result) => setModelList(toModelList(result)));
+    void listAiModels({ profileId: id.current }).then((result) => setModelList(toModelList(result)));
   };
 
   // The list for what's saved when the page opens.
   useEffect(() => {
     let current = true;
-    void listAiModels({}).then((result) => {
+    void listAiModels({ profileId: id.current }).then((result) => {
       if (current) setModelList(toModelList(result));
     });
     return () => {
@@ -75,9 +216,11 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   const fields = useMemo(() => ({ provider, baseUrl, model }), [provider, baseUrl, model]);
   const savedServer = useRef(`${initial.provider} ${initial.baseUrl}`);
   const { flush } = useAutosave(fields, async (value) => {
-    const result = await track(saveAiProvider(value));
+    const result = await track(saveAiProvider({ ...value, profileId: id.current }));
     if (result.ok) {
+      id.current = result.data.id;
       setKeyState(result.data.keyState);
+      onSaved({ id: result.data.id, provider: value.provider, baseUrl: value.baseUrl, model: value.model, keyState: result.data.keyState });
       // A different server may offer different models.
       const server = `${value.provider} ${value.baseUrl}`;
       if (server !== savedServer.current) {
@@ -107,9 +250,11 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   };
 
   const saveKey = async (change: { action: "set"; value: string } | { action: "clear" }) => {
-    const result = toastResult(await track(saveApiKey({ provider, change })));
+    const result = toastResult(await track(saveApiKey({ profileId: id.current, provider, change })));
     if (!result.ok) return;
+    id.current = result.data.id;
     setKeyState(result.data.keyState);
+    onSaved({ id: result.data.id, keyState: result.data.keyState });
     setKeyInput("");
     changed();
     reloadModels();
@@ -121,7 +266,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
     // Actions run one after another, so pending saves land before the test.
     flush();
     setConnection({ status: "testing" });
-    const result = await testAiConnection({});
+    const result = await testAiConnection({ profileId: id.current });
     if (!result.ok) setConnection({ status: "failed", message: result.error });
     else if (result.data.connected) setConnection({ status: "connected", model: result.data.model, seconds: result.data.seconds });
     else setConnection({ status: "failed", message: result.data.message });
@@ -131,10 +276,6 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
 
   return (
     <>
-      <SettingsSectionIntro title="AI provider">
-        This is what reads job postings and writes your drafts. A local model keeps everything on your machine.
-      </SettingsSectionIntro>
-
       <RadioGroup.Root
         aria-label="Provider"
         value={provider}
