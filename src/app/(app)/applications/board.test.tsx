@@ -6,9 +6,13 @@ import { changeStatus } from "@/components/change-status";
 import type { ApplicationRow } from "@/lib/applications-data";
 import { DEFAULT_SORT } from "@/lib/applications-list";
 
+import { reorderBoard } from "./actions";
 import { ApplicationsScreen } from "./applications-screen";
 
-vi.mock("./actions", () => ({ rememberListView: vi.fn(async () => ({ ok: true, data: null })) }));
+vi.mock("./actions", () => ({
+  rememberListView: vi.fn(async () => ({ ok: true, data: null })),
+  reorderBoard: vi.fn(async () => ({ ok: true, data: null })),
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }), usePathname: () => null }));
 vi.mock("@/components/change-status", () => ({ changeStatus: vi.fn(async () => true) }));
 
@@ -25,6 +29,7 @@ const row = (id: string, extra: Partial<ApplicationRow> = {}): ApplicationRow =>
   sent: "20 Sep",
   updated: "2 days ago",
   updatedAt: Date.UTC(2026, 8, 26),
+  boardSort: null,
   ...extra,
 });
 
@@ -78,6 +83,36 @@ describe("the board (E9-2)", () => {
     open();
     expect(within(column("Draft")).getByText("Apply by 3 Oct 2026")).toBeInTheDocument();
     expect(within(column("Sent")).queryByText(/^Apply by/)).not.toBeInTheDocument();
+  });
+
+  it("shows positioned cards first, then the rest newest-first", () => {
+    open({
+      rows: [
+        row("first", { company: "First Co", role: "First Role", status: "SENT", boardSort: 1, updatedAt: Date.UTC(2026, 8, 10) }),
+        row("top", { company: "Top Co", role: "Top Role", status: "SENT", boardSort: 0, updatedAt: Date.UTC(2026, 8, 1) }),
+        row("unplaced", { company: "Unplaced Co", role: "Unplaced Role", status: "SENT", updatedAt: Date.UTC(2026, 8, 20) }),
+      ],
+    });
+    // The positioned cards lead (boardSort 0, then 1); the unplaced card
+    // follows, even though it was updated most recently.
+    expect(within(column("Sent")).getAllByRole("listitem").map((card) => within(card).getByRole("link").textContent)).toEqual([
+      "Top Role",
+      "First Role",
+      "Unplaced Role",
+    ]);
+  });
+
+  it("moves a card down from its menu, writing the new column order", async () => {
+    const user = userEvent.setup();
+    open();
+    // Meridian is first in Sent (newest); moving it down puts Kestrel first.
+    await user.click(screen.getByRole("button", { name: "Actions for Product Designer, Onboarding, Meridian Bank" }));
+    await user.click(screen.getByRole("menuitem", { name: "Move down" }));
+
+    expect(reorderBoard).toHaveBeenCalledWith({ status: "SENT", ids: ["kestrel", "meridian"] });
+    const cards = within(column("Sent")).getAllByRole("listitem");
+    expect(within(cards[0]).getByRole("link").textContent).toBe("Product Designer, Mobile");
+    expect(within(cards[1]).getByRole("link").textContent).toBe("Product Designer, Onboarding");
   });
 
   it("moves a card from its Move to menu, showing it in the new column at once", async () => {

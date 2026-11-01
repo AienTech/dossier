@@ -9,7 +9,7 @@ import { rememberListView } from "./actions";
 import { ApplicationsScreen, type ApplicationsScreenProps } from "./applications-screen";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
-vi.mock("./actions", () => ({ rememberListView: vi.fn(async () => ({ ok: true, data: null })) }));
+vi.mock("./actions", () => ({ rememberListView: vi.fn(async () => ({ ok: true, data: null })), reorderBoard: vi.fn(async () => ({ ok: true, data: null })) }));
 vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => null }));
 
 export const row = (id: string, extra: Partial<ApplicationRow> = {}): ApplicationRow => ({
@@ -25,6 +25,7 @@ export const row = (id: string, extra: Partial<ApplicationRow> = {}): Applicatio
   sent: "20 Sep",
   updated: "2 days ago",
   updatedAt: Date.UTC(2026, 8, 26),
+  boardSort: null,
   ...extra,
 });
 

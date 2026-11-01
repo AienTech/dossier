@@ -21,9 +21,22 @@ import { STATUSES } from "@/lib/status";
 /**
  * The "⋯" menu on a card or a table row: "Move to…" any status, the
  * keyboard and touch alternative to dragging (decided 28 September 2026),
- * then Archive and Delete (E9-5).
+ * then Archive and Delete (E9-5). On the board, it also reorders the card
+ * inside its column (#60); the table leaves that out.
  */
-export function RowMenu({ row, onMove }: { row: ApplicationRow; onMove: (to: ApplicationStatus) => void }) {
+export function RowMenu({
+  row,
+  onMove,
+  onReorder,
+  canMoveUp,
+  canMoveDown,
+}: {
+  row: ApplicationRow;
+  onMove: (to: ApplicationStatus) => void;
+  onReorder?: (direction: "up" | "down") => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+}) {
   const [deleting, setDeleting] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const stop = (event: SyntheticEvent) => event.stopPropagation();
@@ -52,6 +65,17 @@ export function RowMenu({ row, onMove }: { row: ApplicationRow; onMove: (to: App
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
+          {onReorder && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => onReorder("up")} disabled={!canMoveUp}>
+                Move up
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onReorder("down")} disabled={!canMoveDown}>
+                Move down
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void archiveApplication(row.id, !row.archived)}>
             {row.archived ? "Unarchive" : "Archive"}

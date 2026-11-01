@@ -1,17 +1,19 @@
 "use client";
 
 import {
+  closestCenter,
   DndContext,
   DragOverlay,
   MouseSensor,
   TouchSensor,
-  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import { useRef, useState, type ReactNode } from "react";
 
@@ -19,24 +21,30 @@ import { StatusDot } from "@/components/ui/status-dot";
 import type { ApplicationStatus } from "@/generated/prisma/enums";
 import type { ApplicationRow } from "@/lib/applications-data";
 import { statusLabel } from "@/lib/applications-list";
+import { moveColumn, orderedColumn, reorderColumn } from "@/lib/board-order";
 import { cn } from "@/lib/cn";
 
 import { RowMenu } from "./row-menu";
 
 /**
- * The board (LST-3, LST-4): a column per status in the filter, cards newest
- * first. Drag a card to another column to move it; each card also has a
- * "Move to…" menu for the keyboard and touch. Clicking a card opens it.
- * It fills the height it's given: each column's cards scroll on their own.
+ * The board (LST-3, LST-4): a column per status in the filter, cards in
+ * board order (#60). Drag a card to another column to move it, or within
+ * its column to reorder it; each card also has a "Move to…" menu and
+ * Move up / Move down for the keyboard and touch. Clicking a card opens
+ * it. It fills the height it's given: each column's cards scroll on their
+ * own.
  */
 export function Board({
   rows,
   statuses,
   onMove,
+  onReorder,
 }: {
   rows: ApplicationRow[];
   statuses: ApplicationStatus[];
   onMove: (row: ApplicationRow, to: ApplicationStatus) => void;
+  /** A column's cards in their new order, after a drag or a menu move. */
+  onReorder: (ordered: ApplicationRow[]) => void;
 }) {
   const [dragging, setDragging] = useState<ApplicationRow | null>(null);
   // A drag ends with a click on some browsers; it mustn't open the card.
@@ -53,17 +61,36 @@ export function Board({
     draggedAt.current = Date.now();
     setDragging(null);
     const row = rows.find((entry) => entry.id === active.id);
-    const to = over?.id as ApplicationStatus | undefined;
-    if (row && to && to !== row.status) onMove(row, to);
+    if (!row || !over) return;
+    // Dropping on a card: same column reorders, another column moves it.
+    const overRow = rows.find((entry) => entry.id === over.id);
+    if (overRow) {
+      if (overRow.status !== row.status) {
+        onMove(row, overRow.status);
+        return;
+      }
+      const ordered = reorderColumn(rows, row.id, overRow.id);
+      if (ordered) onReorder(ordered);
+      return;
+    }
+    // Dropping on an empty column moves the card to that status.
+    const to = over.id as ApplicationStatus;
+    if (to !== row.status) onMove(row, to);
   };
 
-  const byNewest = [...rows].sort((a, b) => b.updatedAt - a.updatedAt);
+  const reorder = (row: ApplicationRow, direction: "up" | "down") => {
+    const ordered = moveColumn(rows, row.id, direction);
+    if (ordered) onReorder(ordered);
+  };
   const name = (row: ApplicationRow) => [row.role, row.company].filter(Boolean).join(" at ");
 
   return (
     <DndContext
       id="applications-board"
       sensors={sensors}
+      // Sortable cards are droppable too: the closest centre, not the
+      // column that contains it, is what a drop lands on.
+      collisionDetection={closestCenter}
       onDragStart={start}
       onDragEnd={end}
       onDragCancel={() => setDragging(null)}
@@ -81,16 +108,19 @@ export function Board({
       <div className="relative min-h-0 flex-1 scrollbar-subtle overflow-x-auto overflow-y-hidden px-10 pt-1.5 pb-5">
         <div className="flex h-full w-max items-stretch gap-3.5">
           {statuses.map((status) => {
-            const cards = byNewest.filter((row) => row.status === status);
+            const cards = orderedColumn(rows, status);
             return (
-              <Column key={status} status={status} count={cards.length}>
-                {cards.map((row) => (
+              <Column key={status} status={status} count={cards.length} items={cards.map((card) => card.id)}>
+                {cards.map((row, index) => (
                   <Card
                     key={row.id}
                     row={row}
                     dimmed={dragging?.id === row.id}
                     onOpen={(event) => Date.now() - draggedAt.current < 300 && event.preventDefault()}
                     onMove={(to) => onMove(row, to)}
+                    onReorder={(direction) => reorder(row, direction)}
+                    canMoveUp={index > 0}
+                    canMoveDown={index < cards.length - 1}
                   />
                 ))}
               </Column>
@@ -103,7 +133,7 @@ export function Board({
   );
 }
 
-function Column({ status, count, children }: { status: ApplicationStatus; count: number; children: ReactNode }) {
+function Column({ status, count, items, children }: { status: ApplicationStatus; count: number; items: string[]; children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const headingId = `board-${status}`;
   return (
@@ -126,7 +156,9 @@ function Column({ status, count, children }: { status: ApplicationStatus; count:
       {count > 0 ? (
         // Scrolls on its own, out to the column's edges so its scrollbar sits
         // at the side and focus rings aren't cut off; the heading stays.
-        <ul className="-mx-3 -mt-1 -mb-3 flex min-h-0 flex-1 scrollbar-subtle flex-col gap-2.5 overflow-y-auto px-3 pt-1 pb-3">{children}</ul>
+        <SortableContext items={items} strategy={verticalListSortingStrategy}>
+          <ul className="-mx-3 -mt-1 -mb-3 flex min-h-0 flex-1 scrollbar-subtle flex-col gap-2.5 overflow-y-auto px-3 pt-1 pb-3">{children}</ul>
+        </SortableContext>
       ) : (
         <p className="px-2.5 py-5 text-center text-label text-muted">Nothing here yet</p>
       )}
@@ -139,18 +171,34 @@ function Card({
   dimmed,
   onOpen,
   onMove,
+  onReorder,
+  canMoveUp,
+  canMoveDown,
 }: {
   row: ApplicationRow;
   dimmed: boolean;
   onOpen: (event: React.MouseEvent) => void;
   onMove: (to: ApplicationStatus) => void;
+  onReorder: (direction: "up" | "down") => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
 }) {
-  const { setNodeRef, listeners } = useDraggable({ id: row.id });
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: row.id });
+  // The sortable element sits inside the list item, so the list keeps its
+  // listitem roles: useSortable marks its own element as a button.
   return (
-    <li ref={setNodeRef} {...listeners} className={cn("relative touch-manipulation", dimmed && "opacity-40")}>
-      <CardFace row={row} onOpen={onOpen} />
-      <div className="absolute top-2 right-2">
-        <RowMenu row={row} onMove={onMove} />
+    <li className={cn("touch-manipulation", dimmed && "opacity-40")}>
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        style={{ transform: CSS.Transform.toString(transform), transition }}
+        className="relative"
+      >
+        <CardFace row={row} onOpen={onOpen} />
+        <div className="absolute top-2 right-2">
+          <RowMenu row={row} onMove={onMove} onReorder={onReorder} canMoveUp={canMoveUp} canMoveDown={canMoveDown} />
+        </div>
       </div>
     </li>
   );

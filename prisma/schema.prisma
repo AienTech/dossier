@@ -419,6 +419,8 @@ model Application {
   /// The prompt version that wrote `match`.
   matchedWith         String?
   status              ApplicationStatus @default(DRAFT)
+  /// Position inside its board column; null keeps newest-first order (#60).
+  boardSort           Int?
   /// The furthest stage ever reached; null while never sent. Only the status module changes it.
   furthestStage       FunnelStage?
   sentAt              DateTime?
