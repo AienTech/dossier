@@ -101,6 +101,7 @@ describe("OpenAICompatibleProvider", () => {
     expect(requests[0].url.href).toBe("https://api.example.com/v1/chat/completions");
     expect(requests[0].headers.get("authorization")).toBe("Bearer sk-test");
     expect(requests[0].body).toMatchObject({ model: "gpt-x", temperature: 0.9, max_tokens: 4096 });
+    expect(requests[0].body).not.toHaveProperty("reasoning_effort");
   });
 
   it("asks for a strict JSON schema", async () => {
@@ -155,16 +156,39 @@ describe("OpenAICompatibleProvider", () => {
     await new OpenAICompatibleProvider("OPENAI", accepted, "sk", "gpt-x", 60_000).complete({ ...ask, effort: "low" });
     expect(requests[0].body).toMatchObject({ reasoning_effort: "none", max_tokens: 4096 });
 
-    const refusedUrl = `https://no-effort-${Math.random()}.example/v1`;
-    const refused = stubFetch(({ body }) =>
-      "reasoning_effort" in (body as object)
-        ? json({ error: { message: "reasoning_effort is not supported by this model", type: "invalid_request_error" } }, { status: 400 })
-        : openaiChat("Hello!"),
-    );
-    const provider = new OpenAICompatibleProvider("OPENAI", refusedUrl, "sk", "gpt-x", 60_000);
-    expect(await provider.complete({ ...ask, effort: "low" })).toBe("Hello!");
-    expect(await provider.complete({ ...ask, effort: "low" })).toBe("Hello!");
-    expect(refused.map((request) => "reasoning_effort" in (request.body as object))).toEqual([true, false, false]);
+    const refusals = [
+      "reasoning_effort is not supported by this model",
+      "Unsupported value: 'none' is not supported with the 'o3' model. Supported values are: 'low', 'medium', and 'high'.",
+    ];
+    for (const message of refusals) {
+      const refused = stubFetch(({ body }) =>
+        "reasoning_effort" in (body as object)
+          ? json({ error: { message, type: "invalid_request_error" } }, { status: 400 })
+          : openaiChat("Hello!"),
+      );
+      const provider = new OpenAICompatibleProvider("OPENAI", `https://no-effort-${Math.random()}.example/v1`, "sk", "gpt-x", 60_000);
+      expect(await provider.complete({ ...ask, effort: "low" })).toBe("Hello!");
+      expect(await provider.complete({ ...ask, effort: "low" })).toBe("Hello!");
+      expect(refused.map((request) => "reasoning_effort" in (request.body as object))).toEqual([true, false, false]);
+    }
+  });
+
+  it("gives a model that cannot stop thinking room to answer the connection check", async () => {
+    const requests = stubFetch(({ body }) => {
+      const sent = body as { reasoning_effort?: string; max_tokens?: number };
+      if ("reasoning_effort" in sent) {
+        return json(
+          { error: { message: "Unsupported value: 'none' is not supported with the 'o3' model. Supported values are: 'low', 'medium', and 'high'." } },
+          { status: 400 },
+        );
+      }
+      return sent.max_tokens === 16 ? thinkingChat("", "length") : openaiChat("OK");
+    });
+    const provider = new OpenAICompatibleProvider("OPENAI", `https://o-series-${Math.random()}.example/v1`, "sk", "o3", 60_000);
+    await expect(provider.test()).resolves.toMatchObject({ model: "o3" });
+    expect(requests.map((request) => request.body)).toMatchObject([{ max_tokens: 16, reasoning_effort: "none" }, { max_tokens: 16 }, { max_tokens: 16 + 12_000 }]);
+    expect(requests[1].body).not.toHaveProperty("reasoning_effort");
+    expect(requests[2].body).not.toHaveProperty("reasoning_effort");
   });
 
   it("tells DeepSeek's API not to think, by its host, and leaves other servers as they were (#189)", async () => {

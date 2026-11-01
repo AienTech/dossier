@@ -32,6 +32,10 @@ const promptSchemas = new Set<string>();
 // that support the provided parameters" when none of a model's hosts takes it.
 const JSON_REFUSED = /response_format|json_schema|json_object|structured|invalid schema|support the provided parameters/i;
 
+// Asked not to think, and refused. Some servers name the parameter. OpenAI's
+// o-series names the value instead: "Unsupported value: 'none'".
+const EFFORT_REFUSED = /reasoning_effort|unsupported value:\s*['"]none['"]/i;
+
 /**
  * The answer's text. Some servers, Mistral's among them, send a model that
  * thinks as a list of chunks: the text ones are the answer, the thinking
@@ -128,7 +132,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
         const adapted: Quirks = {
           noTemperature: known.noTemperature || (call.temperature !== undefined && /temperature/i.test(message)),
           maxCompletionTokens: known.maxCompletionTokens || /max_tokens/.test(message),
-          noEffort: known.noEffort || (this.reasoningEffort(call) !== undefined && /reasoning_effort/i.test(message)),
+          noEffort: known.noEffort || (this.reasoningEffort(call) !== undefined && EFFORT_REFUSED.test(message)),
           thinks: known.thinks,
           json: jsonRefused ? (JSON_MODES[JSON_MODES.indexOf(known.json) + 1] ?? known.json) : known.json,
         };
