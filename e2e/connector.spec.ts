@@ -5,7 +5,7 @@ import { expect, test, type APIResponse, type Page } from "@playwright/test";
 
 import { resetData, sql } from "./support";
 
-// The Claude connector (#221): off until it's turned on in Settings; then
+// The AI connector (#221): off until it's turned on in Settings; then
 // Claude registers, the user signs in and allows it on the consent page,
 // Claude trades the code for tokens and uses Dossier's tools at /api/mcp,
 // until Disconnect Claude or the switch goes off. The "Claude" here is a
@@ -46,8 +46,8 @@ test("connects Claude through Settings and the consent page, serves its tools, a
   expect((await claude.post("/api/oauth/register", { data: { redirect_uris: [CALLBACK] } })).status()).toBe(404);
 
   await page.goto("/settings?section=claude");
-  await expect(page.getByRole("heading", { name: "Claude connector" })).toBeVisible();
-  await page.getByRole("switch", { name: "Let Claude connect" }).click();
+  await expect(page.getByRole("heading", { name: "AI connector" })).toBeVisible();
+  await page.getByRole("switch", { name: "Let AI apps connect" }).click();
   await expect(page.getByText(address, { exact: true })).toBeVisible();
   // A local address works for Claude's command-line app only, and the section says so.
   await expect(page.getByRole("note")).toContainText("This is a local address.");
@@ -100,8 +100,8 @@ test("connects Claude through Settings and the consent page, serves its tools, a
   await page.getByRole("button", { name: "Disconnect Claude" }).click();
   await expect(page.getByText("Claude is disconnected.", { exact: false })).toBeVisible();
   expect((await mcp({ jsonrpc: "2.0", id: 4, method: "tools/list" })).status()).toBe(401);
-  await page.getByRole("switch", { name: "Let Claude connect" }).click();
-  await expect(page.getByRole("switch", { name: "Let Claude connect" })).toHaveAttribute("aria-checked", "false");
+  await page.getByRole("switch", { name: "Let AI apps connect" }).click();
+  await expect(page.getByRole("switch", { name: "Let AI apps connect" })).toHaveAttribute("aria-checked", "false");
   await expect.poll(async () => (await mcp({ jsonrpc: "2.0", id: 5, method: "tools/list" })).status()).toBe(404);
   await claude.dispose();
 });

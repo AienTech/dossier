@@ -35,18 +35,18 @@ export function ConnectorSection({ initial, address }: { initial: { on: boolean 
 
   return (
     <>
-      <SettingsSectionIntro title="Claude connector">
-        Use Dossier from Claude: in chats on claude.ai, in the Desktop and mobile apps, and in Claude&apos;s command-line app. Claude can search for jobs, read your
-        profile and applications, and save the applications and fit scores it writes, on your own Claude plan. It never sends or deletes anything.
+      <SettingsSectionIntro title="AI connector">
+        Use Dossier from Claude or OpenCode: in chats on claude.ai, in the Desktop and mobile apps, and in Claude&apos;s command-line app, and from OpenCode. Claude and OpenCode can search for jobs, read your
+        profile and applications, and save the applications and fit scores they write. It never sends or deletes anything.
         OpenCode uses the same address and sign-in flow once this is turned on.
       </SettingsSectionIntro>
 
       <Card padding="none" className="px-7 py-4">
         <Toggle
-          label="Let Claude connect"
+          label="Let AI apps connect"
           description={
             on
-              ? "On. Claude connects at the address below, once you've signed in to Dossier and allowed it."
+              ? "On. AI apps connect at the address below, once you've signed in to Dossier and allowed them."
               : "Off. The connector's addresses aren't open on this server."
           }
           checked={on}
@@ -58,7 +58,7 @@ export function ConnectorSection({ initial, address }: { initial: { on: boolean 
         <>
           <Card className="flex flex-col gap-4">
             <div className="flex flex-col gap-[7px]">
-              <span className="text-label text-muted">Address to add in Claude</span>
+              <span className="text-label text-muted">Address to add in Claude or OpenCode</span>
               <div className="flex flex-wrap items-center gap-3">
                 <code className="min-w-0 flex-1 rounded-control border border-line-input bg-input px-3 py-2 font-mono text-[13px] [overflow-wrap:anywhere]">
                   {address}
@@ -117,7 +117,7 @@ export function ConnectorSection({ initial, address }: { initial: { on: boolean 
                 variant="secondary"
                 onClick={() => void track(disconnectClaude({})).then(toastResult)}
               >
-                Disconnect Claude
+                Disconnect all apps
               </Button>
               <p className="mt-2 text-meta text-muted">Signs every Claude out. Changing your password or DOSSIER_SECRET does too.</p>
             </div>
