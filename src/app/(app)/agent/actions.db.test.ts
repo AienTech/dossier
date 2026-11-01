@@ -5,7 +5,17 @@ import { loadSettings, saveSettings } from "@/lib/settings-data";
 import { setStatus } from "@/lib/status-actions";
 import { createTestClient, resetDatabase } from "@/test/db";
 
-import { approveAgentDraft, dismissAgentCandidate, prepareAgentDraft, restoreAgentCandidate, runAgentNow, saveAgentSettings } from "./actions";
+import {
+  approveAgentDraft,
+  deleteAgentSearch,
+  dismissAgentCandidate,
+  moveAgentSearch,
+  prepareAgentDraft,
+  restoreAgentCandidate,
+  runAgentNow,
+  saveAgentSearch,
+  saveAgentSettings,
+} from "./actions";
 
 const db = vi.hoisted(() => ({ client: undefined as ReturnType<typeof createTestClient> | undefined }));
 vi.mock("@/lib/prisma", async () => {
@@ -39,10 +49,13 @@ const candidate = (data: { status?: "SCORED" | "DRAFTED" | "DRAFTING"; applicati
   });
 const query: SearchQuery = { keywords: "Data scientist", place: "", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" };
 
+const search = { name: "", query, sources: [], enabled: true };
+
 beforeEach(async () => {
   Object.assign(setup, { ai: true, sources: ["JSEARCH"] });
   await resetDatabase(prisma());
-  await saveSettings({ agentEnabled: true, agentQuery: query });
+  await saveSettings({ agentEnabled: true });
+  await prisma().agentSearch.create({ data: { id: "s1", query, sources: [] } });
 });
 afterAll(() => prisma().$disconnect());
 
@@ -61,9 +74,10 @@ describe("Run now (E16-4)", () => {
   it("says what's missing before it starts", async () => {
     await saveSettings({ agentEnabled: false });
     expect(await runAgentNow({})).toEqual({ ok: false, error: "Turn the job agent on in Settings → Job agent first." });
-    await saveSettings({ agentEnabled: true, agentQuery: { ...query, keywords: "" } });
-    expect(await runAgentNow({})).toMatchObject({ ok: false, error: "Add what to look for in Settings → Job agent first." });
-    await saveSettings({ agentQuery: query });
+    await saveSettings({ agentEnabled: true });
+    await prisma().agentSearch.update({ where: { id: "s1" }, data: { query: { ...query, keywords: "" } } });
+    expect(await runAgentNow({})).toMatchObject({ ok: false, error: "Give a search what to look for and a country in Settings → Job agent first." });
+    await prisma().agentSearch.update({ where: { id: "s1" }, data: { query } });
     setup.ai = false;
     expect(await runAgentNow({})).toMatchObject({ ok: false, error: "Choose an AI provider in Settings → AI provider first." });
     setup.ai = true;
@@ -71,12 +85,14 @@ describe("Run now (E16-4)", () => {
     expect(await runAgentNow({})).toMatchObject({ ok: false, error: "Choose a job source in Settings → Job search first." });
   });
 
-  it("waits an hour after the previous run, and keeps to 3 a day", async () => {
+  it("runs again right after a run, and waits only once every source's requests are used up", async () => {
     const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
-    await saveSettings({ agentRuns: [{ at: at(20), manual: false, message: null }] });
-    expect(await runAgentNow({})).toEqual({ ok: false, error: "The agent ran less than an hour ago. Try again in 40 minutes." });
-    await saveSettings({ agentRuns: [at(70), at(200), at(400)].map((time) => ({ at: time, manual: true, message: null })) });
-    expect(await runAgentNow({})).toMatchObject({ ok: false, error: expect.stringMatching(/^The agent has run 3 times in the past 24 hours/) });
+    await saveSettings({ agentRuns: [{ at: at(1), manual: true, message: null, searches: [] }] });
+    expect(await runAgentNow({})).toMatchObject({ ok: true });
+    await saveSettings({ agentRequests: [at(70), at(200), at(400)].map((time) => ({ source: "JSEARCH" as const, at: time })) });
+    expect(await runAgentNow({})).toMatchObject({ ok: false, error: expect.stringMatching(/^Every job source has used its requests for the past 24 hours/) });
+    await saveSettings({ jobSourceBudgets: { JSEARCH: null, ADZUNA: 3, FREEHIRE: null } });
+    expect(await runAgentNow({})).toMatchObject({ ok: true });
   });
 });
 
@@ -128,13 +144,46 @@ describe("the drafts' actions (E16-5)", () => {
 });
 
 describe("saving the agent's settings (E16-7)", () => {
-  it("saves each change, and turns on only with keywords and a country", async () => {
-    await saveSettings({ agentEnabled: false, agentQuery: { ...query, keywords: "" } });
-    expect(await saveAgentSettings({ enabled: true })).toEqual({ ok: false, error: "Type what the agent should look for before turning it on." });
-    expect(await saveAgentSettings({ enabled: true, query: { ...query, country: "" } })).toEqual({ ok: false, error: "Choose a country for the search before turning the agent on." });
-    expect(await saveAgentSettings({ enabled: true, query })).toEqual({ ok: true, data: null });
-    expect(await saveAgentSettings({ hour: 9, minScore: 80, autoDraft: true, maxDrafts: 5 })).toEqual({ ok: true, data: null });
-    expect(await loadSettings()).toMatchObject({ agentEnabled: true, agentQuery: query, agentHour: 9, agentMinScore: 80, agentAutoDraft: true, agentMaxDrafts: 5, agentMaxScores: 15 });
+  it("saves each change, and turns on only with a search that has keywords and a country", async () => {
+    await saveSettings({ agentEnabled: false });
+    await prisma().agentSearch.deleteMany();
+    expect(await saveAgentSettings({ enabled: true })).toEqual({ ok: false, error: "Add a search with what to look for and a country before turning the agent on." });
+    await prisma().agentSearch.create({ data: { query, sources: [] } });
+    expect(await saveAgentSettings({ enabled: true })).toEqual({ ok: true, data: null });
+    expect(await saveAgentSettings({ hour: 9, minScore: 80, autoDraft: true, maxDrafts: 5, maxPages: 2, budgets: { JSEARCH: 6, ADZUNA: null, FREEHIRE: null } })).toEqual({ ok: true, data: null });
+    expect(await loadSettings()).toMatchObject({
+      agentEnabled: true,
+      agentHour: 9,
+      agentMinScore: 80,
+      agentAutoDraft: true,
+      agentMaxDrafts: 5,
+      agentMaxScores: 15,
+      agentMaxPages: 2,
+      jobSourceBudgets: { JSEARCH: 6, ADZUNA: null, FREEHIRE: null },
+    });
     expect(await saveAgentSettings({ maxScores: 31 })).toMatchObject({ ok: false });
+  });
+});
+
+describe("the saved searches (#11)", () => {
+  it("adds up to the limit, changes, moves and deletes them", async () => {
+    const added = await saveAgentSearch({ ...search, name: "Leads", query: { ...query, keywords: "Tech lead" }, sources: ["ADZUNA"] });
+    expect(added).toMatchObject({ ok: true, data: [{ id: "s1" }, { name: "Leads", sources: ["ADZUNA"] }] });
+    const leads = added.ok ? added.data[1].id : "";
+    await saveAgentSearch({ ...search, query: { ...query, keywords: "Architect" } });
+    expect(await saveAgentSearch(search)).toEqual({ ok: false, error: "Keep at most 3 searches, or raise the limit below." });
+    expect(await saveAgentSettings({ maxSearches: 2 })).toEqual({ ok: false, error: "Delete searches first: there are more than that." });
+
+    expect(await saveAgentSearch({ ...search, id: leads, name: "Tech leads", enabled: false })).toMatchObject({ ok: true, data: [{}, { name: "Tech leads", enabled: false }, {}] });
+    expect(await saveAgentSearch({ ...search, query: { ...query, country: "" } })).toEqual({ ok: false, error: "Choose a country for the search." });
+
+    const moved = await moveAgentSearch({ id: leads, by: -1 });
+    expect(moved.ok && moved.data.map((entry) => entry.id)[0]).toBe(leads);
+
+    // A deleted search's candidates keep its name.
+    const found = await candidate();
+    await prisma().agentCandidateSearch.create({ data: { candidateId: found.id, searchId: leads, searchName: "Tech leads" } });
+    expect(await deleteAgentSearch({ id: leads })).toMatchObject({ ok: true, data: [{ id: "s1" }, {}] });
+    expect(await prisma().agentCandidateSearch.findFirstOrThrow()).toMatchObject({ searchId: null, searchName: "Tech leads" });
   });
 });

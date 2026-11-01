@@ -37,16 +37,24 @@ vi.mock("@/lib/profile-data", async () => {
 // A fake source that counts its requests, and a fake AI that scores by title.
 const fake = vi.hoisted(() => ({
   postings: [] as FoundPosting[],
+  /** Pages by cursor, when a test needs more than one; `postings` otherwise. */
+  pages: null as Record<string, FoundPosting[]> | null,
   searches: 0,
-  sources: ["JSEARCH"] as ("JSEARCH" | "ADZUNA" | "ARBEITSAGENTUR")[],
+  asked: [] as { source: string; keywords: string; next: string | null }[],
+  sources: ["JSEARCH"] as ("JSEARCH" | "ADZUNA" | "FREEHIRE" | "ARBEITSAGENTUR")[],
   ai: true,
   failOn: null as string | null,
   onScore: (() => {}) as (title: string) => void,
 }));
 vi.mock("@/lib/job-search", () => ({
-  searchPostings: vi.fn(async () => {
+  searchPostings: vi.fn(async (source: string, _credentials: unknown, query: { keywords: string }, next: string | null) => {
     fake.searches += 1;
-    return { postings: fake.postings, next: "page-2" };
+    fake.asked.push({ source, keywords: query.keywords, next });
+    if (fake.pages) {
+      const at = next ?? "1";
+      return { postings: fake.pages[at] ?? [], next: fake.pages[String(Number(at) + 1)] ? String(Number(at) + 1) : null };
+    }
+    return { postings: fake.postings.map((posting) => ({ ...posting, source })), next: "2" };
   }),
 }));
 vi.mock("@/lib/job-search/config", () => ({
@@ -106,22 +114,26 @@ const context = (abort?: AbortController): JobContext & { steps: string[] } => {
   return { id: "agent-job", steps, step: async (name) => void steps.push(name), signal: (abort ?? new AbortController()).signal };
 };
 
+const addSearch = (name: string, extra: { keywords?: string; country?: string; sources?: ("JSEARCH" | "ADZUNA" | "FREEHIRE")[]; enabled?: boolean } = {}) =>
+  prisma().agentSearch.create({
+    data: {
+      name,
+      query: { ...query, keywords: extra.keywords ?? query.keywords, country: extra.country ?? query.country },
+      sources: extra.sources ?? [],
+      enabled: extra.enabled ?? true,
+      sort: Date.now() % 100000,
+    },
+  });
+
 beforeEach(async () => {
   await resetDatabase(prisma());
-  Object.assign(fake, { postings: page, searches: 0, sources: ["JSEARCH"], ai: true, failOn: null, onScore: () => {} });
-  await saveSettings({ agentEnabled: true, agentQuery: query });
+  Object.assign(fake, { postings: page, pages: null, searches: 0, asked: [], sources: ["JSEARCH"], ai: true, failOn: null, onScore: () => {} });
+  await saveSettings({ agentEnabled: true });
+  await addSearch("Designers");
 });
 afterAll(() => prisma().$disconnect());
 
 describe("runAgentScan (E16-3)", () => {
-  it("asks each source once, and counts the same job from two sources once", async () => {
-    fake.sources = ["JSEARCH", "ADZUNA", "ARBEITSAGENTUR"];
-    const result = await runAgentScan({ manual: false }, context(), now);
-    // Not the Bundesagentur für Arbeit (#223).
-    expect(fake.searches).toBe(2);
-    expect(result).toMatchObject({ found: 3, fresh: 3, scored: 3 });
-  });
-
   it("searches once, scores the new postings and keeps them, below the minimum too", async () => {
     const run = context();
     const result = await runAgentScan({ manual: false }, run, now);
@@ -137,8 +149,19 @@ describe("runAgentScan (E16-3)", () => {
     expect(candidates[0]).toMatchObject({ title: "Senior Product Designer", reasons: ["Fits Senior Product Designer."], dedupeKey: agentDedupeKey(page[0]) });
     // Find jobs shows the scores too (#208).
     expect((await prisma().postingScore.findMany({ orderBy: { score: "desc" } })).map((row) => [row.externalId, row.score])).toEqual([["a", 90], ["b", 75], ["c", 40]]);
-    // The run is on record, with how it ended.
-    expect((await loadSettings()).agentRuns).toEqual([{ at: now.toISOString(), manual: false, message: "2 new postings are waiting for a look." }]);
+    // The run is on record, with how it ended and how its search did; so is its request.
+    const settings = await loadSettings();
+    expect(settings.agentRuns).toEqual([
+      {
+        at: now.toISOString(),
+        manual: false,
+        message: "2 new postings are waiting for a look.",
+        searches: [{ searchId: expect.any(String), searchName: "Designers", source: "JSEARCH", found: 3, fresh: 3, error: null }],
+      },
+    ]);
+    expect(settings.agentRequests).toHaveLength(1);
+    // Each candidate names the search that found it.
+    expect(await prisma().agentCandidateSearch.count({ where: { searchName: "Designers" } })).toBe(3);
   });
 
   it("scores with Jev when Settings → Scoring chose it, without an AI provider (#274)", async () => {
@@ -206,15 +229,18 @@ describe("runAgentScan (E16-3)", () => {
     expect(await prisma().agentCandidate.count()).toBe(0);
   });
 
-  it("stops without asking the source when it's off, not set up, or has run 3 times in 24 hours", async () => {
+  it("stops without asking a source when it's off or not set up", async () => {
     const stop = async (manual = false) => (await runAgentScan({ manual }, context(), now)).message;
     await saveSettings({ agentEnabled: false });
     expect(await stop()).toBe("The job agent is off.");
-    await saveSettings({ agentEnabled: true, agentQuery: { ...query, keywords: " " } });
-    expect(await stop()).toBe("Add what to look for in Settings → Job agent first.");
-    await saveSettings({ agentQuery: { ...query, country: "" } });
-    expect(await stop()).toBe("Choose a country for the search in Settings → Job agent first.");
-    await saveSettings({ agentQuery: query });
+    await saveSettings({ agentEnabled: true });
+    await prisma().agentSearch.deleteMany();
+    expect(await stop()).toBe("Add a search in Settings → Job agent first.");
+    const search = await addSearch("Off", { enabled: false });
+    expect(await stop()).toBe("Turn on a search in Settings → Job agent first.");
+    await prisma().agentSearch.update({ where: { id: search.id }, data: { enabled: true, query: { ...query, country: "" } } });
+    expect(await stop()).toBe("Give a search what to look for and a country in Settings → Job agent first.");
+    await prisma().agentSearch.update({ where: { id: search.id }, data: { query } });
     fake.ai = false;
     expect(await stop()).toBe("Choose an AI provider in Settings → AI provider first.");
     fake.ai = true;
@@ -223,12 +249,61 @@ describe("runAgentScan (E16-3)", () => {
     // It never searches the Bundesagentur für Arbeit on its own (#223).
     fake.sources = ["ARBEITSAGENTUR"];
     expect(await stop()).toBe("The job agent doesn't search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in Settings → Job search for it.");
-    fake.sources = ["JSEARCH"];
     expect(fake.searches).toBe(0);
     expect((await loadSettings()).agentRuns).toEqual([]);
   });
 
-  it("holds the daily limit from its own record, whatever the task-data sweep deletes", async () => {
+  it("asks every search on its sources, the Bundesagentur für Arbeit never, and takes from each search in turn", async () => {
+    fake.sources = ["JSEARCH", "ADZUNA", "ARBEITSAGENTUR"];
+    await addSearch("Leads", { keywords: "Tech lead", sources: ["ADZUNA"] });
+    fake.postings = [];
+    fake.pages = null;
+    const { searchPostings } = await import("@/lib/job-search");
+    vi.mocked(searchPostings).mockImplementation(async (source, _credentials, asked) => {
+      fake.searches += 1;
+      fake.asked.push({ source, keywords: asked.keywords, next: null });
+      const titles = asked.keywords === "Tech lead" ? ["Tech Lead A", "Tech Lead B"] : ["Designer 1", "Designer 2", "Designer 3"];
+      return { postings: titles.map((title, index) => posting(`${source}-${title}`, title, `2026-10-1${9 - index}T00:00:00Z`, { source, url: "" , company: `${source} ${title}` })), next: null };
+    });
+    await saveSettings({ agentMaxScores: 4 });
+    const scoredTitles: string[] = [];
+    fake.onScore = (title) => scoredTitles.push(title);
+    await runAgentScan({ manual: false }, context(), now);
+    vi.mocked(searchPostings).mockReset();
+    expect(fake.asked.map((entry) => [entry.keywords, entry.source])).toEqual([
+      ["Product designer", "JSEARCH"],
+      ["Product designer", "ADZUNA"],
+      ["Tech lead", "ADZUNA"],
+    ]);
+    // One from each search in turn, newest first in each.
+    expect(scoredTitles).toEqual(["Designer 1", "Tech Lead A", "Designer 1", "Tech Lead B"]);
+    expect((await loadSettings()).agentRequests.map((request) => request.source).sort()).toEqual(["ADZUNA", "ADZUNA", "JSEARCH"]);
+  });
+
+  it("follows a source's next pages, up to the page limit, until it has enough new postings", async () => {
+    const titled = (from: number) => Array.from({ length: 10 }, (_, index) => posting(`p${from + index}`, `Designer ${from + index}`, "2026-10-19T00:00:00Z"));
+    fake.pages = { "1": titled(0), "2": titled(10), "3": titled(20), "4": titled(30) };
+    await saveSettings({ agentMaxScores: 30, agentMaxPages: 3, jobSourceBudgets: { JSEARCH: 5, ADZUNA: 3, FREEHIRE: null } });
+    const result = await runAgentScan({ manual: false }, context(), now);
+    expect(fake.asked.map((entry) => entry.next)).toEqual([null, "2", "3"]);
+    expect(result).toMatchObject({ found: 30, scored: 30 });
+    expect((await loadSettings()).agentRequests).toHaveLength(3);
+  });
+
+  it("asks a source no more than its budget allows, and goes on with the others", async () => {
+    fake.sources = ["JSEARCH", "FREEHIRE"];
+    await saveSettings({ jobSourceBudgets: { JSEARCH: 1, ADZUNA: 3, FREEHIRE: null } });
+    await runAgentScan({ manual: true }, context(), now);
+    const second = await runAgentScan({ manual: true }, context(), new Date(now.getTime() + 10 * 60_000));
+    expect(fake.asked.map((entry) => entry.source)).toEqual(["JSEARCH", "FREEHIRE", "FREEHIRE"]);
+    expect(second.message).toBe("No new postings this time.");
+    expect((await loadSettings()).agentRuns[0].searches).toEqual([
+      expect.objectContaining({ source: "JSEARCH", error: "JSearch has used its 1 requests for the past 24 hours." }),
+      expect.objectContaining({ source: "FREEHIRE", error: null }),
+    ]);
+  });
+
+  it("holds each source's budget from its own record, whatever the task-data sweep deletes", async () => {
     await saveSettings({ jobRetentionHours: 1 });
     for (const hours of [0, 2, 4]) {
       // Each run's Job row, as the runner leaves it, which the sweep deletes an hour later.
@@ -240,18 +315,20 @@ describe("runAgentScan (E16-3)", () => {
     expect(fake.searches).toBe(3);
     expect(await prisma().job.count()).toBe(0);
     const fourth = await runAgentScan({ manual: true }, context(), new Date(now.getTime() + 6 * hour));
-    expect(fourth.message).toBe("The agent has run 3 times in the past 24 hours, as many as it may. Try again in 18 hours.");
+    expect(fourth.message).toBe("Every job source has used its requests for the past 24 hours. Try again in 18 hours.");
     expect(fake.searches).toBe(3);
     // A day after the first, one may go again.
-    await runAgentScan({ manual: true }, context(), new Date(now.getTime() + 24 * hour + 1));
+    await runAgentScan({ manual: true }, context(), new Date(now.getTime() + 24 * hour + 60_000));
     expect(fake.searches).toBe(4);
   });
 
-  it("records the run before it asks the source, so a failing source still counts", async () => {
+  it("records each request before it's sent, so a failing source still counts", async () => {
     const { searchPostings } = await import("@/lib/job-search");
     vi.mocked(searchPostings).mockRejectedValueOnce(new Error("socket hang up"));
     await expect(runAgentScan({ manual: false }, context(), now)).rejects.toThrow("socket hang up");
-    expect((await loadSettings()).agentRuns).toEqual([{ at: now.toISOString(), manual: false, message: null }]);
+    const settings = await loadSettings();
+    expect(settings.agentRuns).toEqual([{ at: now.toISOString(), manual: false, message: null, searches: [] }]);
+    expect(settings.agentRequests).toEqual([{ source: "JSEARCH", at: expect.any(String) }]);
   });
 
   it("goes on when one score fails, and says what failed when none worked", async () => {

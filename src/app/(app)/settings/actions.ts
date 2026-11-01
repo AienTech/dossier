@@ -361,8 +361,9 @@ export const deleteEverything = action(z.object({ confirm: z.literal("DELETE") }
     await tx.postingSearch.deleteMany();
     // Postings pasted for Claude chat (#221); the connector goes off with the settings.
     await tx.claudePaste.deleteMany();
-    // What the job agent found (E16).
+    // What the job agent found, and its saved searches (E16).
     await tx.agentCandidate.deleteMany();
+    await tx.agentSearch.deleteMany();
     await tx.postingScore.deleteMany();
     // Startups, and the fingerprints of ones removed for good (#222).
     await tx.startup.deleteMany();

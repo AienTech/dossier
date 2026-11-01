@@ -5,7 +5,7 @@ import { saveSettings } from "@/lib/settings-data";
 import { createTestClient, resetDatabase } from "@/test/db";
 
 import { nextAgentRun, resetInterruptedDrafts, scheduledRunDue, startDueRun } from "./schedule";
-import { runLimitProblem } from "./runs";
+import { budgetFreeAt, budgetProblem, requestsLeft } from "./runs";
 
 const db = vi.hoisted(() => ({ client: undefined as ReturnType<typeof createTestClient> | undefined }));
 vi.mock("@/lib/prisma", async () => {
@@ -21,7 +21,7 @@ vi.mock("@/lib/jobs/runner", async (importOriginal) => ({
 }));
 
 const prisma = () => db.client!;
-const run = (at: string, manual = false): AgentRun => ({ at, manual, message: null });
+const run = (at: string, manual = false): AgentRun => ({ at, manual, message: null, searches: [] });
 
 beforeEach(async () => {
   zone.value = "Europe/Berlin";
@@ -64,22 +64,25 @@ describe("when the daily run is due (E16-4)", () => {
   });
 });
 
-describe("the limits (E16-4)", () => {
+describe("the budgets (#11)", () => {
   const now = new Date("2026-10-20T12:00:00Z");
+  const budgets = { JSEARCH: 3, ADZUNA: 1, FREEHIRE: null };
+  const sent = (source: "JSEARCH" | "ADZUNA" | "FREEHIRE", at: string) => ({ source, at });
+  const requests = [sent("JSEARCH", "2026-10-20T11:00:00Z"), sent("JSEARCH", "2026-10-20T08:00:00Z"), sent("JSEARCH", "2026-10-19T13:00:00Z"), sent("ADZUNA", "2026-10-19T11:00:00Z")];
 
-  it("lets Run now go an hour after the previous run of either kind", () => {
-    expect(runLimitProblem([], now, { manual: true })).toBeNull();
-    expect(runLimitProblem([run("2026-10-20T11:35:00Z")], now, { manual: true })).toBe("The agent ran less than an hour ago. Try again in 35 minutes.");
-    expect(runLimitProblem([run("2026-10-20T10:59:00Z", true)], now, { manual: true })).toBeNull();
-    // A scheduled run only minds the daily limit.
-    expect(runLimitProblem([run("2026-10-20T11:35:00Z")], now, { manual: false })).toBeNull();
+  it("counts each source's requests in any 24 hours, with no wait between runs", () => {
+    expect(requestsLeft(requests, budgets, "JSEARCH", now)).toBe(0);
+    expect(requestsLeft(requests, budgets, "ADZUNA", now)).toBe(1);
+    expect(requestsLeft(requests, budgets, "FREEHIRE", now)).toBeNull();
+    expect(budgetFreeAt(requests, budgets, "JSEARCH", now)?.toISOString()).toBe("2026-10-20T13:00:00.000Z");
+    expect(budgetFreeAt(requests, budgets, "ADZUNA", now)).toBeNull();
   });
 
-  it("allows 3 runs in any 24 hours", () => {
-    const three = [run("2026-10-20T11:00:00Z"), run("2026-10-20T08:00:00Z"), run("2026-10-19T13:00:00Z")];
-    expect(runLimitProblem(three, now, { manual: false })).toBe("The agent has run 3 times in the past 24 hours, as many as it may. Try again in 1 hour.");
-    expect(runLimitProblem(three, new Date("2026-10-20T13:00:01Z"), { manual: false })).toBeNull();
-    expect(runLimitProblem(three.slice(0, 2), now, { manual: false })).toBeNull();
+  it("stops a run only when every source it asks is used up", () => {
+    expect(budgetProblem(requests, budgets, ["JSEARCH"], now)).toBe("Every job source has used its requests for the past 24 hours. Try again in 1 hour.");
+    expect(budgetProblem(requests, budgets, ["JSEARCH", "ADZUNA"], now)).toBeNull();
+    expect(budgetProblem(requests, budgets, ["JSEARCH"], new Date("2026-10-20T13:00:01Z"))).toBeNull();
+    expect(budgetProblem(requests, { ...budgets, JSEARCH: 0 }, ["JSEARCH"], now)).toMatch(/^Every job source/);
   });
 });
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { Creativity, DateFormat, PaperSize, Tone } from "@/generated/prisma/enums";
-import { EMPTY_QUERY, JOB_SOURCES, JSEARCH_HOSTS, searchQuerySchema } from "@/lib/job-search/search";
+import { JOB_SOURCES, JSEARCH_HOSTS } from "@/lib/job-search/search";
 import { SCORERS } from "@/lib/scoring/scorers";
 import { startupsRefreshSchema } from "@/lib/startups/types";
 
@@ -95,10 +95,28 @@ export const agentRunSchema = z.object({
   manual: z.boolean(),
   /** What the run ended with, for the Agent screen; null while it runs. */
   message: z.string().nullable(),
+  /** How each saved search did on each source: postings found, new ones, and what went wrong. */
+  searches: z
+    .array(z.object({ searchId: z.string(), searchName: z.string(), source: z.enum(JOB_SOURCES), found: z.number().int(), fresh: z.number().int(), error: z.string().nullable() }))
+    .catch([])
+    .default([]),
 });
 export type AgentRun = z.infer<typeof agentRunSchema>;
-/** How many runs are kept: more than a day's worth, for the limit and the screen. */
+/** How many runs are kept, for the schedule and the screen. */
 export const AGENT_RUNS_KEPT = 10;
+
+/** A request the job agent sent a source, for its budget. */
+export const agentRequestSchema = z.object({ source: z.enum(JOB_SOURCES), at: z.iso.datetime() });
+export type AgentRequest = z.infer<typeof agentRequestSchema>;
+
+/** How many requests the job agent may send each source in any 24 hours; null is no limit. */
+export const jobSourceBudgetsSchema = z.object({
+  JSEARCH: z.number().int().min(0).max(100).nullable().default(3),
+  ADZUNA: z.number().int().min(0).max(100).nullable().default(3),
+  FREEHIRE: z.number().int().min(0).max(100).nullable().default(null),
+});
+export type JobSourceBudgets = z.output<typeof jobSourceBudgetsSchema>;
+export const DEFAULT_JOB_SOURCE_BUDGETS: JobSourceBudgets = { JSEARCH: 3, ADZUNA: 3, FREEHIRE: null };
 
 /** The task groups that can use their own AI profile. */
 export const AI_TASKS = ["scoring", "writing"] as const;
@@ -167,11 +185,18 @@ export const settingsSchema = z.object({
   // AI model. Jev's key is encrypted like the others, under its own key.
   scorer: z.enum(SCORERS).nullable().catch(null),
   typesafeKeyEnc: z.string().nullable().catch(null),
-  // Job agent (E16): one search, run once a day. Off until it's turned on.
-  // It asks the sources in Settings → Job search, with their keys.
+  // Job agent (E16): its saved searches (AgentSearch), run once a day. Off
+  // until it's turned on. It asks the sources in Settings → Job search,
+  // with their keys, within each one's budget.
   agentEnabled: flag(false),
-  /** The search it runs, as Find jobs asks it; it needs keywords and a country to run. */
-  agentQuery: json(searchQuerySchema).catch(EMPTY_QUERY),
+  /** The most saved searches it keeps. */
+  agentMaxSearches: z.coerce.number().int().min(1).max(10).catch(3),
+  /** The most result pages a run asks each source for, per search; each page is one request. */
+  agentMaxPages: z.coerce.number().int().min(1).max(5).catch(1),
+  /** Requests per source in any 24 hours. */
+  jobSourceBudgets: json(jobSourceBudgetsSchema).catch(DEFAULT_JOB_SOURCE_BUDGETS),
+  /** The requests sent in the past 24 hours. They belong to the install: exports leave them out (INSTALL_SETTINGS). */
+  agentRequests: json(z.array(agentRequestSchema)).catch([]),
   /** The hour of the day it runs, in the user's time zone. */
   agentHour: z.coerce.number().int().min(0).max(23).catch(7),
   /** Postings scored below this stay out of the queue. */

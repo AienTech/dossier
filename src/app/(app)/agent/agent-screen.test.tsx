@@ -34,6 +34,7 @@ const card = (id: string, score: number, extra: Partial<AgentCandidateView> = {}
   error: null,
   applicationId: null,
   draftJobId: null,
+  foundBy: [],
   ...extra,
 });
 const view: AgentView = {
@@ -42,11 +43,11 @@ const view: AgentView = {
   minScore: 70,
   maxScores: 15,
   maxDrafts: 3,
-  search: "Product designer · Rotterdam, 25 km · via JSearch",
+  searches: [{ id: "s", label: "Product designer · Rotterdam, 25 km", sources: "JSearch" }],
   setupProblem: null,
   setupSection: null,
-  limitReached: false,
-  lastRun: { at: "Tue 20 Oct, 07:00", message: "2 new postings are waiting for a look." },
+  budgets: [{ source: "JSEARCH", name: "JSearch", left: 2, limit: 3, freeAt: null }],
+  lastRun: { at: "Tue 20 Oct, 07:00", message: "2 new postings are waiting for a look.", searches: [] },
   nextRun: "Wed 21 Oct, 07:00",
   runJobId: null,
   drafts: [card("d1", 91, { applicationId: "app-1" })],
@@ -165,8 +166,8 @@ describe("AgentScreen (E16-6)", () => {
     expect(screen.getByRole("link", { name: "Go to Settings → Job search" })).toHaveAttribute("href", "/settings?section=jobs");
     second.unmount();
 
-    open({ limitReached: true });
-    expect(screen.getByRole("note")).toHaveTextContent("The agent has run 3 times in the past 24 hours");
+    open({ budgets: [{ source: "JSEARCH", name: "JSearch", left: 0, limit: 3, freeAt: "Wed 21 Oct, 08:00" }] });
+    expect(screen.getByText("Requests left today").nextElementSibling).toHaveTextContent("JSearch: 0 of 3 · one more Wed 21 Oct, 08:00");
   });
 
   it("says when there's nothing yet", () => {

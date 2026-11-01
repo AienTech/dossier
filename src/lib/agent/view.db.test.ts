@@ -28,10 +28,17 @@ const candidate = (externalId: string, score: number, data: Record<string, unkno
 
 beforeEach(async () => {
   await resetDatabase(prisma());
+  await prisma().agentSearch.create({ data: { query: { keywords: "Data scientist", place: "Berlin", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" }, sources: [] } });
   await saveSettings({
     agentEnabled: true,
-    agentQuery: { keywords: "Data scientist", place: "Berlin", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" },
-    agentRuns: [{ at: "2026-10-20T05:00:00Z", manual: false, message: "2 new postings are waiting for a look." }],
+    agentRuns: [
+      {
+        at: "2026-10-20T05:00:00Z",
+        manual: false,
+        message: "2 new postings are waiting for a look.",
+        searches: [{ searchId: "s", searchName: "Data scientist · Berlin, 25 km", source: "JSEARCH", found: 10, fresh: 2, error: null }],
+      },
+    ],
   });
 });
 afterAll(() => prisma().$disconnect());
@@ -41,6 +48,7 @@ describe("the Agent screen's data (E16-6)", () => {
     const application = await prisma().application.create({ data: { origin: "AGENT", awaitingReview: true } });
     await candidate("draft", 90, { status: "DRAFTED", applicationId: application.id });
     const good = await candidate("good", 75);
+    await prisma().agentCandidateSearch.create({ data: { candidateId: good.id, searchName: "Data scientists" } });
     await candidate("better", 88);
     await candidate("low", 30);
     await candidate("gone", 95, { status: "DISMISSED" });
@@ -51,31 +59,35 @@ describe("the Agent screen's data (E16-6)", () => {
     expect(view.drafts.map((entry) => entry.title)).toEqual(["Posting draft"]);
     expect(view.scored.map((entry) => entry.title)).toEqual(["Posting better", "Posting good"]);
     expect(view.belowMinimum.map((entry) => entry.title)).toEqual(["Posting low"]);
-    expect(view.scored[1]).toMatchObject({ facts: "Berlin · Remote", origin: "Posted 2 days ago · via LinkedIn on JSearch", draftJobId: job.id });
+    expect(view.scored[1]).toMatchObject({ facts: "Berlin · Remote", origin: "Posted 2 days ago · via LinkedIn on JSearch", draftJobId: job.id, foundBy: ["Data scientists"] });
     expect(view).toMatchObject({
-      search: "Data scientist · Berlin, 25 km · via JSearch",
+      searches: [{ label: "Data scientist · Berlin, 25 km", sources: "JSearch" }],
       setupProblem: null,
-      limitReached: false,
-      lastRun: { at: "Tue 20 Oct, 07:00", message: "2 new postings are waiting for a look." },
+      budgets: [{ source: "JSEARCH", name: "JSearch", left: 3, limit: 3, freeAt: null }],
+      lastRun: {
+        at: "Tue 20 Oct, 07:00",
+        message: "2 new postings are waiting for a look.",
+        searches: [{ label: "Data scientist · Berlin, 25 km", source: "JSearch", found: 10, fresh: 2, error: null }],
+      },
       nextRun: "Wed 21 Oct, 07:00",
     });
     // The badge: scored at or above the minimum, and drafts.
     expect(await countAgentQueue()).toBe(3);
   });
 
-  it("says what's missing, and when the day's runs are used up", async () => {
-    await saveSettings({
-      agentEnabled: false,
-      agentQuery: { keywords: "", place: "", country: "", radiusKm: 25, remoteOnly: false, postedWithin: "any" },
-      agentRuns: ["09:30", "08:00", "06:00"].map((time) => ({ at: `2026-10-20T${time}:00Z`, manual: true, message: null })),
-    });
+  it("says what's missing, and when a source's requests are used up", async () => {
+    await prisma().agentSearch.updateMany({ data: { enabled: false } });
+    await saveSettings({ agentEnabled: false });
     expect(await loadAgentView(now)).toMatchObject({
       enabled: false,
-      search: null,
-      setupProblem: "Add what to look for in Settings → Job agent first.",
+      searches: [],
+      setupProblem: "Turn on a search in Settings → Job agent first.",
       setupSection: "agent",
-      limitReached: true,
       nextRun: null,
     });
+
+    await prisma().agentSearch.updateMany({ data: { enabled: true } });
+    await saveSettings({ agentRequests: ["09:30", "08:00", "06:00"].map((time) => ({ source: "JSEARCH" as const, at: `2026-10-20T${time}:00Z` })) });
+    expect((await loadAgentView(now)).budgets).toEqual([{ source: "JSEARCH", name: "JSearch", left: 0, limit: 3, freeAt: "Wed 21 Oct, 08:00" }]);
   });
 });

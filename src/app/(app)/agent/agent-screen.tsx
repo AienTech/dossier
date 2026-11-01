@@ -105,12 +105,36 @@ export function AgentScreen({ view }: { view: AgentView }) {
 
         <Card padding="none" className="px-7 py-2">
           <dl>
-            <Fact label="Searches for">{view.search ?? "Nothing yet"}</Fact>
+            <Fact label="Searches for">
+              {view.searches.length === 0
+                ? "Nothing yet"
+                : view.searches.map((search) => (
+                    <span key={search.id} className="block">
+                      {search.label}
+                      {search.sources && <span className="text-muted"> · via {search.sources}</span>}
+                    </span>
+                  ))}
+            </Fact>
+            {view.budgets.length > 0 && (
+              <Fact label="Requests left today">
+                {view.budgets.map((budget) => (
+                  <span key={budget.source} className="block">
+                    {budget.name}: {budget.left === null ? "no limit" : `${budget.left} of ${budget.limit}`}
+                    {budget.freeAt && <span className="text-muted"> · one more {budget.freeAt}</span>}
+                  </span>
+                ))}
+              </Fact>
+            )}
             <Fact label="Last run">
               {view.lastRun ? (
                 <>
                   {view.lastRun.at}
                   {view.lastRun.message && <span className="block text-muted">{view.lastRun.message}</span>}
+                  {view.lastRun.searches.map((entry, index) => (
+                    <span key={index} className="block text-meta text-muted">
+                      {entry.label} on {entry.source}: {entry.error ?? `${entry.found} found, ${entry.fresh} new`}
+                    </span>
+                  ))}
                 </>
               ) : (
                 "Not yet"
@@ -238,7 +262,6 @@ function Notices({ view }: { view: AgentView }) {
       </>,
     );
   }
-  if (view.limitReached) return note("The agent has run 3 times in the past 24 hours, as many as it may. It runs again once a day has passed since the first.");
   return null;
 }
 
@@ -289,8 +312,11 @@ function CandidateCard({ candidate, children }: { candidate: AgentCandidateView;
           {candidate.company && <p className="text-sm text-ink">{candidate.company}</p>}
           {candidate.facts && <p className="text-meta text-muted">{candidate.facts}</p>}
           {candidate.origin && <p className="text-xs text-muted">{candidate.origin}</p>}
+          {candidate.foundBy.length > 0 && <p className="text-xs text-muted">Found by {candidate.foundBy.join(", ")}</p>}
           {/* As the source's terms ask (E14-2); the origin names the others. */}
-          {linksAttribution(candidate.source) && <SourceAttribution source={candidate.source} url={candidate.url} className="mt-1.5 self-start" />}
+          {linksAttribution(candidate.source) && (
+            <SourceAttribution source={candidate.source} url={candidate.url} className="mt-1.5 self-start" />
+          )}
         </div>
         <ScoreBadge score={candidate.score} />
       </div>

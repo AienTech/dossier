@@ -5,50 +5,65 @@ import { useState } from "react";
 
 import { useTrackSave } from "@/components/save-tracker";
 import { toastResult } from "@/components/toast";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Toggle } from "@/components/ui/toggle";
-import { useAutosave } from "@/hooks/use-autosave";
 import type { Country } from "@/lib/job-search/countries";
+import type { AgentSearch } from "@/lib/agent/searches";
 import { searchHref, type JobSource, type SearchQuery } from "@/lib/job-search/search";
+import { SOURCE_INFO } from "@/lib/job-search/sources";
+import type { JobSourceBudgets } from "@/lib/settings";
 import type { Scorer } from "@/lib/scoring/scorers";
 
-import { saveAgentSettings } from "../agent/actions";
+import { deleteAgentSearch, moveAgentSearch, saveAgentSearch, saveAgentSettings } from "../agent/actions";
 import { RemoteOnlyField, SearchFields, type SearchFieldErrors } from "../jobs/search-fields";
 import { SETTINGS_SECTIONS, settingsSectionHref, type SettingsSectionId } from "./sections";
 import { SettingsSectionIntro } from "./settings-screen";
 
 export type AgentSettings = {
   enabled: boolean;
-  query: SearchQuery;
   hour: number;
   minScore: number;
   maxScores: number;
   maxDrafts: number;
   autoDraft: boolean;
+  maxSearches: number;
+  maxPages: number;
+  budgets: JobSourceBudgets;
 };
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const MIN_SCORES = [50, 55, 60, 65, 70, 75, 80, 85, 90];
 const SCORE_COUNTS = Array.from({ length: 30 }, (_, index) => index + 1);
 const DRAFT_COUNTS = Array.from({ length: 11 }, (_, index) => index);
+const SEARCH_LIMITS = Array.from({ length: 10 }, (_, index) => index + 1);
+const PAGE_COUNTS = [1, 2, 3, 4, 5];
+const BUDGET_COUNTS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 30, 50, 100];
 const clock = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 /**
- * Settings → Job agent (E16-7): whether it runs, the one search it runs,
- * when, and how much a run may do. Each change saves at once; the search
- * once typing pauses.
+ * Settings → Job agent (E16-7): whether it runs, its saved searches, when,
+ * how much a run may do, and how many requests each source may get. Each
+ * change saves at once; a search when Save is pressed.
  */
 export function AgentSection({
   initial,
+  searches: initialSearches,
+  starter,
   sources,
   scoring,
   countries,
   timeZone,
 }: {
   initial: AgentSettings;
-  /** The sources in Settings → Job search; empty while job search is off. */
+  searches: AgentSearch[];
+  /** What a new search starts from: the last one in Find jobs, else the profile's. */
+  starter: SearchQuery;
+  /** The sources in Settings → Job search the agent searches: all but the Bundesagentur für Arbeit. */
   sources: JobSource[];
   /** What scores the postings (Settings → Scoring), and whether it's set up. */
   scoring: { scorer: Scorer; ready: boolean };
@@ -57,10 +72,9 @@ export function AgentSection({
   timeZone: string;
 }) {
   const track = useTrackSave();
-  // It searches on its own, which the BA's terms forbid most clearly (#223).
-  const searched = sources.filter((source) => source !== "ARBEITSAGENTUR");
   const [settings, setSettings] = useState(initial);
-  const [errors, setErrors] = useState<SearchFieldErrors>({});
+  const [searches, setSearches] = useState(initialSearches);
+  const [adding, setAdding] = useState(false);
 
   const change = (next: Partial<AgentSettings>) => {
     const previous = settings;
@@ -69,42 +83,29 @@ export function AgentSection({
       if (!toastResult(result).ok) setSettings(previous);
     });
   };
-  const { flush } = useAutosave(settings.query, (query) => track(saveAgentSettings({ query })));
-  const setQuery = (patch: Partial<SearchQuery>) => {
-    setErrors({});
-    setSettings((current) => ({ ...current, query: { ...current.query, ...patch } }));
+
+  const saved = async (result: Awaited<ReturnType<typeof saveAgentSearch>>) => {
+    if (!toastResult(result).ok || !result.ok) return false;
+    setSearches(result.data);
+    return true;
   };
 
-  const turnOn = (on: boolean) => {
-    if (on) {
-      const problems = {
-        keywords: settings.query.keywords.trim() ? undefined : "Type what the agent should look for.",
-        country: settings.query.country ? undefined : "Choose a country.",
-      };
-      setErrors(problems);
-      if (problems.keywords || problems.country) return;
-      // With it, so a search started from Find jobs is saved too.
-      return change({ enabled: true, query: settings.query });
-    }
-    change({ enabled: false });
-  };
+  const requestsPerRun = (source: JobSource) =>
+    settings.maxPages * searches.filter((search) => search.enabled && (search.sources.length === 0 || search.sources.includes(source))).length;
 
   return (
     <>
       <SettingsSectionIntro title="Job agent">
-        Once a day it runs one search, scores the new postings against your profile, and keeps the best on the Agent screen. It never sends or applies.
+        Once a day it runs your saved searches, scores the new postings against your profile, and keeps the best on the Agent screen. It never sends or applies.
       </SettingsSectionIntro>
 
-      {sources.length > 0 && searched.length === 0 ? (
-        <p role="note" className="rounded-card bg-warning-surface px-4 py-3 text-meta text-warning">
-          The agent doesn&apos;t search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in{" "}
-          <Link href="/settings?section=jobs" className="font-medium text-warning underline underline-offset-2">
-            Settings → Job search
-          </Link>{" "}
-          for it.
-        </p>
-      ) : sources.length === 0 ? (
-        <SetupNote before="The agent searches the sources you choose in " section="jobs" after=", which is off. Choose one first." />
+      {sources.length === 0 ? (
+        // It searches on its own, which the BA's terms forbid most clearly (#223).
+        <SetupNote
+          before="The agent searches the sources you choose in "
+          section="jobs"
+          after=", other than the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire first."
+        />
       ) : scoring.ready ? null : scoring.scorer === "JEV" ? (
         <SetupNote before="The agent scores postings with Jev, which needs your TypeSafe key in " section="scoring" after="." />
       ) : (
@@ -116,11 +117,11 @@ export function AgentSection({
           label="Run the job agent"
           description={
             settings.enabled
-              ? `On. It runs once a day after ${clock(settings.hour)} your time (${timeZone}), and you can run it now and then on the Agent screen.`
+              ? `On. It runs once a day after ${clock(settings.hour)} your time (${timeZone}), and you can run it any time on the Agent screen.`
               : "Off. Nothing is searched or scored until it's on."
           }
           checked={settings.enabled}
-          onCheckedChange={turnOn}
+          onCheckedChange={(enabled) => change({ enabled })}
         />
       </Card>
 
@@ -128,19 +129,49 @@ export function AgentSection({
         <div className="flex flex-col gap-1">
           <h3 className="text-field font-medium">What it looks for</h3>
           <p className="text-meta text-muted">
-            The same search as in{" "}
-            <Link href={searchHref(settings.query)} className="font-medium text-ink underline underline-offset-2">
+            Searches as in{" "}
+            <Link href={searchHref(starter)} className="font-medium text-ink underline underline-offset-2">
               Find jobs
             </Link>
-            , through the sources in Settings → Job search. Postings you saved, dismissed or applied for there are left out.
+            , each on the sources you tick, or on all of them. Postings you saved, dismissed or applied for there are left out. Scoring takes from each search in turn.
           </p>
         </div>
-        <div className="grid grid-cols-1 items-start gap-x-4 gap-y-4 sm:grid-cols-2" onBlur={flush}>
-          <SearchFields value={settings.query} onChange={setQuery} sources={searched} countries={countries} errors={errors} />
-          <div className="sm:col-span-2">
-            <RemoteOnlyField value={settings.query} onChange={setQuery} sources={searched} />
-          </div>
-        </div>
+        {searches.map((search, index) => (
+          <SearchEditor
+            key={search.id}
+            initial={search}
+            sources={sources}
+            countries={countries}
+            first={index === 0}
+            last={index === searches.length - 1}
+            onSave={async (value) => saved(await track(saveAgentSearch({ ...value, id: search.id })))}
+            onDelete={async () => void saved(await track(deleteAgentSearch({ id: search.id })))}
+            onMove={async (by) => void saved(await track(moveAgentSearch({ id: search.id, by })))}
+          />
+        ))}
+        {adding ? (
+          <SearchEditor
+            initial={{ id: "", name: "", query: starter, sources: [], enabled: true }}
+            sources={sources}
+            countries={countries}
+            onSave={async (value) => {
+              const ok = await saved(await track(saveAgentSearch(value)));
+              if (ok) setAdding(false);
+              return ok;
+            }}
+            onDelete={async () => setAdding(false)}
+          />
+        ) : (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            disabled={searches.length >= settings.maxSearches}
+            onClick={() => setAdding(true)}
+          >
+            Add a search
+          </Button>
+        )}
       </Card>
 
       <Card padding="none" className="grid gap-x-[18px] gap-y-5 px-7 py-[26px] sm:grid-cols-2">
@@ -196,11 +227,154 @@ export function AgentSection({
         />
       </Card>
 
+      <Card padding="none" className="grid gap-x-[18px] gap-y-5 px-7 py-[26px] sm:grid-cols-2">
+        <Select label="Saved searches, at most" value={String(settings.maxSearches)} onChange={(event) => change({ maxSearches: Number(event.target.value) })}>
+          {SEARCH_LIMITS.map((count) => (
+            <option key={count} value={count}>
+              {count}
+            </option>
+          ))}
+        </Select>
+        <Select
+          label="Pages per search and source"
+          hint="Each page is one request; a page holds 10 to 25 postings."
+          value={String(settings.maxPages)}
+          onChange={(event) => change({ maxPages: Number(event.target.value) })}
+        >
+          {PAGE_COUNTS.map((count) => (
+            <option key={count} value={count}>
+              {count}
+            </option>
+          ))}
+        </Select>
+        {sources.map((source) => {
+          const budget = settings.budgets[source as keyof JobSourceBudgets];
+          return (
+            <Select
+              key={source}
+              label={`${SOURCE_INFO[source].name} requests per 24 hours`}
+              hint={`A run sends it up to ${plural(requestsPerRun(source), "request", "requests")}.`}
+              value={budget === null ? "" : String(budget)}
+              onChange={(event) =>
+                change({ budgets: { ...settings.budgets, [source]: event.target.value === "" ? null : Number(event.target.value) } })
+              }
+            >
+              <option value="">No limit</option>
+              {[...new Set([...BUDGET_COUNTS, ...(budget === null ? [] : [budget])])].sort((x, y) => x - y).map((count) => (
+                <option key={count} value={count}>
+                  {count}
+                </option>
+              ))}
+            </Select>
+          );
+        })}
+      </Card>
+
       <p className="text-meta text-muted">
-        One search a day, and at most three in any 24 hours. Each run scores up to {plural(settings.maxScores, "posting", "postings")}
-        {settings.autoDraft ? ` and prepares up to ${plural(settings.maxDrafts, "draft", "drafts")}` : ""}. Scoring and drafts go to your AI provider with your profile, as a new application does; the job source only gets the search.
+        One run a day, and Run now whenever a source has requests left. Each run scores up to {plural(settings.maxScores, "posting", "postings")}
+        {settings.autoDraft ? ` and prepares up to ${plural(settings.maxDrafts, "draft", "drafts")}` : ""}. Scoring and drafts go to your AI provider with your profile, as a new application does; the job sources only get the searches.
       </p>
     </>
+  );
+}
+
+/** One saved search: its name, query, sources and switch, saved with Save. */
+function SearchEditor({
+  initial,
+  sources,
+  countries,
+  first = true,
+  last = true,
+  onSave,
+  onDelete,
+  onMove,
+}: {
+  initial: AgentSearch;
+  sources: JobSource[];
+  countries: readonly Country[];
+  first?: boolean;
+  last?: boolean;
+  onSave: (search: Omit<AgentSearch, "id">) => Promise<boolean>;
+  onDelete: () => Promise<void>;
+  onMove?: (by: -1 | 1) => Promise<void>;
+}) {
+  const [search, setSearch] = useState(initial);
+  const [errors, setErrors] = useState<SearchFieldErrors>({});
+  const [dirty, setDirty] = useState(!initial.id);
+  const update = (patch: Partial<AgentSearch>) => {
+    setErrors({});
+    setDirty(true);
+    setSearch((current) => ({ ...current, ...patch }));
+  };
+  const setQuery = (patch: Partial<SearchQuery>) => update({ query: { ...search.query, ...patch } });
+  const asked = search.sources.length === 0 ? sources : sources.filter((source) => search.sources.includes(source));
+
+  const save = async () => {
+    const problems = {
+      keywords: search.query.keywords.trim() ? undefined : "Type what the search should look for.",
+      country: search.query.country ? undefined : "Choose a country.",
+    };
+    setErrors(problems);
+    if (problems.keywords || problems.country) return;
+    if (await onSave({ name: search.name, query: search.query, sources: search.sources, enabled: search.enabled })) setDirty(false);
+  };
+
+  const toggleSource = (source: JobSource, on: boolean) => {
+    const current = search.sources.length === 0 ? sources : search.sources;
+    const next = on ? [...current, source] : current.filter((entry) => entry !== source);
+    // All of them is the same as none named: new sources are asked too.
+    update({ sources: next.length === sources.length ? [] : next });
+  };
+
+  return (
+    <div className="flex flex-col gap-4 rounded-card border border-line-card p-5">
+      <div className="grid grid-cols-1 items-start gap-x-4 gap-y-4 sm:grid-cols-2">
+        <Input
+          className="sm:col-span-2"
+          label="Name"
+          value={search.name}
+          placeholder="Optional, e.g. Tech lead roles"
+          onChange={(event) => update({ name: event.target.value })}
+        />
+        <SearchFields value={search.query} onChange={setQuery} sources={asked} countries={countries} errors={errors} />
+        <div className="sm:col-span-2">
+          <RemoteOnlyField value={search.query} onChange={setQuery} sources={asked} />
+        </div>
+      </div>
+      {sources.length > 1 && (
+        <fieldset className="flex flex-wrap gap-x-5 gap-y-2">
+          <legend className="mb-2 text-label text-muted">Sources</legend>
+          {sources.map((source) => (
+            <Checkbox
+              key={source}
+              label={SOURCE_INFO[source].name}
+              checked={search.sources.length === 0 || search.sources.includes(source)}
+              onChange={(event) => toggleSource(source, event.target.checked)}
+            />
+          ))}
+        </fieldset>
+      )}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Checkbox label="Run this search" checked={search.enabled} onChange={(event) => update({ enabled: event.target.checked })} />
+        <span className="flex-1" />
+        {onMove && !first && (
+          <Button variant="text" size="sm" onClick={() => void onMove(-1)}>
+            Move up
+          </Button>
+        )}
+        {onMove && !last && (
+          <Button variant="text" size="sm" onClick={() => void onMove(1)}>
+            Move down
+          </Button>
+        )}
+        <Button variant="text" size="sm" onClick={() => void onDelete()}>
+          {initial.id ? "Delete" : "Cancel"}
+        </Button>
+        <Button size="sm" disabled={!dirty} onClick={() => void save()}>
+          Save search
+        </Button>
+      </div>
+    </div>
   );
 }
 

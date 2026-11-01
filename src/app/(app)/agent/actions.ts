@@ -6,16 +6,20 @@ import { z } from "zod";
 import { AgentCandidateStatus } from "@/generated/prisma/enums";
 import { agentDraftJob, approveCandidate, dismissCandidate, draftJobKey, restoreCandidate } from "@/lib/agent/draft";
 import { AGENT_JOB_KEY, agentScanJob } from "@/lib/agent/jobs";
-import { agentQueryReady, agentSetupProblem } from "@/lib/agent/run";
-import { runLimitProblem } from "@/lib/agent/runs";
+import { agentSetupProblem } from "@/lib/agent/run";
+import { budgetProblem } from "@/lib/agent/runs";
+import { agentQueryReady, agentSearchInputSchema, loadAgentSearches, searchSources } from "@/lib/agent/searches";
 import { action, ActionError } from "@/lib/action";
-import { safeLink, searchQuerySchema } from "@/lib/job-search/search";
+import { agentSources, loadJobSearchConfig } from "@/lib/job-search/config";
+import { safeLink } from "@/lib/job-search/search";
 import { findUnfinishedJobs, startJob } from "@/lib/jobs/runner";
 import { prisma } from "@/lib/prisma";
 import { loadSettings, saveSettings } from "@/lib/settings-data";
 
 // The Agent screen's actions (E16). Nothing here ever sends anything:
 // approving only makes a draft a normal Draft application.
+
+const budget = z.number().int().min(0).max(100).nullable();
 
 /**
  * Settings → Job agent (E16-7): each change saves at once. Turning the agent
@@ -24,46 +28,98 @@ import { loadSettings, saveSettings } from "@/lib/settings-data";
 export const saveAgentSettings = action(
   z.object({
     enabled: z.boolean().optional(),
-    query: searchQuerySchema.optional(),
     hour: z.number().int().min(0).max(23).optional(),
     minScore: z.number().int().min(0).max(100).optional(),
     maxScores: z.number().int().min(1).max(30).optional(),
     maxDrafts: z.number().int().min(0).max(10).optional(),
     autoDraft: z.boolean().optional(),
+    maxSearches: z.number().int().min(1).max(10).optional(),
+    maxPages: z.number().int().min(1).max(5).optional(),
+    budgets: z.object({ JSEARCH: budget, ADZUNA: budget, FREEHIRE: budget }).optional(),
   }),
   async (changes) => {
-    const settings = await loadSettings();
-    const query = changes.query ?? settings.agentQuery;
-    if (changes.enabled && !agentQueryReady(query)) {
-      throw new ActionError(query.keywords.trim() ? "Choose a country for the search before turning the agent on." : "Type what the agent should look for before turning it on.");
+    if (changes.enabled && !(await loadAgentSearches()).some((search) => search.enabled && agentQueryReady(search.query))) {
+      throw new ActionError("Add a search with what to look for and a country before turning the agent on.");
+    }
+    if (changes.maxSearches !== undefined && (await prisma.agentSearch.count()) > changes.maxSearches) {
+      throw new ActionError("Delete searches first: there are more than that.");
     }
     await saveSettings({
       agentEnabled: changes.enabled,
-      agentQuery: changes.query,
       agentHour: changes.hour,
       agentMinScore: changes.minScore,
       agentMaxScores: changes.maxScores,
       agentMaxDrafts: changes.maxDrafts,
       agentAutoDraft: changes.autoDraft,
+      agentMaxSearches: changes.maxSearches,
+      agentMaxPages: changes.maxPages,
+      jobSourceBudgets: changes.budgets,
     });
     revalidatePath("/agent");
     return null;
   },
 );
 
+const searchId = z.string().min(1).max(100);
+
+/** Adds a saved search, or changes one (`id`); at most agentMaxSearches. Returns the searches as they are now. */
+export const saveAgentSearch = action(agentSearchInputSchema.extend({ id: searchId.optional() }), async ({ id, ...search }) => {
+  if (search.enabled && !agentQueryReady(search.query)) {
+    throw new ActionError(search.query.keywords.trim() ? "Choose a country for the search." : "Type what the search should look for.");
+  }
+  const data = { name: search.name, query: search.query, sources: search.sources, enabled: search.enabled };
+  if (id) {
+    const { count } = await prisma.agentSearch.updateMany({ where: { id }, data });
+    if (count === 0) throw new ActionError("That search no longer exists. Reload the page.");
+  } else {
+    const [{ agentMaxSearches }, count, last] = await Promise.all([
+      loadSettings(),
+      prisma.agentSearch.count(),
+      prisma.agentSearch.findFirst({ orderBy: { sort: "desc" }, select: { sort: true } }),
+    ]);
+    if (count >= agentMaxSearches) throw new ActionError(`Keep at most ${agentMaxSearches} searches, or raise the limit below.`);
+    await prisma.agentSearch.create({ data: { ...data, sort: (last?.sort ?? -1) + 1 } });
+  }
+  revalidatePath("/agent");
+  return loadAgentSearches();
+});
+
+/** Deletes a saved search. The candidates it found keep its name. */
+export const deleteAgentSearch = action(z.object({ id: searchId }), async ({ id }) => {
+  await prisma.agentSearch.deleteMany({ where: { id } });
+  revalidatePath("/agent");
+  return loadAgentSearches();
+});
+
+/** Moves a saved search one place up or down; the first ones get the first turn when scoring. */
+export const moveAgentSearch = action(z.object({ id: searchId, by: z.union([z.literal(-1), z.literal(1)]) }), async ({ id, by }) => {
+  const searches = await loadAgentSearches();
+  const from = searches.findIndex((search) => search.id === id);
+  const to = from + by;
+  if (from < 0 || to < 0 || to >= searches.length) return searches;
+  const order = searches.map((search) => search.id);
+  [order[from], order[to]] = [order[to], order[from]];
+  await prisma.$transaction(order.map((entry, sort) => prisma.agentSearch.update({ where: { id: entry }, data: { sort } })));
+  revalidatePath("/agent");
+  return loadAgentSearches();
+});
+
 /**
- * Run now (E16-4): one more run, at most once an hour after the previous
- * one and within the daily limit. A run already queued or running is
- * reused rather than started again.
+ * Run now (E16-4): one more run, as long as some source the searches ask
+ * has requests left. A run already queued or running is reused rather than
+ * started again.
  */
 export const runAgentNow = action(z.object({}), async () => {
   const settings = await loadSettings();
   if (!settings.agentEnabled) throw new ActionError("Turn the job agent on in Settings → Job agent first.");
-  const setup = await agentSetupProblem(settings.agentQuery);
+  const searches = await loadAgentSearches();
+  const setup = await agentSetupProblem(searches);
   if (setup) throw new ActionError(setup);
   const [unfinished] = await findUnfinishedJobs(AGENT_JOB_KEY);
   if (unfinished) return { jobId: unfinished.id, reused: true };
-  const limit = runLimitProblem(settings.agentRuns, new Date(), { manual: true });
+  const sources = agentSources(await loadJobSearchConfig());
+  const asked = [...new Set(searches.filter((search) => search.enabled).flatMap((search) => searchSources(search, sources)))];
+  const limit = budgetProblem(settings.agentRequests, settings.jobSourceBudgets, asked, new Date());
   if (limit) throw new ActionError(limit);
   const jobId = await startJob(agentScanJob, { manual: true }, { key: AGENT_JOB_KEY });
   revalidatePath("/agent");

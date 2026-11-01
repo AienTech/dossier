@@ -59,8 +59,9 @@ export const INSTALL_SETTINGS: readonly string[] = [
   "usagePingChoice",
   "usagePingChoiceAt",
   "usagePingChoiceText",
-  // The job agent's runs count against this server's job source key (E16).
+  // The job agent's runs and requests count against this server's job source keys (E16).
   "agentRuns",
+  "agentRequests",
   // When Startups was last opened and what its last refresh found (#222).
   "startupsViewedAt",
   "startupsLastRefresh",
@@ -258,6 +259,21 @@ const agentCandidate = z.object({
   updatedAt: date,
 });
 
+/** A saved search of the job agent's (#11). */
+const agentSearch = z.object({
+  id: text,
+  name: text,
+  query: z.unknown(),
+  sources: z.array(z.enum(PostingSource)),
+  enabled: z.boolean(),
+  sort: int,
+  createdAt: date,
+  updatedAt: date,
+});
+
+/** Which saved search found a candidate, with the search's name as it was. */
+const agentCandidateSearch = z.object({ id: text, candidateId: text, searchId: text.nullable(), searchName: text, createdAt: date });
+
 /** A startup from Startups (#222), with the addresses it publishes and what the user did with it. */
 const startup = z.object({
   id: text,
@@ -374,6 +390,9 @@ export const exportSchema = z.object({
   searches: z.array(postingSearch).default([]),
   /** The job agent's candidates (E16); absent in older files. */
   agentCandidates: z.array(agentCandidate).default([]),
+  /** Its saved searches and which found each candidate (version 8); before, the one search was the agentQuery setting. */
+  agentSearches: z.array(agentSearch).default([]),
+  agentCandidateSearches: z.array(agentCandidateSearch).default([]),
   /** Startups (#222), and hashes of the ones removed for good; absent in older files. */
   startups: z.array(startup).default([]),
   startupBlocks: z.array(z.object({ hash: text, createdAt: date })).default([]),
@@ -398,7 +417,7 @@ export async function buildExport(
   { includeApiKey = false, now = new Date() }: { includeApiKey?: boolean; now?: Date } = {},
 ): Promise<DossierExport> {
   return db.$transaction(async (tx) => {
-    const [fields, skills, languages, experience, projects, education, publications, references, facts, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks, aiProfiles] = await Promise.all([
+    const [fields, skills, languages, experience, projects, education, publications, references, facts, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks, aiProfiles, agentSearches, agentCandidateSearches] = await Promise.all([
       tx.profileField.findMany({ select: { key: true, value: true }, orderBy: { key: "asc" } }),
       tx.skill.findMany({ select: { id: true, name: true, sort: true, group: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
       tx.language.findMany({ select: { id: true, name: true, level: true, sort: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
@@ -432,6 +451,8 @@ export async function buildExport(
       tx.startup.findMany({ orderBy: { createdAt: "asc" } }),
       tx.startupBlock.findMany({ orderBy: { createdAt: "asc" } }),
       tx.aiProfile.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
+      tx.agentSearch.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
+      tx.agentCandidateSearch.findMany({ orderBy: { createdAt: "asc" } }),
     ]);
 
     // Keys only when asked for, decrypted; one that's unreadable here too (DOSSIER_SECRET changed) has nothing to export.
@@ -484,6 +505,8 @@ export async function buildExport(
       postings,
       searches,
       agentCandidates,
+      agentSearches,
+      agentCandidateSearches,
       startups,
       startupBlocks,
     };

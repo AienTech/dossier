@@ -53,3 +53,25 @@ describe("the job_sources migration", () => {
     expect(await settings()).toEqual({ jobSources: "[]" });
   });
 });
+
+describe("the agent_searches migration", () => {
+  const migrate = () => run(dataStatements("20261101090300_agent_searches", "-- The agent's one search becomes the first saved search, when it has keywords.", "DELETE FROM"), { block: true });
+  const drop = () => run(`DELETE FROM "Setting" WHERE "key" = 'agentQuery'`);
+
+  it("makes the agent's search the first saved one, and drops the setting", async () => {
+    const query = { keywords: "Data scientist", place: "Berlin", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" };
+    await prisma().setting.create({ data: { key: "agentQuery", value: JSON.stringify(query) } });
+    await migrate();
+    await drop();
+    expect(await prisma().agentSearch.findMany()).toEqual([expect.objectContaining({ id: "agent-search-legacy", query, sources: [], enabled: true })]);
+    expect(await settings()).toEqual({});
+  });
+
+  it("makes none from a search without keywords, or one that isn't JSON", async () => {
+    await prisma().setting.create({ data: { key: "agentQuery", value: JSON.stringify({ keywords: "  ", country: "de" }) } });
+    await migrate();
+    await prisma().setting.update({ where: { key: "agentQuery" }, data: { value: "{not json" } });
+    await migrate();
+    expect(await prisma().agentSearch.count()).toBe(0);
+  });
+});

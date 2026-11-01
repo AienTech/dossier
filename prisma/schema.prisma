@@ -691,12 +691,46 @@ model AgentCandidate {
   /// A hash of the link without tracking parameters, else of company, title
   /// and place: the same job from another source or a later run matches.
   dedupeKey     String               @unique
+  /// The saved searches that found it.
+  searches      AgentCandidateSearch[]
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
   @@unique([source, externalId])
   @@index([status, score])
   @@index([createdAt])
+}
+
+/// A search the job agent runs (E16): its query, on the sources it names
+/// (none means every source the agent searches), in `sort` order.
+model AgentSearch {
+  id         String                 @id @default(cuid())
+  name       String                 @default("")
+  /// searchQuerySchema in src/lib/job-search/search.ts.
+  query      Json
+  sources    PostingSource[]
+  enabled    Boolean                @default(true)
+  sort       Int                    @default(0)
+  candidates AgentCandidateSearch[]
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  @@index([sort, createdAt])
+}
+
+/// Which saved search found a candidate. The search's name is kept, so the
+/// link still reads after the search is deleted.
+model AgentCandidateSearch {
+  id          String         @id @default(cuid())
+  candidateId String
+  candidate   AgentCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  searchId    String?
+  search      AgentSearch?   @relation(fields: [searchId], references: [id], onDelete: SetNull)
+  searchName  String
+  createdAt   DateTime       @default(now())
+
+  @@unique([candidateId, searchId])
+  @@index([searchId])
 }
 
 /// How well a posting fits the profile (#208): from Score in Find jobs, or

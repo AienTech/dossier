@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import { loadAiConfig, loadAiSettingsView } from "@/lib/ai/config";
-import { jobSearchView, loadJobSearchConfig } from "@/lib/job-search/config";
+import { agentSources, jobSearchView, loadJobSearchConfig } from "@/lib/job-search/config";
 import { COUNTRIES } from "@/lib/job-search/countries";
+import { loadAgentSearches } from "@/lib/agent/searches";
+import { EMPTY_QUERY } from "@/lib/job-search/search";
 import { loadSearch } from "@/lib/posting-searches";
 import { providerOption } from "@/lib/ai/provider-options";
 import { lastNightlyBackup } from "@/lib/backup-schedule";
@@ -61,15 +63,19 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
         <AgentSection
           initial={{
             enabled: settings.agentEnabled,
-            // With no search of its own yet, it starts from the last one in Find jobs.
-            query: settings.agentQuery.keywords.trim() ? settings.agentQuery : ((await loadSearch())?.query ?? settings.agentQuery),
             hour: settings.agentHour,
             minScore: settings.agentMinScore,
             maxScores: settings.agentMaxScores,
             maxDrafts: settings.agentMaxDrafts,
             autoDraft: settings.agentAutoDraft,
+            maxSearches: settings.agentMaxSearches,
+            maxPages: settings.agentMaxPages,
+            budgets: settings.jobSourceBudgets,
           }}
-          sources={(await loadJobSearchConfig()).sources}
+          searches={await loadAgentSearches()}
+          // A new search starts from the last one in Find jobs.
+          starter={(await loadSearch())?.query ?? EMPTY_QUERY}
+          sources={agentSources(await loadJobSearchConfig())}
           scoring={await scoringReadiness()}
           countries={COUNTRIES}
           timeZone={await lastKnownTimeZone()}

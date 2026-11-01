@@ -79,8 +79,23 @@ function jsearchKeysFrom({ schemaVersion, settings, jobSourceKeys }: DossierExpo
   return { jsearchKeyEnc: encrypt(jobSourceKeys?.jsearch), jsearchRapidapiKeyEnc: encrypt(jobSourceKeys?.jsearchRapidapi) };
 }
 
-/** The settings older files hold that are now stored otherwise: the AI provider, now rows, and the one job source. */
-const LEGACY_SETTINGS: readonly string[] = [...LEGACY_AI_SETTINGS, "jobSource"];
+/** The settings older files hold that are now rows: the AI provider and the job agent's one search. */
+const LEGACY_SETTINGS: readonly string[] = [...LEGACY_AI_SETTINGS, "agentQuery", "jobSource"];
+
+/** The file's saved agent searches; before version 8 the one search was the agentQuery setting, kept when it has keywords. */
+function agentSearchesFrom(data: DossierExport): DossierExport["agentSearches"] {
+  if (data.schemaVersion >= 8) return data.agentSearches;
+  const value = data.settings.find((entry) => entry.key === "agentQuery")?.value;
+  let query: unknown = null;
+  try {
+    query = value ? JSON.parse(value) : null;
+  } catch {
+    return [];
+  }
+  const keywords = (query as { keywords?: unknown } | null)?.keywords;
+  if (typeof keywords !== "string" || !keywords.trim()) return [];
+  return [{ id: "agent-search-legacy", name: "", query, sources: [], enabled: true, sort: 0, createdAt: data.exportedAt, updatedAt: data.exportedAt }];
+}
 
 /** The file's chosen job sources; before version 8 one was the jobSource setting. */
 function jobSourcesFrom(data: DossierExport): { key: string; value: string }[] {
@@ -112,7 +127,8 @@ function aiProfilesFrom(data: DossierExport): { aiProfiles: NonNullable<DossierE
  * settings (the usage ping's) stay as they are.
  */
 export async function importExport(db: PrismaClient, data: DossierExport): Promise<void> {
-  const { profile, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks, jobSourceKeys } = data;
+  const { profile, themes, settings, applications, postings, searches, agentCandidates, agentCandidateSearches, startups, startupBlocks, jobSourceKeys } = data;
+  const agentSearches = agentSearchesFrom(data);
   const { aiProfiles, aiProfileKeys, aiDefaultProfileId } = aiProfilesFrom(data);
   const fromFile: Record<string, string | null> = {
     ...jsearchKeysFrom(data),
@@ -128,6 +144,7 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
       await tx.posting.deleteMany();
       await tx.postingSearch.deleteMany();
       await tx.agentCandidate.deleteMany();
+      await tx.agentSearch.deleteMany();
       await tx.startup.deleteMany();
       await tx.startupBlock.deleteMany();
       // Scores of postings (#208) belong to the profile being replaced; they're left out of exports, since they can be made again.
@@ -253,6 +270,16 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
           redFlags: json(candidate.redFlags),
           applicationId: candidate.applicationId && applicationIds.has(candidate.applicationId) ? candidate.applicationId : null,
         })),
+      });
+      await tx.agentSearch.createMany({ data: agentSearches.map((search) => ({ ...search, query: (search.query ?? {}) as Prisma.InputJsonValue })) });
+      // A link to a candidate that isn't in the file is left out; one to a search that isn't keeps the search's name.
+      const candidateIds = new Set(agentCandidates.map((candidate) => candidate.id));
+      const searchIds = new Set(agentSearches.map((search) => search.id));
+      await tx.agentCandidateSearch.createMany({
+        data: agentCandidateSearches
+          .filter((link) => candidateIds.has(link.candidateId))
+          .map((link) => ({ ...link, searchId: link.searchId && searchIds.has(link.searchId) ? link.searchId : null })),
+        skipDuplicates: true,
       });
       // Startups (#222) with what the user did with them; an application that isn't in the file leaves one unlinked.
       await tx.startup.createMany({

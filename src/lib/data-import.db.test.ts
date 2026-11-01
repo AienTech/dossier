@@ -197,16 +197,20 @@ describe("importExport (E10-6)", () => {
     });
   });
 
-  it("turns an older file's search and job source into today's shapes", async () => {
+  it("turns an older file's search, agent search and job source into today's shapes", async () => {
     const file = await asFile();
+    const query = { keywords: "data scientist", place: "Berlin", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" };
     const older = {
       ...file,
       schemaVersion: 7 as const,
-      settings: [...file.settings, { key: "jobSource", value: "ADZUNA" }, { key: "jsearchHost", value: "rapidapi" }],
+      agentSearches: [],
+      settings: [...file.settings, { key: "agentQuery", value: JSON.stringify(query) }, { key: "jobSource", value: "ADZUNA" }, { key: "jsearchHost", value: "rapidapi" }],
       searches: [{ id: "s1", source: "JSEARCH" as const, next: "cursor:2", query: { keywords: "designer" }, postings: [], found: 0, createdAt: now, updatedAt: now }],
       jobSourceKeys: { jsearch: "ak-rapid" },
     };
     await importExport(prisma(), older);
+    expect(await prisma().agentSearch.findMany()).toEqual([expect.objectContaining({ id: "agent-search-legacy", query, sources: [], enabled: true })]);
+    expect(await prisma().setting.findUnique({ where: { key: "agentQuery" } })).toBeNull();
     expect(await prisma().setting.findUnique({ where: { key: "jobSources" } })).toMatchObject({ value: '["ADZUNA"]' });
     expect(await prisma().postingSearch.findUniqueOrThrow({ where: { id: "s1" } })).toMatchObject({
       sources: ["JSEARCH"],
@@ -216,6 +220,16 @@ describe("importExport (E10-6)", () => {
     expect(await prisma().setting.findUnique({ where: { key: "jsearchKeyEnc" } })).toBeNull();
     const rapid = await prisma().setting.findUniqueOrThrow({ where: { key: "jsearchRapidapiKeyEnc" } });
     expect(decryptSecret(JOB_SOURCE_KEY, rapid.value, secret)).toBe("ak-rapid");
+  });
+
+  it("restores the job agent's saved searches and which found each candidate", async () => {
+    const search = await prisma().agentSearch.create({ data: { name: "Leads", query: { keywords: "tech lead", country: "de" }, sources: ["ADZUNA"] } });
+    const candidate = await prisma().agentCandidate.create({ data: { source: "JSEARCH", externalId: "job-9", dedupeKey: "key-9" } });
+    await prisma().agentCandidateSearch.create({ data: { candidateId: candidate.id, searchId: search.id, searchName: "Leads" } });
+    const file = await asFile();
+    await importExport(prisma(), file);
+    expect(await prisma().agentSearch.findMany()).toEqual([expect.objectContaining({ id: search.id, name: "Leads", sources: ["ADZUNA"] })]);
+    expect(await prisma().agentCandidateSearch.findMany()).toEqual([expect.objectContaining({ candidateId: candidate.id, searchId: search.id, searchName: "Leads" })]);
   });
 
   it("restores the job agent's candidates and drafts, so what it saw stays seen (E16)", async () => {

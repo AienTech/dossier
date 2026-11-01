@@ -1,66 +1,114 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { toast } from "@/components/toast";
+import type { AgentSearch } from "@/lib/agent/searches";
 
-import { saveAgentSettings } from "../agent/actions";
+import { deleteAgentSearch, saveAgentSearch, saveAgentSettings } from "../agent/actions";
 import { AgentSection, type AgentSettings } from "./agent-section";
 
-vi.mock("../agent/actions", () => ({ saveAgentSettings: vi.fn(async () => ({ ok: true, data: null })) }));
+vi.mock("../agent/actions", () => ({
+  saveAgentSettings: vi.fn(async () => ({ ok: true, data: null })),
+  saveAgentSearch: vi.fn(),
+  deleteAgentSearch: vi.fn(),
+  moveAgentSearch: vi.fn(),
+}));
 vi.mock("@/components/toast", () => ({ toast: vi.fn(), toastResult: (result: { ok: boolean; error?: string }) => (result.ok ? result : (toast(result.error!), result)) }));
 
+const query = { keywords: "Data scientist", place: "Berlin", country: "de", radiusKm: 25 as const, remoteOnly: false, postedWithin: "any" as const };
+const search: AgentSearch = { id: "s1", name: "", query, sources: [], enabled: true };
 const initial: AgentSettings = {
   enabled: false,
-  query: { keywords: "Data scientist", place: "Berlin", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" },
   hour: 7,
   minScore: 70,
   maxScores: 15,
   maxDrafts: 3,
   autoDraft: false,
+  maxSearches: 3,
+  maxPages: 1,
+  budgets: { JSEARCH: 3, ADZUNA: 3, FREEHIRE: null },
 };
 const countries = [
   { code: "de", name: "Germany" },
   { code: "nl", name: "Netherlands" },
 ];
 const open = (props: Partial<Parameters<typeof AgentSection>[0]> = {}) =>
-  render(<AgentSection initial={initial} sources={["JSEARCH"]} scoring={{ scorer: "AI", ready: true }} countries={countries} timeZone="Europe/Berlin" {...props} />);
+  render(
+    <AgentSection
+      initial={initial}
+      searches={[search]}
+      starter={query}
+      sources={["JSEARCH", "FREEHIRE"]}
+      scoring={{ scorer: "AI", ready: true }}
+      countries={countries}
+      timeZone="Europe/Berlin"
+      {...props}
+    />,
+  );
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(saveAgentSearch).mockImplementation(async (input) => ({ ok: true, data: [{ ...search, ...input, id: input.id ?? "s2" }] }));
+  vi.mocked(deleteAgentSearch).mockResolvedValue({ ok: true, data: [] });
+});
 
 describe("Settings → Job agent (E16-7)", () => {
-  it("is off until it's turned on, and turns on with the search, saved with it", async () => {
+  it("is off until it's turned on", async () => {
     const user = userEvent.setup();
     open();
     const toggle = screen.getByRole("switch", { name: "Run the job agent" });
     expect(toggle).toHaveAttribute("aria-checked", "false");
     expect(toggle).toHaveAccessibleDescription("Off. Nothing is searched or scored until it's on.");
     await user.click(toggle);
-    expect(saveAgentSettings).toHaveBeenCalledWith({ enabled: true, query: initial.query });
-    expect(toggle).toHaveAccessibleDescription(/^On\. It runs once a day after 07:00 your time \(Europe\/Berlin\)/);
+    expect(saveAgentSettings).toHaveBeenCalledWith({ enabled: true });
+    expect(toggle).toHaveAccessibleDescription(/^On\. It runs once a day after 07:00 your time \(Europe\/Berlin\), and you can run it any time/);
   });
 
-  it("needs keywords and a country to turn on", async () => {
-    const user = userEvent.setup();
-    open({ initial: { ...initial, query: { ...initial.query, keywords: "", country: "" } } });
-    await user.click(screen.getByRole("switch", { name: "Run the job agent" }));
-    expect(saveAgentSettings).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("What")).toHaveAccessibleDescription("Type what the agent should look for.");
-    expect(screen.getByLabelText("Country")).toHaveAccessibleDescription("Choose a country.");
-    expect(screen.getByRole("switch", { name: "Run the job agent" })).toHaveAttribute("aria-checked", "false");
-  });
-
-  it("saves the search once typing pauses, and the other choices at once", async () => {
+  it("saves a search with Save, on the sources ticked", async () => {
     const user = userEvent.setup();
     open();
-    await user.type(screen.getByLabelText("What"), " NLP");
-    await waitFor(() => expect(saveAgentSettings).toHaveBeenLastCalledWith({ query: { ...initial.query, keywords: "Data scientist NLP" } }), { timeout: 2000 });
+    await user.type(screen.getByLabelText("Name"), "Data");
+    await user.click(screen.getByRole("checkbox", { name: "FreeHire" }));
+    await user.click(screen.getByRole("button", { name: "Save search" }));
+    expect(saveAgentSearch).toHaveBeenCalledWith({ id: "s1", name: "Data", query, sources: ["JSEARCH"], enabled: true });
+  });
+
+  it("adds a search from the last one in Find jobs, and needs keywords and a country", async () => {
+    const user = userEvent.setup();
+    open({ starter: { ...query, keywords: "", country: "" } });
+    await user.click(screen.getByRole("button", { name: "Add a search" }));
+    const editors = screen.getAllByRole("button", { name: "Save search" });
+    await user.click(editors[1]);
+    expect(saveAgentSearch).not.toHaveBeenCalled();
+    expect(screen.getAllByLabelText("What")[1]).toHaveAccessibleDescription("Type what the search should look for.");
+  });
+
+  it("offers no more searches than the limit", () => {
+    open({ initial: { ...initial, maxSearches: 1 } });
+    expect(screen.getByRole("button", { name: "Add a search" })).toBeDisabled();
+  });
+
+  it("deletes a search", async () => {
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(deleteAgentSearch).toHaveBeenCalledWith({ id: "s1" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Save search" })).not.toBeInTheDocument());
+  });
+
+  it("saves the other choices at once, and each source's budget", async () => {
+    const user = userEvent.setup();
+    open();
     await user.selectOptions(screen.getByLabelText("Runs after"), "09:00");
     expect(saveAgentSettings).toHaveBeenLastCalledWith({ hour: 9 });
-    await user.selectOptions(screen.getByLabelText("Minimum score"), "80 of 100");
-    expect(saveAgentSettings).toHaveBeenLastCalledWith({ minScore: 80 });
-    await user.selectOptions(screen.getByLabelText("Postings scored per run"), "20");
-    expect(saveAgentSettings).toHaveBeenLastCalledWith({ maxScores: 20 });
+    await user.selectOptions(screen.getByLabelText("Postings scored per run"), "30");
+    expect(saveAgentSettings).toHaveBeenLastCalledWith({ maxScores: 30 });
+    await user.selectOptions(screen.getByLabelText("Pages per search and source"), "3");
+    expect(saveAgentSettings).toHaveBeenLastCalledWith({ maxPages: 3 });
+    expect(screen.getByLabelText("JSearch requests per 24 hours")).toHaveAccessibleDescription("A run sends it up to 3 requests.");
+    await user.selectOptions(screen.getByLabelText("JSearch requests per 24 hours"), "No limit");
+    expect(saveAgentSettings).toHaveBeenLastCalledWith({ budgets: { JSEARCH: null, ADZUNA: 3, FREEHIRE: null } });
   });
 
   it("prepares no drafts on its own unless asked, and then up to the cap", async () => {
@@ -68,7 +116,6 @@ describe("Settings → Job agent (E16-7)", () => {
     open();
     expect(screen.getByLabelText("Drafts per run, at most")).toBeDisabled();
     const toggle = screen.getByRole("switch", { name: "Prepare drafts on its own" });
-    expect(toggle).toHaveAccessibleDescription("Off. You choose which postings get a draft with Prepare draft.");
     await user.click(toggle);
     expect(saveAgentSettings).toHaveBeenLastCalledWith({ autoDraft: true });
     await user.selectOptions(screen.getByLabelText("Drafts per run, at most"), "5");
@@ -78,37 +125,30 @@ describe("Settings → Job agent (E16-7)", () => {
 
   it("explains the limits in plain words", () => {
     open();
-    expect(screen.getByText(/^One search a day, and at most three in any 24 hours\. Each run scores up to 15 postings\./)).toBeInTheDocument();
+    expect(screen.getByText(/^One run a day, and Run now whenever a source has requests left\. Each run scores up to 15 postings\./)).toBeInTheDocument();
   });
 
   it("points to the sources or AI provider while one isn't set up", () => {
     const { unmount } = open({ sources: [] });
-    expect(screen.getByRole("note")).toHaveTextContent("The agent searches the sources you choose in Settings → Job search, which is off. Choose one first.");
-    expect(screen.getByRole("link", { name: "Settings → Job search" })).toHaveAttribute("href", "/settings?section=jobs");
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "The agent searches the sources you choose in Settings → Job search, other than the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire first.",
+    );
     unmount();
     open({ scoring: { scorer: "AI", ready: false } });
-    expect(screen.getByRole("note")).toHaveTextContent("The agent scores postings with the AI provider in Settings → AI provider, which isn't set up yet. Choose one first.");
-    expect(screen.getByRole("link", { name: "Settings → AI provider" })).toHaveAttribute("href", "/settings?section=ai");
+    expect(within(screen.getByRole("note")).getByRole("link", { name: "Settings → AI provider" })).toHaveAttribute("href", "/settings?section=ai");
   });
 
   it("asks for the TypeSafe key when Jev scores without one (#274)", () => {
     open({ scoring: { scorer: "JEV", ready: false } });
     expect(screen.getByRole("note")).toHaveTextContent("The agent scores postings with Jev, which needs your TypeSafe key in Settings → Scoring.");
-    expect(screen.getByRole("link", { name: "Settings → Scoring" })).toHaveAttribute("href", "/settings?section=scoring");
-  });
-
-  it("says it doesn't search the Bundesagentur für Arbeit (#223)", () => {
-    open({ sources: ["ARBEITSAGENTUR"] });
-    expect(screen.getByRole("note")).toHaveTextContent("The agent doesn't search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in Settings → Job search for it.");
-    expect(screen.getByRole("link", { name: "Settings → Job search" })).toHaveAttribute("href", "/settings?section=jobs");
   });
 
   it("switches back and says why when a change isn't saved", async () => {
     const user = userEvent.setup();
-    vi.mocked(saveAgentSettings).mockResolvedValueOnce({ ok: false, error: "Type what the agent should look for before turning it on." });
+    vi.mocked(saveAgentSettings).mockResolvedValueOnce({ ok: false, error: "Add a search with what to look for and a country before turning the agent on." });
     open();
     await user.click(screen.getByRole("switch", { name: "Run the job agent" }));
     await waitFor(() => expect(screen.getByRole("switch", { name: "Run the job agent" })).toHaveAttribute("aria-checked", "false"));
-    expect(toast).toHaveBeenCalledWith("Type what the agent should look for before turning it on.");
+    expect(toast).toHaveBeenCalledWith("Add a search with what to look for and a country before turning the agent on.");
   });
 });

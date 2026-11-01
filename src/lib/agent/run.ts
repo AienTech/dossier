@@ -6,10 +6,11 @@ import { Prisma } from "@/generated/prisma/client";
 import { AgentCandidateStatus } from "@/generated/prisma/enums";
 import { AiError } from "@/lib/ai/errors";
 import { searchPostings } from "@/lib/job-search";
-import { agentSources, credentialsFor, loadJobSearchConfig, requestContext } from "@/lib/job-search/config";
+import { agentSources, credentialsFor, loadJobSearchConfig, requestContext, type JobSearchConfig } from "@/lib/job-search/config";
 import { mergePostings } from "@/lib/job-search/dedupe";
 import { JobSearchError } from "@/lib/job-search/errors";
-import { postingKey, type FoundPosting, type SearchQuery } from "@/lib/job-search/search";
+import { postingKey, type FoundPosting, type JobSource, type SearchPage } from "@/lib/job-search/search";
+import { SOURCE_INFO } from "@/lib/job-search/sources";
 import { startJob, type JobContext } from "@/lib/jobs/runner";
 import { logServerError } from "@/lib/log";
 import { saveScore } from "@/lib/posting-scores";
@@ -17,15 +18,20 @@ import { postingStates } from "@/lib/postings";
 import { prisma } from "@/lib/prisma";
 import { loadProfile } from "@/lib/profile-data";
 import { loadPostingScorer, scoringProblem } from "@/lib/scoring";
+import type { AgentRun, JobSourceBudgets, SettingsData } from "@/lib/settings";
 import { loadSettings } from "@/lib/settings-data";
 
 import { agentDedupeKey, candidateData } from "./candidates";
 import { agentDraftJob, draftJobKey } from "./draft";
-import { recordRunEnd, recordRunStart, runLimitProblem } from "./runs";
+import { budgetProblem, recordRequest, recordRunEnd, recordRunStart, requestsLeft } from "./runs";
+import { agentQueryReady, agentSearchLabel, loadAgentSearches, searchSources, type AgentSearch } from "./searches";
 
-// One run of the job agent (E16-3): one search on each source, the postings seen before
-// dropped, and a score for the newest of the rest. It never sends anything.
-// Adapted from avinashbatchala's fork of Dossier.
+export { agentQueryReady };
+
+// One run of the job agent (E16-3): its saved searches on their sources,
+// the postings seen before dropped, and a score for the newest of the rest,
+// taken from each search in turn. It never sends anything. Adapted from
+// avinashbatchala's fork of Dossier.
 
 export const agentScanResultSchema = z.object({
   /** Postings the source returned. */
@@ -43,31 +49,45 @@ export type AgentScanResult = z.infer<typeof agentScanResultSchema>;
 
 const stopped = (message: string): AgentScanResult => ({ found: 0, fresh: 0, scored: 0, drafted: 0, skipped: 0, message });
 
-/** Whether a search is complete enough to run: keywords and a country. */
-export const agentQueryReady = (query: SearchQuery) => Boolean(query.keywords.trim() && query.country);
+/** The sources the agent may ask now: chosen in Settings, not the Bundesagentur für Arbeit, and with their keys. */
+function usableSources(config: JobSearchConfig): { sources: JobSource[]; problem: string | null } {
+  let problem: string | null = null;
+  const sources = agentSources(config).filter((source) => {
+    try {
+      credentialsFor(config, source);
+      return true;
+    } catch (error) {
+      if (!(error instanceof JobSearchError)) throw error;
+      problem ??= error.message;
+      return false;
+    }
+  });
+  return { sources, problem };
+}
 
-/** Why the agent can't run at all, in words, or null when it's set up. */
-export async function agentSetupProblem(query: SearchQuery): Promise<string | null> {
-  if (!query.keywords.trim()) return "Add what to look for in Settings → Job agent first.";
-  if (!query.country) return "Choose a country for the search in Settings → Job agent first.";
-  // Scoring is what a run does; drafts ask the AI provider when there are any.
-  const scoring = await scoringProblem();
-  if (scoring) return scoring;
+/** Why the saved searches can't run, in words, or null when one can. */
+async function searchesProblem(list: readonly AgentSearch[]): Promise<string | null> {
+  const enabled = list.filter((search) => search.enabled);
+  if (list.length === 0) return "Add a search in Settings → Job agent first.";
+  if (enabled.length === 0) return "Turn on a search in Settings → Job agent first.";
+  if (!enabled.some((search) => agentQueryReady(search.query))) return "Give a search what to look for and a country in Settings → Job agent first.";
   const config = await loadJobSearchConfig();
-  const sources = agentSources(config);
-  if (sources.length === 0) {
+  if (agentSources(config).length === 0) {
     // It searches on its own, which the BA's terms forbid most clearly (#223).
     return config.sources.includes("ARBEITSAGENTUR")
       ? "The job agent doesn't search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in Settings → Job search for it."
       : "Choose a job source in Settings → Job search first.";
   }
-  try {
-    for (const source of sources) credentialsFor(config, source);
-  } catch (error) {
-    if (error instanceof JobSearchError) return error.message;
-    throw error;
-  }
-  return null;
+  const { sources, problem } = usableSources(config);
+  return sources.length === 0 ? problem : null;
+}
+
+/** Why the agent can't run at all, in words, or null when it's set up. */
+export async function agentSetupProblem(searches?: readonly AgentSearch[]): Promise<string | null> {
+  const problem = await searchesProblem(searches ?? (await loadAgentSearches()));
+  if (problem) return problem;
+  // Scoring is what a run does; drafts ask the AI provider when there are any.
+  return scoringProblem();
 }
 
 /** The postings from a page that are new to the agent: not saved, dismissed or applied for, and not a candidate already. */
@@ -91,53 +111,147 @@ export async function newPostings(postings: readonly FoundPosting[]): Promise<Fo
   });
 }
 
-const newestFirst = (a: FoundPosting, b: FoundPosting) => (b.postedAt ? Date.parse(b.postedAt) : 0) - (a.postedAt ? Date.parse(a.postedAt) : 0);
+const newestFirst = (a: Pick<FoundPosting, "postedAt">, b: Pick<FoundPosting, "postedAt">) => (b.postedAt ? Date.parse(b.postedAt) : 0) - (a.postedAt ? Date.parse(a.postedAt) : 0);
 
 /**
- * One run: the first page of results only (one request per source), then a
- * score for the newest new postings, up to agentMaxScores. Each is kept as a
+ * One posting from each lane in turn, newest first within each, each job
+ * once (#11): one broad search can't crowd out the others.
+ */
+export function roundRobin<T extends FoundPosting>(lanes: readonly T[][]): T[] {
+  const sorted = lanes.map((lane) => lane.toSorted(newestFirst));
+  const taken = new Set<string>();
+  const ordered: T[] = [];
+  const longest = Math.max(0, ...sorted.map((lane) => lane.length));
+  for (let index = 0; index < longest; index += 1) {
+    for (const lane of sorted) {
+      const posting = lane[index];
+      if (!posting) continue;
+      const key = agentDedupeKey(posting);
+      if (taken.has(key)) continue;
+      taken.add(key);
+      ordered.push(posting);
+    }
+  }
+  return ordered;
+}
+
+/** A saved search's postings from its sources, and how each source did. */
+type Lane = { search: AgentSearch; postings: FoundPosting[]; results: AgentRun["searches"] };
+
+/**
+ * Asks each enabled search's sources, one request at a time and never in
+ * parallel. Each source is asked for up to agentMaxPages pages, while it has
+ * a next one, its budget allows, and the search hasn't found agentMaxScores
+ * new postings on it yet. Each request is recorded before it's sent.
+ */
+async function collect(searches: readonly AgentSearch[], settings: SettingsData, context: JobContext, clock: () => Date): Promise<Lane[]> {
+  const config = await loadJobSearchConfig();
+  const { sources } = usableSources(config);
+  let requests = settings.agentRequests;
+  const lanes: Lane[] = [];
+  for (const search of searches) {
+    const lists: FoundPosting[][] = [];
+    const results: AgentRun["searches"] = [];
+    for (const source of searchSources(search, sources)) {
+      const list: FoundPosting[] = [];
+      let next: string | null = null;
+      let fresh = 0;
+      let error: string | null = null;
+      for (let page = 0; page < settings.agentMaxPages && !context.signal.aborted; page += 1) {
+        if (requestsLeft(requests, settings.jobSourceBudgets, source, clock()) === 0) {
+          error = `${SOURCE_INFO[source].name} has used its ${settings.jobSourceBudgets[source as keyof JobSourceBudgets]} requests for the past 24 hours.`;
+          break;
+        }
+        const at = clock();
+        await recordRequest(source, at);
+        requests = [...requests, { source, at: at.toISOString() }];
+        try {
+          const answer: SearchPage = await searchPostings(source, credentialsFor(config, source), search.query, next, requestContext(source));
+          list.push(...answer.postings);
+          fresh += (await newPostings(answer.postings)).length;
+          next = answer.next;
+        } catch (failure) {
+          if (!(failure instanceof JobSearchError)) throw failure;
+          error = failure.message;
+          break;
+        }
+        if (!next || fresh >= settings.agentMaxScores) break;
+      }
+      lists.push(list);
+      results.push({ searchId: search.id, searchName: agentSearchLabel(search), source, found: list.length, fresh, error });
+    }
+    lanes.push({ search, postings: mergePostings(lists), results });
+  }
+  return lanes;
+}
+
+/** Links candidates to the searches that found them (#11): new ones and ones kept before, but not dismissed ones. */
+async function attribute(lanes: readonly Lane[]): Promise<void> {
+  for (const { search, postings } of lanes) {
+    if (postings.length === 0) continue;
+    const candidates = await prisma.agentCandidate.findMany({
+      where: {
+        status: { not: AgentCandidateStatus.DISMISSED },
+        OR: [{ dedupeKey: { in: postings.map(agentDedupeKey) } }, ...postings.map(({ source, externalId }) => ({ source, externalId }))],
+      },
+      select: { id: true },
+    });
+    await prisma.agentCandidateSearch.createMany({
+      data: candidates.map((candidate) => ({ candidateId: candidate.id, searchId: search.id, searchName: agentSearchLabel(search) })),
+      skipDuplicates: true,
+    });
+  }
+}
+
+/**
+ * One run: every enabled saved search, on its sources, within each
+ * source's budget; then a score for the new postings, taken from each
+ * search in turn, up to agentMaxScores for the whole run. Each is kept as a
  * candidate, so it doesn't come back; one below agentMinScore stays out of
  * the queue. With auto-draft on, the best of them get a draft each, up to
  * agentMaxDrafts, each its own job. A scheduled run does nothing while the
  * agent is off.
  */
 export async function runAgentScan({ manual }: { manual: boolean }, context: JobContext, now = new Date()): Promise<AgentScanResult> {
+  // The time each request goes out, counted from `now`.
+  const started = Date.now();
+  const clock = () => new Date(now.getTime() + Date.now() - started);
   const settings = await loadSettings();
   if (!settings.agentEnabled && !manual) return stopped("The job agent is off.");
-  const setup = await agentSetupProblem(settings.agentQuery);
+  const saved = await loadAgentSearches();
+  const searches = saved.filter((search) => search.enabled && agentQueryReady(search.query));
+  const setup = await agentSetupProblem(saved);
   if (setup) return stopped(setup);
-  const limit = runLimitProblem(settings.agentRuns, now, { manual: false });
-  if (limit) return stopped(limit);
+  const config = await loadJobSearchConfig();
+  const asked = [...new Set(searches.flatMap((search) => searchSources(search, usableSources(config).sources)))];
+  const budget = budgetProblem(settings.agentRequests, settings.jobSourceBudgets, asked, now);
+  if (budget) return stopped(budget);
 
   const run = await recordRunStart(now, manual);
+  let results: AgentRun["searches"] = [];
   const finish = async (result: AgentScanResult) => {
-    await recordRunEnd(run, result.message);
+    await recordRunEnd(run, result.message, results);
     return result;
   };
 
-  await context.step("Searching for new postings");
-  const config = await loadJobSearchConfig();
-  const lists: FoundPosting[][] = [];
-  let failed: string | null = null;
-  // One source at a time, never in parallel; one that fails leaves the others' postings.
-  for (const source of agentSources(config)) {
-    try {
-      // The first page only: the agent never asks for a second.
-      lists.push((await searchPostings(source, credentialsFor(config, source), settings.agentQuery, null, requestContext(source))).postings);
-    } catch (error) {
-      if (!(error instanceof JobSearchError)) throw error;
-      failed ??= error.message;
-    }
+  await context.step(searches.length === 1 ? "Searching for new postings" : `Running ${searches.length} searches`);
+  const lanes = await collect(searches, settings, context, clock);
+  results = lanes.flatMap((lane) => lane.results);
+  await attribute(lanes);
+
+  const found = new Set(lanes.flatMap((lane) => lane.postings.map(agentDedupeKey))).size;
+  const ordered = roundRobin(await Promise.all(lanes.map((lane) => newPostings(lane.postings))));
+  const counts = { found, fresh: ordered.length, skipped: found - ordered.length, drafted: 0 };
+  if (ordered.length === 0) {
+    const failed = results.find((result) => result.error);
+    return finish({
+      ...counts,
+      scored: 0,
+      message: found === 0 ? (failed?.error ?? "The searches found no postings this time.") : "No new postings this time.",
+    });
   }
-  if (lists.length === 0 && failed) return finish(stopped(failed));
-  // The same job from two sources counts once.
-  const postings = mergePostings(lists);
 
-  const fresh = await newPostings(postings);
-  const counts = { found: postings.length, fresh: fresh.length, skipped: postings.length - fresh.length, drafted: 0 };
-  if (fresh.length === 0) return finish({ ...counts, scored: 0, message: postings.length === 0 ? "The search found no postings this time." : "No new postings this time." });
-
-  const toScore = fresh.toSorted(newestFirst).slice(0, settings.agentMaxScores);
+  const toScore = ordered.slice(0, settings.agentMaxScores);
   await context.step(`Scoring ${toScore.length} ${toScore.length === 1 ? "posting" : "postings"}`);
   const [score, profile] = await Promise.all([loadPostingScorer(), loadProfile()]);
   let scored = 0;
@@ -162,6 +276,7 @@ export async function runAgentScan({ manual }: { manual: boolean }, context: Job
       else if (!context.signal.aborted) logServerError("job agent scoring", error);
     }
   }
+  await attribute(lanes);
 
   // Auto-draft (#197, off by default): the best of this run's, one job each.
   let drafted = 0;

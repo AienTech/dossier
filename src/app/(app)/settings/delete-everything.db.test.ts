@@ -62,8 +62,10 @@ describe("deleteEverything (E10-8)", () => {
     // A saved posting from Find jobs goes too (E14-9).
     await prisma().posting.create({ data: { source: "JSEARCH", externalId: "job-1", savedAt: new Date() } });
     await prisma().postingSearch.create({ data: { sources: ["JSEARCH"], query: {}, postings: [] } });
-    // And what the job agent found (E16).
-    await prisma().agentCandidate.create({ data: { source: "JSEARCH", externalId: "job-1", dedupeKey: "key-1" } });
+    // And what the job agent found, and its saved searches (E16).
+    const found = await prisma().agentCandidate.create({ data: { source: "JSEARCH", externalId: "job-1", dedupeKey: "key-1" } });
+    const search = await prisma().agentSearch.create({ data: { query: {}, sources: [] } });
+    await prisma().agentCandidateSearch.create({ data: { candidateId: found.id, searchId: search.id, searchName: "" } });
     // And the AI profiles.
     await prisma().aiProfile.create({ data: { provider: "LOCAL" } });
     await prisma().postingScore.create({ data: { source: "JSEARCH", externalId: "job-1", score: 80, reasons: [], redFlags: [], scoredWith: "score-posting@1" } });
@@ -79,6 +81,8 @@ describe("deleteEverything (E10-8)", () => {
       prisma().posting.count(),
       prisma().postingSearch.count(),
       prisma().agentCandidate.count(),
+      prisma().agentSearch.count(),
+      prisma().agentCandidateSearch.count(),
       prisma().aiProfile.count(),
       prisma().postingScore.count(),
       prisma().startup.count(),
