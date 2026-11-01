@@ -13,6 +13,12 @@ type JsonMode = (typeof JSON_MODES)[number];
 
 type Quirks = { noTemperature: boolean; maxCompletionTokens: boolean; noEffort: boolean; json: JsonMode };
 
+/**
+ * Room for a model to think before it writes. Reasoning tokens count towards
+ * `max_completion_tokens`, so without this the answer's own budget is spent on thinking.
+ */
+const REASONING_TOKENS = 4_096;
+
 // What each server and model turned out to accept, so it's only learnt once:
 // newer OpenAI models refuse `temperature` and `max_tokens`, many compatible
 // servers only know `max_tokens`, not all of them do JSON schemas, and not
@@ -98,14 +104,20 @@ export class OpenAICompatibleProvider extends BaseProvider {
     }
   }
 
-  /** The `reasoning_effort` to send for `call`, if any; none by default, as servers differ in what they take. */
+  /**
+   * Reading tasks (`effort: "low"`) ask the model not to think first, as Mistral
+   * and LM Studio do. Anything else keeps the server's own default. A model that
+   * rejects `reasoning_effort` is remembered and not asked again.
+   */
   protected reasoningEffort(call: ChatCall): ReasoningEffort | undefined {
-    void call;
-    return undefined;
+    return call.effort === "low" ? "none" : undefined;
   }
 
   private async send(call: ChatCall, { noTemperature, maxCompletionTokens, noEffort, json }: Quirks): Promise<ChatAnswer> {
     const effort = noEffort ? undefined : this.reasoningEffort(call);
+    // Told not to think, the answer's budget is enough. Otherwise the thinking
+    // comes out of `max_completion_tokens`, so leave room for it on top.
+    const completionTokens = call.maxTokens + (maxCompletionTokens && effort !== "none" ? REASONING_TOKENS : 0);
     // Without schema support, the schema goes into the instructions instead.
     const system = call.json && json !== "schema" ? withJsonSchema(call.system, call.json.schema) : call.system;
     const responseFormat = !call.json
@@ -120,7 +132,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
         model: call.model,
         messages: [{ role: "system", content: system }, ...call.messages],
         ...(noTemperature || call.temperature === undefined ? {} : { temperature: call.temperature }),
-        ...(maxCompletionTokens ? { max_completion_tokens: call.maxTokens } : { max_tokens: call.maxTokens }),
+        ...(maxCompletionTokens ? { max_completion_tokens: completionTokens } : { max_tokens: call.maxTokens }),
         ...(effort ? { reasoning_effort: effort } : {}),
         ...(this.noThinking ? { thinking: { type: "disabled" } } : {}),
         ...responseFormat,

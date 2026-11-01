@@ -114,9 +114,50 @@ describe("OpenAICompatibleProvider", () => {
     expect(await provider.complete({ ...ask, creativity: "BALANCED" })).toBe("Hello!");
     const last = requests.at(-1)!.body;
     expect(last).not.toHaveProperty("temperature");
-    expect(last).toMatchObject({ max_completion_tokens: 4096 });
+    // Thinking counts towards max_completion_tokens, so the answer keeps its own 4,096.
+    expect(last).toMatchObject({ max_completion_tokens: 4096 + 4_096 });
     // Two refusals the first time, none the second.
     expect(requests).toHaveLength(4);
+  });
+
+  it("checks a reasoning model without spending the answer on thinking", async () => {
+    const baseUrl = `https://reason-${Math.random()}.example/v1`;
+    const requests = stubFetch(({ body }) => {
+      const sent = body as Record<string, unknown>;
+      if ("max_tokens" in sent) {
+        return json(
+          { error: { message: "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead." } },
+          { status: 400 },
+        );
+      }
+      return openaiChat("OK");
+    });
+    const provider = new OpenAICompatibleProvider("OPENAI", baseUrl, "sk", "gpt-6-luna", 60_000);
+    await expect(provider.test()).resolves.toMatchObject({ model: "gpt-6-luna" });
+    expect(requests.map((request) => request.body)).toMatchObject([
+      { max_tokens: 16, reasoning_effort: "none", model: "gpt-6-luna" },
+      { max_completion_tokens: 16, reasoning_effort: "none" },
+    ]);
+    expect(requests[1].body).not.toHaveProperty("max_tokens");
+    expect(requests[1].body).not.toHaveProperty("temperature");
+  });
+
+  it("asks a reading task not to think, and stops asking a model that refuses", async () => {
+    const accepted = `https://effort-${Math.random()}.example/v1`;
+    const requests = stubFetch(() => openaiChat("Hello!"));
+    await new OpenAICompatibleProvider("OPENAI", accepted, "sk", "gpt-x", 60_000).complete({ ...ask, effort: "low" });
+    expect(requests[0].body).toMatchObject({ reasoning_effort: "none", max_tokens: 4096 });
+
+    const refusedUrl = `https://no-effort-${Math.random()}.example/v1`;
+    const refused = stubFetch(({ body }) =>
+      "reasoning_effort" in (body as object)
+        ? json({ error: { message: "reasoning_effort is not supported by this model", type: "invalid_request_error" } }, { status: 400 })
+        : openaiChat("Hello!"),
+    );
+    const provider = new OpenAICompatibleProvider("OPENAI", refusedUrl, "sk", "gpt-x", 60_000);
+    expect(await provider.complete({ ...ask, effort: "low" })).toBe("Hello!");
+    expect(await provider.complete({ ...ask, effort: "low" })).toBe("Hello!");
+    expect(refused.map((request) => "reasoning_effort" in (request.body as object))).toEqual([true, false, false]);
   });
 
   it("tells DeepSeek's API not to think, by its host, and leaves other servers as they were (#189)", async () => {

@@ -142,9 +142,12 @@ export abstract class BaseProvider implements AIProvider {
   async test(signal?: AbortSignal): Promise<{ model: string; latencyMs: number }> {
     const model = this.requireModel();
     const started = performance.now();
+    // A check, not a piece of writing. A model that thinks first is asked not to,
+    // so these few tokens are enough for the word OK.
     await this.complete({
       system: "You are a connection check. Answer with the single word OK.",
       messages: [{ role: "user", content: "Are you there?" }],
+      effort: "low",
       maxTokens: 16,
       signal,
     });
