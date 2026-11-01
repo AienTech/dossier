@@ -52,7 +52,7 @@ describe("the Agent screen's data (E16-6)", () => {
     const startup = await prisma().startup.create({
       data: { source: "YC", externalId: "acme", company: "Acme", roles: [], links: [], reasons: [], emails: [{ email: "jobs@acme.example", label: "Hiring", from: "", onRequest: false, foundAt: "2026-10-18T00:00:00.000Z" }, { email: "ann@acme.example", label: "Person", from: "", onRequest: true, foundAt: "2026-10-18T00:00:00.000Z" }] },
     });
-    await candidate("acme", 80, { source: "STARTUP", startupId: startup.id, via: "Y Combinator" });
+    await candidate("acme", 80, { source: "STARTUP", startupId: startup.id, via: "Y Combinator", scoredWith: "score-posting@3 +criteria:00000000" });
     await candidate("better", 88);
     await candidate("low", 30);
     await candidate("gone", 95, { status: "DISMISSED" });
@@ -62,9 +62,9 @@ describe("the Agent screen's data (E16-6)", () => {
     const view = await loadAgentView(now);
     expect(view.drafts.map((entry) => entry.title)).toEqual(["Posting draft"]);
     expect(view.scored.map((entry) => entry.title)).toEqual(["Posting better", "Posting acme", "Posting good"]);
-    // A startup: where it's from, and where to write.
-    expect(view.scored[1]).toMatchObject({ origin: "Posted 2 days ago · From Startups, via Y Combinator", emails: ["jobs@acme.example"] });
-    expect(view.scored[0]).toMatchObject({ emails: [] });
+    // A startup: where it's from, where to write, and a score made with criteria since changed.
+    expect(view.scored[1]).toMatchObject({ origin: "Posted 2 days ago · From Startups, via Y Combinator", emails: ["jobs@acme.example"], stale: true });
+    expect(view.scored[0]).toMatchObject({ emails: [], stale: false });
     expect(view.belowMinimum.map((entry) => entry.title)).toEqual(["Posting low"]);
     expect(view.scored[2]).toMatchObject({ facts: "Berlin · Remote", origin: "Posted 2 days ago · via LinkedIn on JSearch", draftJobId: job.id, foundBy: ["Data scientists"] });
     expect(view).toMatchObject({

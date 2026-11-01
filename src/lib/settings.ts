@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { Creativity, DateFormat, PaperSize, Tone } from "@/generated/prisma/enums";
 import { JOB_SOURCES, JSEARCH_HOSTS } from "@/lib/job-search/search";
+import { MAX_CRITERIA, scoringCriterionSchema } from "@/lib/scoring/criteria";
 import { SCORERS } from "@/lib/scoring/scorers";
 import { startupsRefreshSchema } from "@/lib/startups/types";
 
@@ -184,6 +185,8 @@ export const settingsSchema = z.object({
   // with. Null means "not set in the app": DOSSIER_SCORER decides, else the
   // AI model. Jev's key is encrypted like the others, under its own key.
   scorer: z.enum(SCORERS).nullable().catch(null),
+  /** What the user wants from a job, weighed by both scorers. */
+  scoringCriteria: json(z.array(scoringCriterionSchema).max(MAX_CRITERIA)).catch([]),
   typesafeKeyEnc: z.string().nullable().catch(null),
   // Job agent (E16): its saved searches (AgentSearch), run once a day. Off
   // until it's turned on. It asks the sources in Settings → Job search,

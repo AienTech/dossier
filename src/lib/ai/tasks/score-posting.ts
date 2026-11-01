@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 import { experienceMonths, type ProfileData } from "@/lib/profile";
+import { cappedScore, criteriaLines, type CriterionMet, type ScoringCriterion } from "@/lib/scoring/criteria";
 
 import { postingForPrompt, profileForPrompt, system, UNTRUSTED_POSTING, type Task } from "./prompt-parts";
 
-export const SCORE_POSTING_VERSION = "score-posting@2";
+export const SCORE_POSTING_VERSION = "score-posting@3";
 
 // The job agent's first look at a posting (E16-2): a cheap, explainable fit
 // score before anything is spent on a draft. Adapted from avinashbatchala's
@@ -15,6 +16,8 @@ const answerSchema = z.object({
   score: z.number(),
   reasons: z.array(z.string()),
   redFlags: z.array(z.string()),
+  /** For each of the candidate's criteria, in their order: whether the posting meets it. */
+  criteria: z.array(z.object({ label: z.string(), met: z.enum(["yes", "no", "unknown"]) })).default([]),
 });
 
 /** How well a posting fits the profile: 0 to 100, one to four reasons, up to three red flags. */
@@ -39,7 +42,11 @@ A large seniority gap either way, such as a role asking for 2 to 5 years from so
 - reasons: one to four short sentences, each pointing at a specific requirement of the posting and a specific part of the profile (a role, a project, a skill, a degree). Never invent experience the profile doesn't show.
 - redFlags: up to three real concerns, or none: a missing must-have skill, a seniority mismatch either way (a role far above the candidate's level, or well below it), a location or work-permit requirement the profile can't meet, or a language the candidate doesn't speak.
 
-Never use age, gender, nationality, ethnicity, religion, disability, family status or any other protected characteristic. If the posting is too thin to judge, say so in a reason and score conservatively.`;
+Never use age, gender, nationality, ethnicity, religion, disability, family status or any other protected characteristic. If the posting is too thin to judge, say so in a reason and score conservatively.
+
+- criteria: when the candidate lists what they want from a job, one entry per criterion, in their order, with its label: "yes" when the posting meets it, "no" when the posting contradicts it, "unknown" when the posting doesn't say. Weigh them by importance: a missed must-have makes it a poor fit, below 50; an important one moves the score by up to 15 points either way, a nice-to-have by up to 5. Unknown changes nothing. Without criteria, answer an empty list.`;
+
+const IMPORTANCE_WORDS = { MUST: "must have", IMPORTANT: "important", NICE: "nice to have" } as const;
 
 export type ScorePostingInput = {
   /** The posting's text, as the source gave it. */
@@ -50,6 +57,8 @@ export type ScorePostingInput = {
   remote: boolean | null;
   salary: string;
   profile: ProfileData;
+  /** What the candidate wants from a job, weighed into the score. */
+  criteria?: readonly ScoringCriterion[];
   /** For the candidate's years of experience; today by default. */
   today?: Date;
 };
@@ -58,24 +67,39 @@ const MAX_REASONS = 4;
 const MAX_RED_FLAGS = 3;
 const MAX_LENGTH = 300;
 
-/** The answer, trusting nothing: a whole score within 0–100, and short, non-empty reasons and flags within their limits. */
-export function scoreFrom(answer: z.infer<typeof answerSchema>): PostingScore {
+/**
+ * The answer, trusting nothing: a whole score within 0–100, and short,
+ * non-empty reasons and flags within their limits. Each criterion's result
+ * is added as a line of its own, and a missed must-have caps the score
+ * whatever the model said.
+ */
+export function scoreFrom(
+  answer: Omit<z.infer<typeof answerSchema>, "criteria"> & Partial<Pick<z.infer<typeof answerSchema>, "criteria">>,
+  criteria: readonly ScoringCriterion[] = [],
+): PostingScore {
   const clean = (lines: string[], max: number) =>
     lines
       .map((line) => line.trim().slice(0, MAX_LENGTH))
       .filter(Boolean)
       .slice(0, max);
   const reasons = clean(answer.reasons, MAX_REASONS);
+  const results = criteria.map((criterion, index) => {
+    const said = answer.criteria?.find((entry) => entry.label.trim().toLowerCase() === criterion.label.toLowerCase()) ?? answer.criteria?.[index];
+    const met: CriterionMet = said?.met ?? "unknown";
+    return { label: criterion.label, importance: criterion.importance, met };
+  });
+  const lines = criteriaLines(results);
+  const score = Math.min(100, Math.max(0, Math.round(Number.isFinite(answer.score) ? answer.score : 0)));
   return {
-    score: Math.min(100, Math.max(0, Math.round(Number.isFinite(answer.score) ? answer.score : 0))),
-    reasons: reasons.length > 0 ? reasons : ["The model gave no reasons for this score."],
-    redFlags: clean(answer.redFlags, MAX_RED_FLAGS),
+    score: cappedScore(score, results),
+    reasons: [...(reasons.length > 0 ? reasons : ["The model gave no reasons for this score."]), ...lines.reasons],
+    redFlags: [...clean(answer.redFlags, MAX_RED_FLAGS), ...lines.redFlags],
   };
 }
 
 /** E16-2: how well a posting fits the profile. Contact details and references are never sent. */
 export const scorePosting: Task<ScorePostingInput, PostingScore> = async (provider, input, { signal }) => {
-  const { posting, profile, title, company, place, remote, salary, today = new Date() } = input;
+  const { posting, profile, title, company, place, remote, salary, criteria = [], today = new Date() } = input;
   // Models add up date ranges badly, and seniority is judged on it (#279).
   const years = Math.floor(experienceMonths(profile, today) / 12);
   const answer = await provider.complete({
@@ -90,6 +114,15 @@ export const scorePosting: Task<ScorePostingInput, PostingScore> = async (provid
         content: [
           `The candidate's profile:\n${profileForPrompt(profile)}`,
           `The candidate's work experience: ${years === 1 ? "about 1 year" : `about ${years} years`} in all, counting overlapping roles once.`,
+          ...(criteria.length > 0
+            ? [
+                `What the candidate wants from a job:\n${JSON.stringify(
+                  criteria.map(({ label, preference, importance }) => ({ label, preference, importance: IMPORTANCE_WORDS[importance] })),
+                  null,
+                  2,
+                )}`,
+              ]
+            : []),
           `The posting's facts:\n${JSON.stringify({ title, company, place, remote, salary }, null, 2)}`,
           `The posting:\n${postingForPrompt(posting)}`,
         ].join("\n\n"),
@@ -102,5 +135,5 @@ export const scorePosting: Task<ScorePostingInput, PostingScore> = async (provid
     effort: "low",
     signal,
   });
-  return { data: scoreFrom(answer), promptVersion: SCORE_POSTING_VERSION };
+  return { data: scoreFrom(answer, criteria), promptVersion: SCORE_POSTING_VERSION };
 };

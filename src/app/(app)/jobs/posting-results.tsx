@@ -428,6 +428,7 @@ function Fit({ fit }: { fit: PostingFit }) {
         <p className="font-medium">
           {fitBand(fit.score)} · {fit.score} of 100
         </p>
+        {fit.stale && <p className="text-meta text-warning">Scored before your scoring criteria changed. Score again to use them.</p>}
         {fit.reasons.length > 0 && (
           <ul aria-label="Why it fits" className="flex list-disc flex-col gap-0.5 pl-5 text-muted">
             {fit.reasons.map((reason, index) => (

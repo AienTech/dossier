@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings-data";
 import { lastKnownTimeZone } from "@/lib/time-zone";
 
+import { criteriaChanged } from "@/lib/scoring/criteria";
 import { startupEmailSchema } from "@/lib/startups/types";
 
 import { stringsOf } from "./candidates";
@@ -43,6 +44,8 @@ export type AgentCandidateView = {
   draftJobId: string | null;
   /** The saved searches that found it, by name. */
   foundBy: string[];
+  /** Scored before the scoring criteria last changed. */
+  stale: boolean;
   /** A startup's addresses for applications (#222); empty for a posting. */
   emails: string[];
 };
@@ -158,6 +161,8 @@ export async function loadAgentView(now = new Date()): Promise<AgentView> {
     applicationId: candidate.applicationId,
     draftJobId: draftJob.get(candidate.id) ?? null,
     foundBy: [...new Set(candidate.searches.map((link) => link.searchName))],
+    // One scored before any tag was kept counts as made without criteria.
+    stale: criteriaChanged(candidate.scoredWith, settings.scoringCriteria),
     emails: startupEmailSchema
       .array()
       .catch([])

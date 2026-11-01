@@ -315,6 +315,7 @@ function CandidateCard({ candidate, children }: { candidate: AgentCandidateView;
           {candidate.origin && <p className="text-xs text-muted">{candidate.origin}</p>}
           {candidate.foundBy.length > 0 && <p className="text-xs text-muted">Found by {candidate.foundBy.join(", ")}</p>}
           {candidate.emails.length > 0 && <p className="text-xs text-muted">Write to {candidate.emails.join(", ")}</p>}
+          {candidate.stale && <p className="text-xs text-warning">Scored before your scoring criteria changed.</p>}
           {/* As the source's terms ask (E14-2); the origin names the others. */}
           {isJobSource(candidate.source) && linksAttribution(candidate.source) && (
             <SourceAttribution source={candidate.source} url={candidate.url} className="mt-1.5 self-start" />

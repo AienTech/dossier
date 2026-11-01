@@ -256,6 +256,13 @@ describe("the results", () => {
     expect(screen.getByRole("button", { name: /^Designer a/ })).toBeInTheDocument();
   });
 
+  it("says when a posting's score predates the scoring criteria", () => {
+    const scored = posting("a", { state: { ...state, score: { score: 88, reasons: ["Fits."], redFlags: [], stale: true } } });
+    renderScreen({ search: stored([scored]) });
+    expect(screen.getByText("Excellent fit · 88 of 100")).toBeInTheDocument();
+    expect(screen.getByText("Scored before your scoring criteria changed. Score again to use them.")).toBeInTheDocument();
+  });
+
   it("names each posting's source and notes a source that failed, when a search asked several", () => {
     const search: StoredSearch = {
       ...stored([posting("a", { alsoOn: ["ADZUNA"] }), posting("b", { source: "FREEHIRE" })]),

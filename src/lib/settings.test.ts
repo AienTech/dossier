@@ -62,6 +62,7 @@ describe("stored settings", () => {
       adzunaKeyEnc: null,
       arbeitsagenturAcceptedAt: null,
       scorer: null,
+      scoringCriteria: [],
       typesafeKeyEnc: null,
       agentEnabled: false,
       agentMaxSearches: 3,

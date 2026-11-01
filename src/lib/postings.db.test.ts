@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PostingSource } from "@/generated/prisma/enums";
 import { JOB_SOURCES, type FoundPosting } from "@/lib/job-search/search";
+import { criteriaTag } from "@/lib/scoring/criteria";
 import { createTestClient, resetDatabase } from "@/test/db";
 
 import { countPostings, dismissPosting, foundFromPosting, listPostings, postingStates, savePosting, storePosting, unmarkPosting } from "./postings";
@@ -135,8 +136,25 @@ describe("postingStates", () => {
   it("has each result's score, scored or not (#208)", async () => {
     await prisma().postingScore.create({ data: { source: "JSEARCH", externalId: "job-1", score: 82, reasons: ["Research"], redFlags: [], scoredWith: "score-posting@1" } });
     const states = await postingStates([found, { ...found, externalId: "job-2" }]);
-    expect(states.get("JSEARCH:job-1")?.score).toEqual({ score: 82, reasons: ["Research"], redFlags: [] });
+    expect(states.get("JSEARCH:job-1")?.score).toEqual({ score: 82, reasons: ["Research"], redFlags: [], stale: false });
     expect(states.get("JSEARCH:job-2")?.score).toBeNull();
+  });
+
+  it("marks a score made before the scoring criteria changed", async () => {
+    const criteria = [{ id: "a", label: "Salary", preference: "80k", importance: "MUST" as const }];
+    const score = (scoredWith: string) =>
+      prisma().postingScore.upsert({
+        where: { source_externalId: { source: "JSEARCH", externalId: "job-1" } },
+        create: { source: "JSEARCH", externalId: "job-1", score: 80, reasons: [], redFlags: [], scoredWith },
+        update: { scoredWith },
+      });
+    const stale = async () => (await postingStates([found])).get("JSEARCH:job-1")?.score?.stale;
+    await score("score-posting@3");
+    expect(await stale()).toBe(false);
+    await prisma().setting.create({ data: { key: "scoringCriteria", value: JSON.stringify(criteria) } });
+    expect(await stale()).toBe(true);
+    await score(`score-posting@3${criteriaTag(criteria)}`);
+    expect(await stale()).toBe(false);
   });
 
   it("asks nothing for no results", async () => {

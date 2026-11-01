@@ -5,6 +5,8 @@ import type { PostingSource } from "@/generated/prisma/enums";
 import { asJobSource, linkKey, postingKey, type FoundPosting, type PostingState, type ShownPosting } from "@/lib/job-search/search";
 import { stringsOf } from "@/lib/agent/candidates";
 import { prisma } from "@/lib/prisma";
+import { criteriaChanged } from "@/lib/scoring/criteria";
+import { loadSettings } from "@/lib/settings-data";
 
 // Postings kept from Find jobs (E14-5): saved, dismissed, or started an
 // application from. Nothing else from a search is stored, and a posting
@@ -133,7 +135,13 @@ export async function postingStates(found: readonly (PostingRef & { url: string 
     prisma.application.findMany({ where: { postingUrl: { not: "" }, awaitingReview: false }, select: { id: true, postingUrl: true }, orderBy: { createdAt: "asc" } }),
     prisma.postingScore.findMany({ where: { OR: refs } }),
   ]);
-  const scoreOf = new Map(scores.map((row) => [postingKey(row), { score: row.score, reasons: stringsOf(row.reasons), redFlags: stringsOf(row.redFlags) }]));
+  const { scoringCriteria } = await loadSettings();
+  const scoreOf = new Map(
+    scores.map((row) => [
+      postingKey(row),
+      { score: row.score, reasons: stringsOf(row.reasons), redFlags: stringsOf(row.redFlags), stale: criteriaChanged(row.scoredWith, scoringCriteria) },
+    ]),
+  );
   const byKey = new Map(stored.map((posting) => [postingKey(posting), posting]));
   const byLink = new Map<string, string>();
   for (const application of applications) {

@@ -449,7 +449,7 @@ export async function buildExport(
       }),
       tx.posting.findMany({ orderBy: { createdAt: "asc" } }),
       tx.postingSearch.findMany({ orderBy: { createdAt: "asc" } }),
-      tx.agentCandidate.findMany({ orderBy: { createdAt: "asc" } }),
+      tx.agentCandidate.findMany({ omit: { scoredWith: true }, orderBy: { createdAt: "asc" } }),
       tx.startup.findMany({ orderBy: { createdAt: "asc" } }),
       tx.startupBlock.findMany({ orderBy: { createdAt: "asc" } }),
       tx.aiProfile.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),

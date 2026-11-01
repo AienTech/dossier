@@ -34,6 +34,7 @@ import { DocumentsSection } from "./documents-section";
 import { GoogleSection } from "./google-section";
 import { GoogleNotice } from "./google-notice";
 import { JobSearchSection } from "./job-search-section";
+import { ScoringCriteria } from "./scoring-criteria";
 import { ScoringSection } from "./scoring-section";
 import { AboutSection, type AboutFacts, type UsagePingView } from "./about-section";
 import { ConnectorSection } from "./connector-section";
@@ -58,7 +59,10 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
       ) : section === "jobs" ? (
         <JobSearchSection initial={jobSearchView(await loadJobSearchConfig())} />
       ) : section === "scoring" ? (
-        <ScoringSection initial={scoringView(await loadScoringConfig())} />
+        <>
+          <ScoringSection initial={scoringView(await loadScoringConfig())} />
+          <ScoringCriteria initial={settings.scoringCriteria} />
+        </>
       ) : section === "agent" ? (
         <AgentSection
           initial={{

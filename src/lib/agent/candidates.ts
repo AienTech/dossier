@@ -13,7 +13,7 @@ export type AgentPosting = Omit<FoundPosting, "source"> & { source: PostingSourc
 // needs.
 
 /** A posting as a new candidate, with its score. */
-export function candidateData(posting: AgentPosting, score: { score: number; reasons: string[]; redFlags: string[] }): Prisma.AgentCandidateCreateInput {
+export function candidateData(posting: AgentPosting, score: { score: number; reasons: string[]; redFlags: string[] }, scoredWith = ""): Prisma.AgentCandidateCreateInput {
   return {
     source: posting.source,
     externalId: posting.externalId,
@@ -30,6 +30,7 @@ export function candidateData(posting: AgentPosting, score: { score: number; rea
     score: score.score,
     reasons: score.reasons,
     redFlags: score.redFlags,
+    scoredWith,
     dedupeKey: agentDedupeKey(posting),
     ...(posting.startupId ? { startup: { connect: { id: posting.startupId } } } : {}),
   };

@@ -1,7 +1,13 @@
 // How well a posting fits the profile (#208, E16-2): a score from
 // score-posting, with why. Shared by Find jobs and the Agent screen.
 
-export type PostingFit = { score: number; reasons: string[]; redFlags: string[] };
+export type PostingFit = {
+  score: number;
+  reasons: string[];
+  redFlags: string[];
+  /** Scored before the scoring criteria last changed. */
+  stale?: boolean;
+};
 
 /** The score's band, as the prompt defines them: "Good fit". */
 export function fitBand(score: number): string {

@@ -684,6 +684,8 @@ model AgentCandidate {
   reasons       Json?
   /// What gives pause, as a JSON list of strings.
   redFlags      Json?
+  /// What scored it, with the scoring criteria's tag (src/lib/scoring/criteria.ts).
+  scoredWith    String               @default("")
   status        AgentCandidateStatus @default(SCORED)
   /// Why preparing a draft failed, if it did.
   error         String?

@@ -68,8 +68,8 @@ describe("Score in Find jobs (#208)", () => {
     expect(run.steps).toEqual(["Getting the whole posting", "Scoring it against your profile"]);
     expect(fake.sent[0]).toContain("The whole posting: design our freight tools.");
 
-    expect(await prisma().postingScore.findUniqueOrThrow({ where: { source_externalId: { source: "ADZUNA", externalId: "az-1" } } })).toMatchObject({ score: 78, scoredWith: "score-posting@2" });
-    expect((await postingStates([posting])).get("ADZUNA:az-1")?.score).toEqual({ score: 78, reasons: ["Built a design system at Northwind."], redFlags: ["Dutch is required."] });
+    expect(await prisma().postingScore.findUniqueOrThrow({ where: { source_externalId: { source: "ADZUNA", externalId: "az-1" } } })).toMatchObject({ score: 78, scoredWith: "score-posting@3" });
+    expect((await postingStates([posting])).get("ADZUNA:az-1")?.score).toEqual({ score: 78, reasons: ["Built a design system at Northwind."], redFlags: ["Dutch is required."], stale: false });
   });
 
   it("scores the start when the rest can't be had, and replaces an older score", async () => {

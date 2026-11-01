@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AiError } from "@/lib/ai/errors";
 import { demoProfile } from "@/lib/demo-profile";
 
-import { JEV_WEIGHTS, jevFit, jevParts, jevQuestions, jevScore, jevState, scoreWithJev, SCORE_POSTING_JEV_VERSION, type JevParts } from "./jev";
+import { JEV_WEIGHTS, jevFit, jevParts, jevQuestions, jevScore, jevState, scoreWithJev, SCORE_POSTING_JEV_VERSION, withCriteria, type JevParts } from "./jev";
 import type { Answer } from "./typesafe";
 
 const profile = demoProfile();
@@ -89,6 +89,31 @@ describe("jevParts", () => {
     for (const answers of [withoutWork, answersFor([], { place: score(1) }), answersFor([{ kind: "required", shown: 1 }], { line0Kind: noul(1) })]) {
       expect(() => jevParts(answers, ["5+ years of product design"])).toThrow(AiError);
     }
+  });
+});
+
+describe("withCriteria", () => {
+  const fit = { score: 80, reasons: ["Covers: React"], redFlags: [] };
+  const criteria = [
+    { id: "a", label: "Salary", preference: "At least 80k", importance: "IMPORTANT" as const },
+    { id: "b", label: "Remote", preference: "Remote only", importance: "MUST" as const },
+    { id: "c", label: "Size", preference: "Small", importance: "NICE" as const },
+  ];
+  const noul = (value: number): Answer => ({ type: "noul", noul: value });
+
+  it("asks one question per criterion", () => {
+    expect(Object.keys(jevQuestions([], criteria)).filter((id) => id.startsWith("criterion"))).toEqual(["criterion0", "criterion1", "criterion2"]);
+    expect(jevQuestions([], criteria).criterion1).toMatchObject({ type: "noul", instructions: expect.stringContaining("Remote: Remote only") });
+  });
+
+  it("takes points for a missed criterion, caps a missed must-have, and names each", () => {
+    expect(withCriteria(fit, { criterion0: noul(0.9), criterion1: noul(0.1), criterion2: noul(0.5) }, criteria)).toEqual({
+      score: 70,
+      reasons: ["Covers: React", "Meets: Remote"],
+      redFlags: ["Doesn't meet: Salary"],
+    });
+    expect(withCriteria(fit, { criterion0: noul(0.1), criterion1: noul(0.8), criterion2: noul(0.9) }, criteria)).toMatchObject({ score: 49 });
+    expect(withCriteria(fit, {}, [])).toBe(fit);
   });
 });
 

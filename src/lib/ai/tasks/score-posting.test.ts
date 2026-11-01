@@ -66,6 +66,26 @@ describe("scorePosting (E16-2)", () => {
     expect(scoreFrom({ score: Number.NaN, reasons: ["Thin posting."], redFlags: [] }).score).toBe(0);
   });
 
+  it("weighs the candidate's criteria: each shows as a line, and a missed must-have caps the score (#criteria)", async () => {
+    const criteria = [
+      { id: "a", label: "Salary", preference: "At least 80k EUR", importance: "MUST" as const },
+      { id: "b", label: "Remote", preference: "Remote in the EU", importance: "NICE" as const },
+      { id: "c", label: "Size", preference: "Under 200 people", importance: "IMPORTANT" as const },
+    ];
+    const scored = scoreFrom(
+      { score: 88, reasons: ["Fits."], redFlags: [], criteria: [{ label: "salary", met: "no" }, { label: "Remote", met: "yes" }, { label: "Size", met: "unknown" }] },
+      criteria,
+    );
+    expect(scored).toEqual({ score: 49, reasons: ["Fits.", "Meets: Remote"], redFlags: ["Doesn't meet: Salary (must have)"] });
+
+    const provider = new MockProvider({ reply: () => ({ ...answer, criteria: [] }) });
+    await scorePosting(provider, { ...input, criteria }, options);
+    const content = sent(provider).messages[0].content;
+    expect(content).toContain("What the candidate wants from a job:");
+    expect(content).toContain('"importance": "must have"');
+    expect(sent(provider).system).toMatch(/a missed must-have makes it a poor fit, below 50/);
+  });
+
   it("asks again when the answer doesn't have the shape", async () => {
     let calls = 0;
     const provider = new MockProvider({ reply: () => (++calls === 1 ? { score: "high" } : answer) });

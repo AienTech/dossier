@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("./config", async (importOriginal) => ({ ...(await importOriginal<typeof import("./config")>()), loadScoringConfig: async () => state.config }));
+vi.mock("@/lib/settings-data", () => ({ loadSettings: async () => ({ scoringCriteria: [] }) }));
 vi.mock("@/lib/ai/config", () => ({ isAiConfigured: async () => state.aiReady }));
 vi.mock("@/lib/ai", () => ({ getAiProvider: async () => state.provider }));
 vi.mock("@/lib/ai/task-options", () => ({ loadTaskOptions: async () => ({ creativity: "BALANCED", strict: true, language: null }) }));
@@ -49,14 +50,14 @@ describe("loadPostingScorer", () => {
     state.aiReady = false;
     const score = await loadPostingScorer();
     expect(await score(posting, profile, signal)).toEqual({ data: { score: 80, reasons: ["Covers: Figma"], redFlags: [] }, scoredWith: "score-posting-jev@1 (jev-1.14.0)" });
-    expect(scoreWithJev).toHaveBeenCalledWith(posting, profile, { key: "ts", signal });
+    expect(scoreWithJev).toHaveBeenCalledWith(posting, profile, { key: "ts", signal }, []);
   });
 
   it("scores with the AI model's score-posting otherwise, keeping its prompt version", async () => {
     const provider = new MockProvider({ reply: () => ({ score: 72, reasons: ["Knows Figma."], redFlags: [] }) });
     state.provider = provider;
     const score = await loadPostingScorer();
-    expect(await score(posting, profile, signal)).toEqual({ data: { score: 72, reasons: ["Knows Figma."], redFlags: [] }, scoredWith: "score-posting@2" });
+    expect(await score(posting, profile, signal)).toEqual({ data: { score: 72, reasons: ["Knows Figma."], redFlags: [] }, scoredWith: "score-posting@3" });
     expect(provider.calls[0].messages[0].content).toContain("Ledgerly: Designer");
     expect(scoreWithJev).not.toHaveBeenCalled();
   });

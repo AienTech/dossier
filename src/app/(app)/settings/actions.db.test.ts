@@ -29,6 +29,7 @@ import {
   saveJobSource,
   saveJobSourceKey,
   saveScorer,
+  saveScoringCriteria,
   saveTypesafeKey,
   setConnector,
   testAiConnection,
@@ -302,6 +303,15 @@ describe("job search settings (E14-4)", () => {
     expect(requests.map((request) => request.url.hostname)).toEqual(["api.openwebninja.com", "jsearch.p.rapidapi.com"]);
     expect(requests[1].headers.get("x-rapidapi-key")).toBe("rk_fresh");
     vi.unstubAllGlobals();
+  });
+});
+
+describe("scoring criteria", () => {
+  it("saves what the user wants from a job, and refuses one that's empty", async () => {
+    const criteria = [{ id: "a", label: "Salary", preference: "At least 80k EUR", importance: "MUST" as const }];
+    expect(await saveScoringCriteria({ criteria })).toEqual({ ok: true, data: criteria });
+    expect((await settings()).scoringCriteria).toEqual(criteria);
+    expect(await saveScoringCriteria({ criteria: [{ ...criteria[0], label: " " }] })).toMatchObject({ ok: false });
   });
 });
 

@@ -23,6 +23,7 @@ import { countTailoredDocuments, deleteAllDownloads, zipPdfsJob } from "@/lib/jo
 import { disconnectGoogle } from "@/lib/google/account";
 import { prisma } from "@/lib/prisma";
 import { jevKey, loadScoringConfig, scoringView } from "@/lib/scoring/config";
+import { MAX_CRITERIA, scoringCriterionSchema } from "@/lib/scoring/criteria";
 import { SCORERS } from "@/lib/scoring/scorers";
 import { askJev } from "@/lib/scoring/typesafe";
 import { applySecretChange, JOB_SOURCE_KEY, TYPESAFE_KEY } from "@/lib/secrets";
@@ -248,6 +249,12 @@ export const testJobSource = action(z.object({ source: z.enum(JOB_SOURCES), host
 // Settings → Scoring (#274). Each returns what the section shows, never the key.
 
 const loadScoringView = async () => scoringView(await loadScoringConfig());
+
+/** What the user wants from a job, weighed by both scorers; returns the list as saved. */
+export const saveScoringCriteria = action(z.object({ criteria: z.array(scoringCriterionSchema).max(MAX_CRITERIA) }), async ({ criteria }) => {
+  await saveSettings({ scoringCriteria: criteria });
+  return criteria;
+});
 
 /** What scores postings: the AI model, or Jev. */
 export const saveScorer = action(z.object({ scorer: z.enum(SCORERS) }), async ({ scorer }) => {

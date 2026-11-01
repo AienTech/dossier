@@ -316,7 +316,7 @@ export async function runAgentScan({ manual }: { manual: boolean }, context: Job
     if (context.signal.aborted) break;
     try {
       const { data, scoredWith } = await score(posting, profile, context.signal);
-      const candidate = await prisma.agentCandidate.create({ data: candidateData(posting, data), select: { id: true } });
+      const candidate = await prisma.agentCandidate.create({ data: candidateData(posting, data, scoredWith), select: { id: true } });
       // Find jobs shows it too (#208); a startup isn't in Find jobs.
       if (isJobSource(posting.source)) await saveScore({ source: posting.source, externalId: posting.externalId }, data, scoredWith);
       kept.push(candidate.id);

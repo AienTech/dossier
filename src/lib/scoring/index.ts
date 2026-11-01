@@ -9,7 +9,10 @@ import type { PostingFit } from "@/lib/fit";
 import { postingText, type FoundPosting } from "@/lib/job-search/search";
 import type { ProfileData } from "@/lib/profile";
 
+import { loadSettings } from "@/lib/settings-data";
+
 import { jevKey, loadScoringConfig, type ScoringConfig } from "./config";
+import { criteriaTag } from "./criteria";
 import { scoreWithJev } from "./jev";
 
 // Scoring a posting against the profile (#208, #274), with whatever Settings →
@@ -35,18 +38,22 @@ export async function scoringProblem(config?: ScoringConfig): Promise<string | n
  * postings. Fails as an AiError when it isn't set up.
  */
 export async function loadPostingScorer(): Promise<PostingScorer> {
-  const config = await loadScoringConfig();
+  const [config, { scoringCriteria: criteria }] = await Promise.all([loadScoringConfig(), loadSettings()]);
+  const tag = criteriaTag(criteria);
   if (config.scorer === "JEV") {
     const jev = jevKey(config);
     if (jev.problem !== null) throw AiError.config(jev.problem);
     const { key } = jev;
-    return (posting, profile, signal) => scoreWithJev(posting, profile, { key, signal });
+    return async (posting, profile, signal) => {
+      const { data, scoredWith } = await scoreWithJev(posting, profile, { key, signal }, criteria);
+      return { data, scoredWith: `${scoredWith}${tag}` };
+    };
   }
   if (!(await isAiConfigured())) throw AiError.config(AI_PROVIDER_MISSING);
   const [provider, options] = await Promise.all([getAiProvider("scoring"), loadTaskOptions()]);
   return async (posting, profile, signal) => {
     const { title, company, place, remote, salary } = posting;
-    const { data, promptVersion } = await scorePosting(provider, { posting: postingText(posting), title, company, place, remote, salary, profile }, { ...options, signal });
-    return { data, scoredWith: promptVersion };
+    const { data, promptVersion } = await scorePosting(provider, { posting: postingText(posting), title, company, place, remote, salary, profile, criteria }, { ...options, signal });
+    return { data, scoredWith: `${promptVersion}${tag}` };
   };
 }

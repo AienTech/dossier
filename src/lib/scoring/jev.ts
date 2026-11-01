@@ -4,6 +4,7 @@ import { MAX_POSTING_CHARACTERS, profileForPrompt } from "@/lib/ai/tasks/prompt-
 import type { PostingFit } from "@/lib/fit";
 import type { ProfileData } from "@/lib/profile";
 
+import { cappedScore, criteriaLines, MISSED_PENALTY, type CriterionMet, type ScoringCriterion } from "./criteria";
 import { postingLines } from "./posting-lines";
 import { askJev, typesafeError, type Answer, type AskOptions, type ChoiceQuestion, type NoulQuestion, type Question, type ScoreQuestion } from "./typesafe";
 
@@ -101,8 +102,21 @@ export function jevState(posting: JevPosting, profile: ProfileData) {
 }
 
 /** The questions, in one request: the Scores and Nouls about the whole posting, then two per line. */
-export function jevQuestions(lines: readonly string[]): Record<string, Question> {
+/** Whether a posting contradicts what the candidate wants: one question per criterion. */
+function criterionQuestion(criterion: ScoringCriterion): NoulQuestion {
   return {
+    type: "noul",
+    instructions: `Does \`posting\` contradict what the candidate wants: ${criterion.label}: ${criterion.preference}?`,
+    criteria: {
+      true: `The posting clearly says something that doesn't fit "${criterion.preference}".`,
+      false: "The posting fits it, or doesn't say.",
+    },
+  };
+}
+
+export function jevQuestions(lines: readonly string[], criteria: readonly ScoringCriterion[] = []): Record<string, Question> {
+  return {
+    ...Object.fromEntries(criteria.map((criterion, index) => [`criterion${index}`, criterionQuestion(criterion)])),
     requirements: REQUIREMENTS,
     work: WORK,
     seniority: SENIORITY,
@@ -226,9 +240,35 @@ export function jevFit(parts: JevParts, weights: JevWeights = JEV_WEIGHTS): Post
   return { score: jevScore(parts, weights), reasons: reasons.slice(0, MAX_REASONS), redFlags: redFlags.slice(0, MAX_RED_FLAGS) };
 }
 
+/**
+ * The fit with the criteria weighed in: a missed must-have caps the score,
+ * another missed criterion costs MISSED_PENALTY, and each shows as a line.
+ */
+export function withCriteria(fit: PostingFit, answers: Record<string, Answer>, criteria: readonly ScoringCriterion[]): PostingFit {
+  if (criteria.length === 0) return fit;
+  const results = criteria.map((criterion, index) => {
+    const answer = answers[`criterion${index}`];
+    const noul = answer && answer.type === "noul" ? answer.noul : 0.5;
+    const met: CriterionMet = noul >= YES ? "no" : noul <= NO ? "yes" : "unknown";
+    return { label: criterion.label, importance: criterion.importance, met };
+  });
+  const penalty = results.reduce((sum, result) => sum + (result.met === "no" && result.importance !== "MUST" ? MISSED_PENALTY[result.importance] : 0), 0);
+  const lines = criteriaLines(results);
+  return {
+    score: cappedScore(Math.max(0, fit.score - penalty), results),
+    reasons: [...fit.reasons, ...lines.reasons],
+    redFlags: [...fit.redFlags, ...lines.redFlags],
+  };
+}
+
 /** Scores `posting` against `profile` with Jev, in one request; `scoredWith` names this version and Jev's. */
-export async function scoreWithJev(posting: JevPosting, profile: ProfileData, options: AskOptions): Promise<{ data: PostingFit; scoredWith: string }> {
+export async function scoreWithJev(
+  posting: JevPosting,
+  profile: ProfileData,
+  options: AskOptions,
+  criteria: readonly ScoringCriterion[] = [],
+): Promise<{ data: PostingFit; scoredWith: string }> {
   const lines = postingLines(posting.description);
-  const result = await askJev({ state: jevState(posting, profile), questions: jevQuestions(lines) }, options);
-  return { data: jevFit(jevParts(result.answers, lines)), scoredWith: `${SCORE_POSTING_JEV_VERSION} (${result.model})` };
+  const result = await askJev({ state: jevState(posting, profile), questions: jevQuestions(lines, criteria) }, options);
+  return { data: withCriteria(jevFit(jevParts(result.answers, lines)), result.answers, criteria), scoredWith: `${SCORE_POSTING_JEV_VERSION} (${result.model})` };
 }
