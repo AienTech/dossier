@@ -38,6 +38,7 @@ export function ConnectorSection({ initial, address }: { initial: { on: boolean 
       <SettingsSectionIntro title="Claude connector">
         Use Dossier from Claude: in chats on claude.ai, in the Desktop and mobile apps, and in Claude&apos;s command-line app. Claude can search for jobs, read your
         profile and applications, and save the applications and fit scores it writes, on your own Claude plan. It never sends or deletes anything.
+        OpenCode uses the same address and sign-in flow once this is turned on.
       </SettingsSectionIntro>
 
       <Card padding="none" className="px-7 py-4">
