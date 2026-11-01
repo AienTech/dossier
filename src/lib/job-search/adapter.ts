@@ -10,7 +10,8 @@ export type { JSearchHost };
 
 /** What each source needs to be asked. */
 export type SourceCredentials = {
-  JSEARCH: { key: string; host: JSearchHost };
+  /** `fallback`: the other host's key, asked when the first refuses its key or is used up. */
+  JSEARCH: { key: string; host: JSearchHost; fallback?: { key: string; host: JSearchHost } };
   ADZUNA: { appId: string; key: string };
   ARBEITSAGENTUR: Record<string, never>;
   FREEHIRE: Record<string, never>;

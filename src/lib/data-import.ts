@@ -71,6 +71,14 @@ const json = (value: unknown) => (value === null || value === undefined ? Prisma
 /** A JSON list for a column that can't be null (#222): anything else reads as empty. */
 const jsonList = (value: unknown) => (Array.isArray(value) ? value : []) as Prisma.InputJsonValue;
 
+/** The file's JSearch keys by host; before version 8 a file had one, for the host in its settings. */
+function jsearchKeysFrom({ schemaVersion, settings, jobSourceKeys }: DossierExport): Record<string, string | null> {
+  const encrypt = (key: string | undefined) => (key ? encryptSecret(JOB_SOURCE_KEY, key) : null);
+  const rapidapiOnly = schemaVersion < 8 && settings.some((entry) => entry.key === "jsearchHost" && entry.value === "rapidapi");
+  if (rapidapiOnly) return { jsearchKeyEnc: null, jsearchRapidapiKeyEnc: encrypt(jobSourceKeys?.jsearch) };
+  return { jsearchKeyEnc: encrypt(jobSourceKeys?.jsearch), jsearchRapidapiKeyEnc: encrypt(jobSourceKeys?.jsearchRapidapi) };
+}
+
 /** The settings older files hold that are now rows: the AI provider. */
 const LEGACY_SETTINGS: readonly string[] = LEGACY_AI_SETTINGS;
 
@@ -99,7 +107,7 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
   const { profile, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks, jobSourceKeys } = data;
   const { aiProfiles, aiProfileKeys, aiDefaultProfileId } = aiProfilesFrom(data);
   const fromFile: Record<string, string | null> = {
-    jsearchKeyEnc: jobSourceKeys?.jsearch ? encryptSecret(JOB_SOURCE_KEY, jobSourceKeys.jsearch) : null,
+    ...jsearchKeysFrom(data),
     adzunaKeyEnc: jobSourceKeys?.adzuna ? encryptSecret(JOB_SOURCE_KEY, jobSourceKeys.adzuna) : null,
   };
   const keptKeys = [...SECRET_SETTINGS.filter((key) => !fromFile[key]), ...INSTALL_SETTINGS];

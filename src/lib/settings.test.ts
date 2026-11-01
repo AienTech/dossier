@@ -56,6 +56,7 @@ describe("stored settings", () => {
       backupProblem: null,
       jobSource: null,
       jsearchKeyEnc: null,
+      jsearchRapidapiKeyEnc: null,
       jsearchHost: "openwebninja",
       adzunaAppId: null,
       adzunaKeyEnc: null,

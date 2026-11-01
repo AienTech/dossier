@@ -51,7 +51,7 @@ export const LEGACY_AI_SETTINGS: readonly string[] = ["provider", "baseUrl", "mo
 /** The setting that held the encrypted API key up to version 7. */
 const API_KEY_SETTING = "apiKeyEnc";
 /** The settings that hold encrypted keys, which only this server can read: never exported as they are. */
-export const SECRET_SETTINGS: readonly string[] = [API_KEY_SETTING, "jsearchKeyEnc", "adzunaKeyEnc", "typesafeKeyEnc"];
+export const SECRET_SETTINGS: readonly string[] = [API_KEY_SETTING, "jsearchKeyEnc", "jsearchRapidapiKeyEnc", "adzunaKeyEnc", "typesafeKeyEnc"];
 /** The settings that belong to this install rather than its data (the usage ping's and its consent, the update check's, the Google client and the browser's time zone): never exported, and kept by an import. */
 export const INSTALL_SETTINGS: readonly string[] = [
   "usagePingId",
@@ -362,8 +362,8 @@ export const exportSchema = z.object({
   aiProfiles: z.array(aiProfile).optional(),
   /** Each profile's key in plain text by profile ID, only when the user asked for it. */
   aiProfileKeys: z.record(z.string(), text).optional(),
-  /** The job sources' keys in plain text, likewise (E14-9). */
-  jobSourceKeys: z.object({ jsearch: text.optional(), adzuna: text.optional() }).optional(),
+  /** The job sources' keys in plain text, likewise (E14-9); `jsearch` is OpenWeb Ninja's, or before version 8 the saved host's. */
+  jobSourceKeys: z.object({ jsearch: text.optional(), jsearchRapidapi: text.optional(), adzuna: text.optional() }).optional(),
   applications: z.array(application),
   /** Saved and dismissed postings (E14-9); absent in version 1 files. */
   postings: z.array(posting).default([]),
@@ -448,6 +448,7 @@ export async function buildExport(
     const jobSourceKeys = Object.fromEntries(
       Object.entries({
         jsearch: readable(stored("jsearchKeyEnc"), (value) => decryptSecret(JOB_SOURCE_KEY, value)),
+        jsearchRapidapi: readable(stored("jsearchRapidapiKeyEnc"), (value) => decryptSecret(JOB_SOURCE_KEY, value)),
         adzuna: readable(stored("adzunaKeyEnc"), (value) => decryptSecret(JOB_SOURCE_KEY, value)),
       }).filter(([, value]) => value),
     );

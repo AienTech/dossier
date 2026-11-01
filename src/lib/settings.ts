@@ -153,8 +153,10 @@ export const settingsSchema = z.object({
   // decides. "OFF" is a choice. Each source keeps its own key, encrypted
   // like the AI key, so switching back and forth loses nothing.
   jobSource: z.enum([...JOB_SOURCES, "OFF"]).nullable().catch(null),
+  /** JSearch keys, one per host: OpenWeb Ninja's and the RapidAPI marketplace's. */
   jsearchKeyEnc: z.string().nullable().catch(null),
-  /** Where the JSearch key is from: OpenWeb Ninja, or the RapidAPI marketplace. */
+  jsearchRapidapiKeyEnc: z.string().nullable().catch(null),
+  /** The JSearch host asked first; the other one, when it has a key, is asked when this one refuses the key or is used up. */
   jsearchHost: z.enum(JSEARCH_HOSTS).catch("openwebninja"),
   adzunaAppId: z.string().nullable().catch(null),
   adzunaKeyEnc: z.string().nullable().catch(null),

@@ -14,7 +14,7 @@ import { DOCUMENT_LANGUAGES } from "@/lib/document-language";
 import { deleteAllBackups } from "@/lib/backups";
 import { env } from "@/lib/env";
 import { JobSearchError, testSource } from "@/lib/job-search";
-import { credentialsFor, jobSearchView, loadJobSearchConfig, requestContext } from "@/lib/job-search/config";
+import { credentialsFor, jobSearchView, loadJobSearchConfig, requestContext, resolveJobSearchConfig } from "@/lib/job-search/config";
 import { JOB_SOURCES, JSEARCH_HOSTS } from "@/lib/job-search/search";
 import { cancelJob, startJob } from "@/lib/jobs/runner";
 import { checkForUpdate } from "@/lib/update-check";
@@ -204,30 +204,36 @@ export const saveJobSearchDetails = action(
   },
 );
 
-/** Saves a source's key, encrypted for job sources only, or removes it. The key never comes back to the browser. */
+/** Saves a source's key (JSearch's per host), encrypted for job sources only, or removes it. The key never comes back to the browser. */
 export const saveJobSourceKey = action(
   z.object({
     source: z.enum(["JSEARCH", "ADZUNA"]),
+    host: z.enum(JSEARCH_HOSTS).optional(),
     change: z.discriminatedUnion("action", [
       z.object({ action: z.literal("set"), value: z.string().trim().min(1).max(1000) }),
       z.object({ action: z.literal("clear") }),
     ]),
   }),
-  async ({ source, change }) => {
-    const field = source === "JSEARCH" ? "jsearchKeyEnc" : "adzunaKeyEnc";
+  async ({ source, host, change }) => {
+    const field = source === "ADZUNA" ? "adzunaKeyEnc" : host === "rapidapi" ? "jsearchRapidapiKeyEnc" : "jsearchKeyEnc";
     const current = await loadSettings();
     await saveSettings({ [field]: applySecretChange(JOB_SOURCE_KEY, current[field], change) });
     return loadView();
   },
 );
 
-/** "Test connection": the smallest request the chosen source takes, timed. */
-export const testJobSource = action(z.object({}), async () => {
+/** "Test connection": the smallest request the chosen source takes, timed; JSearch with one host's key when `host` is given. */
+export const testJobSource = action(z.object({ host: z.enum(JSEARCH_HOSTS).optional() }), async ({ host }) => {
   const config = await loadJobSearchConfig();
   if (!config.source) return { connected: false as const, message: "Choose a source first." };
+  const source = config.source;
   const started = performance.now();
   try {
-    await testSource(config.source, credentialsFor(config, config.source), requestContext(config.source));
+    if (source === "JSEARCH" && host) {
+      const only = resolveJobSearchConfig({ ...(await loadSettings()), jsearchHost: host }, env).jsearch;
+      if (only.host !== host || !only.key) throw new JobSearchError("no-key", `Add your JSearch key for ${host === "rapidapi" ? "RapidAPI" : "OpenWeb Ninja"} first.`);
+      await testSource("JSEARCH", { key: only.key, host }, requestContext("JSEARCH"));
+    } else await testSource(source, credentialsFor(config, source), requestContext(source));
     return { connected: true as const, seconds: Math.round((performance.now() - started) / 100) / 10 };
   } catch (error) {
     if (error instanceof JobSearchError) return { connected: false as const, message: error.message };

@@ -206,7 +206,7 @@ describe("job search settings (E14-4)", () => {
       ok: true,
       data: {
         source: "JSEARCH",
-        jsearch: { host: "openwebninja", keyState: "none" },
+        jsearch: { host: "openwebninja", keyState: "none", keyStates: { openwebninja: "none", rapidapi: "none" } },
         adzuna: { appId: "", keyState: "none" },
         arbeitsagentur: { offered: true, acceptedAt: null },
         freehire: { host: "freehire.me" },
@@ -233,7 +233,7 @@ describe("job search settings (E14-4)", () => {
     expect(await saveJobSource({ source: "ARBEITSAGENTUR" })).toMatchObject({ ok: true });
   });
 
-  it("stores each source's key encrypted, keeps it when switching, and only says it's set", async () => {
+  it("stores each key encrypted, JSearch's per host, keeps them when switching, and only says it's set", async () => {
     await saveJobSource({ source: "JSEARCH" });
     const result = await saveJobSourceKey({ source: "JSEARCH", change: { action: "set", value: " ak_secret " } });
     expect(result).toMatchObject({ ok: true, data: { jsearch: { keyState: "set" } } });
@@ -241,6 +241,10 @@ describe("job search settings (E14-4)", () => {
     const stored = (await settings()).jsearchKeyEnc!;
     expect(stored).not.toContain("ak_secret");
     expect(decryptSecret(JOB_SOURCE_KEY, stored)).toBe("ak_secret");
+
+    const rapid = await saveJobSourceKey({ source: "JSEARCH", host: "rapidapi", change: { action: "set", value: "rk_secret" } });
+    expect(rapid).toMatchObject({ ok: true, data: { jsearch: { host: "openwebninja", keyStates: { openwebninja: "set", rapidapi: "set" } } } });
+    expect(decryptSecret(JOB_SOURCE_KEY, (await settings()).jsearchRapidapiKeyEnc!)).toBe("rk_secret");
 
     await saveJobSource({ source: "ADZUNA" });
     await saveJobSearchDetails({ adzunaAppId: " app-1 " });
@@ -254,12 +258,12 @@ describe("job search settings (E14-4)", () => {
     expect((await settings()).adzunaAppId).toBeNull();
   });
 
-  it("saves where the JSearch key is from", async () => {
+  it("saves which JSearch host is asked first", async () => {
     expect(await saveJobSearchDetails({ jsearchHost: "rapidapi" })).toMatchObject({ ok: true, data: { jsearch: { host: "rapidapi" } } });
     expect((await settings()).jsearchHost).toBe("rapidapi");
   });
 
-  it("tests the chosen source with its key", async () => {
+  it("tests the chosen source with its key, JSearch with one host's", async () => {
     clearJobSearchCache();
     expect(await testJobSource({})).toEqual({ ok: true, data: { connected: false, message: "Choose a source first." } });
 
@@ -273,12 +277,29 @@ describe("job search settings (E14-4)", () => {
     const requests = stubFetch(() => json(jsearchV2LastPage));
     expect(await testJobSource({})).toEqual({ ok: true, data: { connected: true, seconds: expect.any(Number) } });
     expect(requests[0].headers.get("x-api-key")).toBe("ak_secret");
+    expect(await testJobSource({ host: "rapidapi" })).toEqual({
+      ok: true,
+      data: { connected: false, message: "Add your JSearch key for RapidAPI first." },
+    });
 
     stubFetch(() => json({}, { status: 401 }));
     expect(await testJobSource({})).toEqual({
       ok: true,
       data: { connected: false, message: "JSearch didn't accept your key. Check it in Settings → Job search." },
     });
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to the other JSearch host when the first refuses its key", async () => {
+    clearJobSearchCache();
+    await saveJobSource({ source: "JSEARCH" });
+    await saveJobSourceKey({ source: "JSEARCH", change: { action: "set", value: "ak_spent" } });
+    await saveJobSourceKey({ source: "JSEARCH", host: "rapidapi", change: { action: "set", value: "rk_fresh" } });
+    const requests = stubFetch((request) => (request.headers.get("x-api-key") === "ak_spent" ? json({}, { status: 429 }) : json(jsearchV2LastPage)));
+    const { runSearch } = await import("@/lib/posting-searches");
+    expect(await runSearch({ keywords: "designer", place: "", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" })).toMatchObject({ ok: true });
+    expect(requests.map((request) => request.url.hostname)).toEqual(["api.openwebninja.com", "jsearch.p.rapidapi.com"]);
+    expect(requests[1].headers.get("x-rapidapi-key")).toBe("rk_fresh");
     vi.unstubAllGlobals();
   });
 });

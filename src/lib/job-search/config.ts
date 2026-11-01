@@ -19,7 +19,14 @@ export type JobSearchConfig = {
   source: JobSource | null;
   /** Whether the choice is saved in Settings, rather than coming from DOSSIER_JOBS_SOURCE. */
   saved: boolean;
-  jsearch: { key: string | null; host: JSearchHost; keyState: JobKeyState };
+  /** The host asked first, with its key; `fallback` is the other host when it has a key. */
+  jsearch: {
+    key: string | null;
+    host: JSearchHost;
+    keyState: JobKeyState;
+    keyStates: Record<JSearchHost, JobKeyState>;
+    fallback: { key: string; host: JSearchHost } | null;
+  };
   adzuna: { appId: string; key: string | null; keyState: JobKeyState };
   /**
    * The Bundesagentur für Arbeit (#223): whether this server offers it, and
@@ -30,7 +37,10 @@ export type JobSearchConfig = {
   freehire: { url: string };
 };
 
-type SavedJobSettings = Pick<SettingsData, "jobSource" | "jsearchKeyEnc" | "jsearchHost" | "adzunaAppId" | "adzunaKeyEnc" | "arbeitsagenturAcceptedAt">;
+type SavedJobSettings = Pick<
+  SettingsData,
+  "jobSource" | "jsearchKeyEnc" | "jsearchRapidapiKeyEnc" | "jsearchHost" | "adzunaAppId" | "adzunaKeyEnc" | "arbeitsagenturAcceptedAt"
+>;
 type JobEnv = Pick<
   Env,
   | "DOSSIER_JOBS_SOURCE"
@@ -63,19 +73,37 @@ function keyOf(stored: string | null, fromEnv: string | undefined, secret?: stri
   return fromEnv ? { key: fromEnv, keyState: "env" } : { key: null, keyState: "none" };
 }
 
+/**
+ * JSearch's keys by host. An environment key belongs to DOSSIER_JSEARCH_HOST,
+ * else to the saved host. The saved host is asked first unless only the
+ * other one has a key.
+ */
+function jsearchKeys(saved: SavedJobSettings, source: JobEnv, secret?: string): JobSearchConfig["jsearch"] {
+  const envHost = source.DOSSIER_JSEARCH_HOST ?? saved.jsearchHost;
+  const slots: Record<JSearchHost, { key: string | null; keyState: JobKeyState }> = {
+    openwebninja: keyOf(saved.jsearchKeyEnc, envHost === "openwebninja" ? source.DOSSIER_JSEARCH_KEY : undefined, secret),
+    rapidapi: keyOf(saved.jsearchRapidapiKeyEnc, envHost === "rapidapi" ? source.DOSSIER_JSEARCH_KEY : undefined, secret),
+  };
+  const otherOf = (host: JSearchHost): JSearchHost => (host === "openwebninja" ? "rapidapi" : "openwebninja");
+  const host = !slots[saved.jsearchHost].key && slots[otherOf(saved.jsearchHost)].key ? otherOf(saved.jsearchHost) : saved.jsearchHost;
+  const other = otherOf(host);
+  const fallbackKey = slots[other].key;
+  return {
+    ...slots[host],
+    host,
+    keyStates: { openwebninja: slots.openwebninja.keyState, rapidapi: slots.rapidapi.keyState },
+    fallback: fallbackKey ? { key: fallbackKey, host: other } : null,
+  };
+}
+
 export function resolveJobSearchConfig(saved: SavedJobSettings, source: JobEnv, secret?: string): JobSearchConfig {
-  const jsearchKey = keyOf(saved.jsearchKeyEnc, source.DOSSIER_JSEARCH_KEY, secret);
   const offered = source.DOSSIER_JOBS_ARBEITSAGENTUR !== "off";
   const chosen = saved.jobSource ? (saved.jobSource === "OFF" ? null : saved.jobSource) : source.DOSSIER_JOBS_SOURCE ? FROM_ENV[source.DOSSIER_JOBS_SOURCE] : null;
   return {
     // A BA choice saved before the server turned it off counts as Off.
     source: chosen === "ARBEITSAGENTUR" && !offered ? null : chosen,
     saved: saved.jobSource !== null,
-    jsearch: {
-      ...jsearchKey,
-      // An environment key goes with the environment's host, when it names one.
-      host: jsearchKey.keyState === "env" && source.DOSSIER_JSEARCH_HOST ? source.DOSSIER_JSEARCH_HOST : saved.jsearchHost,
-    },
+    jsearch: jsearchKeys(saved, source, secret),
     adzuna: {
       appId: saved.adzunaAppId ?? source.DOSSIER_ADZUNA_APP_ID ?? "",
       ...keyOf(saved.adzunaKeyEnc, source.DOSSIER_ADZUNA_KEY, secret),
@@ -104,7 +132,7 @@ export function arbeitsagenturStartupNotice(config: JobSearchConfig): string | n
 export function jobSearchView(config: JobSearchConfig): JobSearchSettingsView {
   return {
     source: config.source ?? "OFF",
-    jsearch: { host: config.jsearch.host, keyState: config.jsearch.keyState },
+    jsearch: { host: config.jsearch.host, keyState: config.jsearch.keyState, keyStates: config.jsearch.keyStates },
     adzuna: { appId: config.adzuna.appId, keyState: config.adzuna.keyState },
     arbeitsagentur: config.arbeitsagentur,
     freehire: { host: new URL(config.freehire.url).host },
@@ -138,9 +166,9 @@ export function credentialsFor<S extends JobSource>(config: JobSearchConfig, sou
       : jobSearchError("no-key", source);
   switch (source) {
     case "JSEARCH": {
-      const { key, host, keyState } = config.jsearch;
+      const { key, host, keyState, fallback } = config.jsearch;
       if (!key) throw missing(keyState);
-      return { key, host } as SourceCredentials[S];
+      return (fallback ? { key, host, fallback } : { key, host }) as SourceCredentials[S];
     }
     case "ADZUNA": {
       const { appId, key, keyState } = config.adzuna;

@@ -9,6 +9,7 @@ vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
 const nothingSaved = {
   jobSource: null,
   jsearchKeyEnc: null,
+  jsearchRapidapiKeyEnc: null,
   jsearchHost: "openwebninja" as const,
   adzunaAppId: null,
   adzunaKeyEnc: null,
@@ -23,7 +24,7 @@ describe("resolveJobSearchConfig", () => {
     expect(config).toMatchObject({ source: null, saved: false, jsearch: { key: null, keyState: "none" }, adzuna: { appId: "", key: null } });
     expect(jobSearchView(config)).toEqual({
       source: "OFF",
-      jsearch: { host: "openwebninja", keyState: "none" },
+      jsearch: { host: "openwebninja", keyState: "none", keyStates: { openwebninja: "none", rapidapi: "none" } },
       adzuna: { appId: "", keyState: "none" },
       arbeitsagentur: { offered: true, acceptedAt: null },
       freehire: { host: "freehire.me" },
@@ -51,6 +52,7 @@ describe("resolveJobSearchConfig", () => {
     const saved = {
       jobSource: "ADZUNA" as const,
       jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_saved"),
+      jsearchRapidapiKeyEnc: null,
       jsearchHost: "openwebninja" as const,
       adzunaAppId: "app-saved",
       adzunaKeyEnc: encryptSecret(JOB_SOURCE_KEY, "adz-saved"),
@@ -60,7 +62,8 @@ describe("resolveJobSearchConfig", () => {
     expect(config).toMatchObject({
       source: "ADZUNA",
       saved: true,
-      jsearch: { key: "ak_saved", host: "openwebninja", keyState: "set" },
+      // The environment's key belongs to its host, RapidAPI, and stands in when OpenWeb Ninja refuses.
+      jsearch: { key: "ak_saved", host: "openwebninja", keyState: "set", fallback: { key: "ak_env", host: "rapidapi" } },
       adzuna: { appId: "app-saved", key: "adz-saved", keyState: "set" },
     });
     expect(resolveJobSearchConfig({ ...saved, jobSource: "OFF" }, { DOSSIER_JOBS_SOURCE: "jsearch" })).toMatchObject({ source: null, saved: true });
@@ -71,14 +74,14 @@ describe("resolveJobSearchConfig", () => {
       { ...nothingSaved, jobSource: "JSEARCH", jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak", "b".repeat(32)) },
       { DOSSIER_JSEARCH_KEY: "ak_env" },
     );
-    expect(config.jsearch).toEqual({ key: null, host: "openwebninja", keyState: "unreadable" });
+    expect(config.jsearch).toEqual({ key: null, host: "openwebninja", keyState: "unreadable", keyStates: { openwebninja: "unreadable", rapidapi: "none" }, fallback: null });
     expect(() => credentialsFor(config, "JSEARCH")).toThrow("Your saved JSearch key can't be read. Enter it again in Settings → Job search.");
   });
 });
 
 describe("credentialsFor", () => {
   const config = resolveJobSearchConfig(
-    { ...nothingSaved, jobSource: "JSEARCH", jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_saved"), jsearchHost: "rapidapi" },
+    { ...nothingSaved, jobSource: "JSEARCH", jsearchRapidapiKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_saved"), jsearchHost: "rapidapi" },
     noEnv,
   );
 
@@ -86,6 +89,17 @@ describe("credentialsFor", () => {
     expect(credentialsFor(config, "JSEARCH")).toEqual({ key: "ak_saved", host: "rapidapi" });
     expect(credentialsFor({ ...config, arbeitsagentur: { offered: true, acceptedAt: ACCEPTED } }, "ARBEITSAGENTUR")).toEqual({});
     expect(credentialsFor(config, "FREEHIRE")).toEqual({});
+  });
+
+  it("asks JSearch's first host first, with the other as the fallback", () => {
+    const both = { ...nothingSaved, jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_own"), jsearchRapidapiKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_rapid") };
+    expect(credentialsFor(resolveJobSearchConfig({ ...both, jsearchHost: "rapidapi" }, noEnv), "JSEARCH")).toEqual({
+      key: "ak_rapid",
+      host: "rapidapi",
+      fallback: { key: "ak_own", host: "openwebninja" },
+    });
+    // Only the other host has a key: it's asked first.
+    expect(credentialsFor(resolveJobSearchConfig({ ...both, jsearchKeyEnc: null }, noEnv), "JSEARCH")).toEqual({ key: "ak_rapid", host: "rapidapi" });
   });
 
   it("says what's missing", () => {

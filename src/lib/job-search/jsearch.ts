@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import type { JobSourceAdapter, JSearchHost, RequestContext, SourceCredentials } from "./adapter";
 import { countryName } from "./countries";
-import { jobSearchError } from "./errors";
+import { JobSearchError, jobSearchError } from "./errors";
 import { requestJson } from "./http";
 import { safeLink, type FoundPosting, type PostedWithin, type SearchPage, type SearchQuery } from "./search";
 
@@ -155,9 +155,20 @@ function searchUrl(query: SearchQuery, host: JSearchHost, next: string | null, b
   return url;
 }
 
+/** Asks the first host, then the fallback host when the first refuses the key or is used up. */
+async function withFallback<T>(credentials: SourceCredentials["JSEARCH"], ask: (host: { key: string; host: JSearchHost }) => Promise<T>): Promise<T> {
+  try {
+    return await ask(credentials);
+  } catch (error) {
+    const retry = credentials.fallback && error instanceof JobSearchError && (error.problem === "key" || error.problem === "quota");
+    if (!retry) throw error;
+    return ask(credentials.fallback!);
+  }
+}
+
 async function searchPage(
   query: SearchQuery,
-  { key, host }: SourceCredentials["JSEARCH"],
+  { key, host }: { key: string; host: JSearchHost },
   next: string | null,
   context: RequestContext = {},
 ): Promise<SearchPage> {
@@ -181,7 +192,7 @@ async function searchPage(
 
 export const jsearch: JobSourceAdapter<"JSEARCH"> = {
   source: "JSEARCH",
-  search: searchPage,
+  search: (query, credentials, next, context) => withFallback(credentials, (host) => searchPage(query, host, next, context)),
   // Search results carry the whole description.
   details: async (posting) => (posting.description ? posting.description : null),
   test: async (credentials, context) => {

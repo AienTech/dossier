@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { JOB_SOURCES, type JobSource, type JSearchHost } from "@/lib/job-search/search";
+import { JOB_SOURCES, JSEARCH_HOSTS, type JobSource, type JSearchHost } from "@/lib/job-search/search";
 import { FREEHIRE_URL, JSEARCH_KEY_URLS, SOURCE_INFO, type JobSearchSettingsView } from "@/lib/job-search/sources";
 import { cn } from "@/lib/cn";
 
@@ -31,21 +31,24 @@ type Connection =
   | { status: "connected"; seconds: number }
   | { status: "failed"; message: string };
 
+/** A test's key: the source, or for JSearch the host whose key it tried. */
+type TestKey = JobSource | `JSEARCH:${JSearchHost}`;
+
 /**
  * Settings → Job search (E14-4): which source Find jobs searches, and its
- * key. Each field saves on its own; a key is saved when you leave its field
- * and never shown again. The Bundesagentur für Arbeit is saved only once its
+ * key, JSearch's one per host. Each field saves on its own; a key is saved
+ * when you leave its field and never shown again. The Bundesagentur für Arbeit is saved only once its
  * note is accepted, and isn't offered when the server turns it off (#223).
  */
 export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }) {
   const track = useTrackSave();
   const [view, setView] = useState(initial);
   const [appId, setAppId] = useState(initial.adzuna.appId);
-  const [connection, setConnection] = useState<Connection>({ status: "untested" });
+  const [connections, setConnections] = useState<Partial<Record<TestKey, Connection>>>({});
   const source = view.source;
 
-  // Any change means the last test no longer counts.
-  const changed = () => setConnection({ status: "untested" });
+  // Any change means the last tests no longer count.
+  const changed = () => setConnections({});
 
   const apply = (result: Awaited<ReturnType<typeof saveJobSource>>) => {
     if (result.ok) setView(result.data);
@@ -76,18 +79,32 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
     apply(toastResult(await track(saveJobSearchDetails({ adzunaAppId: appId }))));
   };
 
-  const saveKey = async (keySource: "JSEARCH" | "ADZUNA", change: { action: "set"; value: string } | { action: "clear" }) => {
+  const saveKey = async (keySource: "JSEARCH" | "ADZUNA", change: { action: "set"; value: string } | { action: "clear" }, host?: JSearchHost) => {
     changed();
-    return apply(toastResult(await track(saveJobSourceKey({ source: keySource, change }))));
+    return apply(toastResult(await track(saveJobSourceKey({ source: keySource, host, change }))));
   };
 
-  const test = async () => {
-    if (connection.status === "testing") return;
-    setConnection({ status: "testing" });
-    const result = await testJobSource({});
-    if (!result.ok) setConnection({ status: "failed", message: result.error });
-    else if (result.data.connected) setConnection({ status: "connected", seconds: result.data.seconds });
-    else setConnection({ status: "failed", message: result.data.message });
+  const test = async (testSource: JobSource, host?: JSearchHost) => {
+    const key: TestKey = host ? `JSEARCH:${host}` : testSource;
+    if (connections[key]?.status === "testing") return;
+    const set = (connection: Connection) => setConnections((current) => ({ ...current, [key]: connection }));
+    set({ status: "testing" });
+    const result = await testJobSource({ host });
+    if (!result.ok) set({ status: "failed", message: result.error });
+    else if (result.data.connected) set({ status: "connected", seconds: result.data.seconds });
+    else set({ status: "failed", message: result.data.message });
+  };
+
+  const testButton = (testSource: JobSource, host?: JSearchHost) => {
+    const connection = connections[(host ? `JSEARCH:${host}` : testSource) as TestKey] ?? { status: "untested" };
+    return (
+      <div className="flex flex-wrap items-center gap-3.5 pt-1">
+        <Button variant="secondary" size={host ? "sm" : undefined} onClick={() => void test(testSource, host)} disabled={connection.status === "testing"}>
+          {connection.status === "testing" ? "Testing…" : host ? `Test ${HOST_NAMES[host]}` : "Test connection"}
+        </Button>
+        <ConnectionStatus connection={connection} source={testSource} />
+      </div>
+    );
   };
 
   return (
@@ -136,14 +153,21 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
           <Card className="flex flex-col gap-5">
             {source === "JSEARCH" && (
               <>
+                <div className="grid grid-cols-1 gap-x-[18px] gap-y-5 sm:grid-cols-2">
+                  {JSEARCH_HOSTS.map((host) => (
+                    <div key={host} className="flex flex-col gap-2.5">
+                      <KeyField
+                        label={`${HOST_NAMES[host]} key`}
+                        keyState={view.jsearch.keyStates[host]}
+                        envName="DOSSIER_JSEARCH_KEY"
+                        getKey={{ href: JSEARCH_KEY_URLS[host], text: host === "rapidapi" ? "JSearch on RapidAPI" : "OpenWeb Ninja" }}
+                        onSave={(change) => saveKey("JSEARCH", change, host)}
+                      />
+                      {view.jsearch.keyStates[host] !== "none" && testButton("JSEARCH", host)}
+                    </div>
+                  ))}
+                </div>
                 <HostChoice host={view.jsearch.host} onChange={(host) => void chooseHost(host)} />
-                <KeyField
-                  label="API key"
-                  keyState={view.jsearch.keyState}
-                  envName="DOSSIER_JSEARCH_KEY"
-                  getKey={{ href: JSEARCH_KEY_URLS[view.jsearch.host], text: view.jsearch.host === "rapidapi" ? "JSearch on RapidAPI" : "OpenWeb Ninja" }}
-                  onSave={(change) => saveKey("JSEARCH", change)}
-                />
               </>
             )}
             {source === "ADZUNA" && (
@@ -180,14 +204,7 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
               </p>
             )}
 
-            {testable && (
-              <div className="flex flex-wrap items-center gap-3.5 pt-1">
-                <Button variant="secondary" onClick={() => void test()} disabled={connection.status === "testing"}>
-                  {connection.status === "testing" ? "Testing…" : "Test connection"}
-                </Button>
-                <ConnectionStatus connection={connection} source={source} />
-              </div>
-            )}
+            {testable && source !== "JSEARCH" && testButton(source)}
           </Card>
         </>
       )}
@@ -195,12 +212,15 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
   );
 }
 
+const HOST_NAMES: Record<JSearchHost, string> = { openwebninja: "OpenWeb Ninja", rapidapi: "RapidAPI" };
+
+/** Which JSearch host is asked first; the other, with a key, takes over when the first refuses its key or is used up. */
 function HostChoice({ host, onChange }: { host: JSearchHost; onChange: (host: JSearchHost) => void }) {
   const labelId = useId();
   return (
     <div className="flex flex-col gap-[7px]">
       <span id={labelId} className="text-label text-muted">
-        Key from
+        Ask first
       </span>
       <SegmentedControl<JSearchHost>
         aria-labelledby={labelId}

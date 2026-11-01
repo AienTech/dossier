@@ -189,6 +189,16 @@ describe("importExport (E10-6)", () => {
     });
   });
 
+  it("puts an older file's JSearch key in the slot of its host", async () => {
+    const file = await asFile();
+    const older = { ...file, schemaVersion: 7 as const, settings: [...file.settings, { key: "jsearchHost", value: "rapidapi" }], jobSourceKeys: { jsearch: "ak-rapid" } };
+    await importExport(prisma(), older);
+    // The one JSearch key was RapidAPI's.
+    expect(await prisma().setting.findUnique({ where: { key: "jsearchKeyEnc" } })).toBeNull();
+    const rapid = await prisma().setting.findUniqueOrThrow({ where: { key: "jsearchRapidapiKeyEnc" } });
+    expect(decryptSecret(JOB_SOURCE_KEY, rapid.value, secret)).toBe("ak-rapid");
+  });
+
   it("restores the job agent's candidates and drafts, so what it saw stays seen (E16)", async () => {
     const draft = await prisma().application.create({ data: { title: "Agent draft", origin: "AGENT", agentScore: 88, awaitingReview: true } });
     await prisma().agentCandidate.create({
