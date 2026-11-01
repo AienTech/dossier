@@ -17,6 +17,8 @@ vi.mock("./scan-lock", async (original) => {
   const { testDatabaseUrl } = await import("@/test/db");
   return { ...actual, withAgentScanLock: <T>(work: (signal: AbortSignal) => Promise<T>) => actual.withAgentScanLock(work, testDatabaseUrl()) };
 });
+// Settings → Scoring reads DOSSIER_SCORER (#274).
+vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
 vi.mock("@/lib/time-zone", () => ({ lastKnownTimeZone: async () => "Europe/Berlin" }));
 vi.mock("@/lib/ai/config", () => ({ isAiConfigured: async () => true }));
 vi.mock("@/lib/job-search/config", () => ({
@@ -40,6 +42,11 @@ beforeEach(async () => {
 afterAll(() => prisma().$disconnect());
 
 describe("the Agent screen's data (E16-6)", () => {
+  it("links missing Jev credentials to Settings → Scoring", async () => {
+    await saveSettings({ scorer: "JEV" });
+    expect(await loadAgentView(now)).toMatchObject({ setupSection: "scoring", setupProblem: "Enter your TypeSafe key in Settings → Scoring first." });
+  });
+
   it("finds each search's latest retained outcome even when absent from the last batch, formatting quota in the user's zone", async () => {
     const first = await prisma().agentSearch.findFirstOrThrow();
     const second = await prisma().agentSearch.create({ data: { name: "Disabled", query: first.query!, enabled: false, sort: 1 } });

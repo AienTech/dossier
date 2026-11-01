@@ -24,6 +24,7 @@ const SETTINGS: Record<NonNullable<AgentView["setupSection"]>, { href: string; l
   agent: { href: "/settings?section=agent", label: "Settings → Job agent" },
   ai: { href: "/settings?section=ai", label: "Settings → AI provider" },
   jobs: { href: "/settings?section=jobs", label: "Settings → Job search" },
+  scoring: { href: "/settings?section=scoring", label: "Settings → Scoring" },
 };
 
 /**

@@ -94,7 +94,7 @@ describe("recurring Agent search storage", () => {
     expect(await client.agentCandidateSearch.count()).toBe(0);
   });
 
-  it("round trips v6 searches and historical attribution, removes old storage, and preserves the quota ledger", async () => {
+  it("round trips v8 searches and historical attribution, removes old storage, and preserves the quota ledger", async () => {
     const first = await saveAgentSearch(input, undefined, client);
     const second = await saveAgentSearch({ ...input, name: "Disabled", enabled: false }, undefined, client);
     await client.agentCandidate.create({ data: candidateData(posting("kept"), score) });
@@ -103,7 +103,7 @@ describe("recurring Agent search storage", () => {
     await deleteAgentSearch(first.id, client);
     await client.setting.createMany({ data: [{ key: "agentRuns", value: "[]" }, { key: "agentQuery", value: JSON.stringify(input.query) }] });
     const data = await buildExport(client);
-    expect(data.schemaVersion).toBe(6);
+    expect(data.schemaVersion).toBe(8);
     expect(data.settings.map((setting) => setting.key)).not.toContain("agentQuery");
     expect(data.settings.map((setting) => setting.key)).not.toContain("agentRuns");
     const parsed = parseExport(JSON.stringify(data));
@@ -158,6 +158,16 @@ describe("recurring Agent search storage", () => {
     expect(after.agentCandidateSearches).toEqual(data.agentCandidateSearches);
   });
 
+  it("does not restore historical attribution for dismissed candidates", async () => {
+    const search = await saveAgentSearch(input, undefined, client);
+    const kept = await client.agentCandidate.create({ data: candidateData(posting("kept"), score) });
+    await attributeAgentCandidates(search, [posting("kept")]);
+    const data = await buildExport(client);
+    await importExport(client, { ...data, agentCandidates: data.agentCandidates.map((candidate) => ({ ...candidate, status: "DISMISSED" })) });
+    expect(await client.agentCandidate.findUnique({ where: { id: kept.id } })).toMatchObject({ status: "DISMISSED" });
+    expect(await client.agentCandidateSearch.count()).toBe(0);
+  });
+
   it("keeps every attribution eligibility read on its transaction client", async () => {
     const search = await saveAgentSearch(input, undefined, client);
     await client.agentCandidate.create({ data: candidateData(posting("kept"), score) });
@@ -210,15 +220,18 @@ describe("recurring Agent search storage", () => {
     expect(await client.agentCandidateSearch.count()).toBe(0);
   });
 
-  it.each([1, 2, 3, 4, 5] as const)("converts legacy agentQuery only for schema %i, without inventing past attribution", async (schemaVersion) => {
-    const data = { ...await buildExport(client), schemaVersion, settings: [{ key: "agentQuery", value: JSON.stringify(input.query) }] };
-    await importExport(client, data);
+  it.each([1, 2, 3, 4, 5, 6, 7] as const)("converts legacy agentQuery only for schema %i, without inventing past attribution", async (schemaVersion) => {
+    const data = { ...await buildExport(client), schemaVersion, agentSearches: undefined, agentCandidateSearches: undefined, settings: [{ key: "agentQuery", value: JSON.stringify(input.query) }] };
+    const parsed = parseExport(JSON.stringify(data));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error(parsed.error);
+    await importExport(client, parsed.data);
     expect(await listAgentSearches(client)).toEqual([expect.objectContaining({ id: "agent-search-legacy", name: "My search", query: { keywords: "Designer", country: "de", place: "Berlin", radiusKm: 25, remoteOnly: false, postedWithin: "any" } })]);
     expect(await client.agentCandidateSearch.count()).toBe(0);
     expect(await client.setting.count({ where: { key: "agentQuery" } })).toBe(0);
   });
 
-  it("ignores invalid/empty legacy queries and ignores agentQuery in v6", async () => {
+  it("ignores invalid/empty legacy queries and ignores agentQuery in v8", async () => {
     for (const value of ["broken", "null", JSON.stringify(EMPTY_QUERY)]) {
       await importExport(client, { ...await buildExport(client), schemaVersion: 5, settings: [{ key: "agentQuery", value }] });
       expect(await client.agentSearch.count()).toBe(0);

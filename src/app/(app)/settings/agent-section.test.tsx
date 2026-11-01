@@ -18,14 +18,14 @@ vi.mock("@/components/toast", () => ({ toast: vi.fn(), toastResult: (result: { o
 const initial: AgentSettings = { enabled: false, hour: 7, minScore: 70, maxScores: 15, maxDrafts: 3, autoDraft: false };
 const search: SavedAgentSearch = { id: "one", name: "Data roles", query: { keywords: "Data scientist", place: "Berlin", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" }, enabled: true, sort: 0, createdAt: new Date(), updatedAt: new Date() };
 const countries = [{ code: "de", name: "Germany" }, { code: "nl", name: "Netherlands" }];
-const open = (props: Partial<Parameters<typeof AgentSection>[0]> = {}) => render(<AgentSection initial={initial} searches={[search]} source="JSEARCH" aiReady countries={countries} timeZone="Europe/Berlin" {...props} />);
+const open = (props: Partial<Parameters<typeof AgentSection>[0]> = {}) => render(<AgentSection initial={initial} searches={[search]} source="JSEARCH" scoring={{ scorer: "AI", ready: true }} countries={countries} timeZone="Europe/Berlin" {...props} />);
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("Settings → Job agent", () => {
   it("adopts refreshed search snapshots without losing an open editor draft", async () => {
     const user = userEvent.setup();
-    const props = { initial, searches: [search], source: "JSEARCH" as const, aiReady: true, countries, timeZone: "Europe/Berlin" };
+    const props = { initial, searches: [search], source: "JSEARCH" as const, scoring: { scorer: "AI" as const, ready: true }, countries, timeZone: "Europe/Berlin" };
     const { rerender } = render(<AgentSection {...props} />);
     await user.click(screen.getByRole("button", { name: "Edit Data roles" }));
     await user.type(screen.getByLabelText("What"), " unsaved");
@@ -46,7 +46,7 @@ describe("Settings → Job agent", () => {
     expect(screen.getByRole("switch", { name: "Data roles (search 1)" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Data roles (search 2)" })).toBeInTheDocument();
     vi.mocked(moveRecurringSearch).mockResolvedValueOnce({ ok: true, data: [second, search] });
-    await user.click(screen.getByRole("button", { name: "Move Data roles (search 2) up" }));
+    await user.click(screen.getByRole("button", { name: "Move up: Data roles (search 2)" }));
     expect(moveRecurringSearch).toHaveBeenCalledWith({ id: "two", direction: "up" });
     await user.click(screen.getByRole("button", { name: "Edit Data roles (search 1)" }));
     expect(screen.getByLabelText("What")).toHaveValue("Designer");
@@ -101,17 +101,39 @@ describe("Settings → Job agent", () => {
     expect(setRecurringSearchEnabled).toHaveBeenCalledWith({ id: search.id, enabled: false });
   });
 
+  it("points to the source or AI provider while one isn't set up", () => {
+    const { unmount } = open({ source: null });
+    expect(screen.getByRole("note")).toHaveTextContent("The agent searches the source you choose in Settings → Job search, which is off. Choose one first.");
+    expect(screen.getByRole("link", { name: "Settings → Job search" })).toHaveAttribute("href", "/settings?section=jobs");
+    unmount();
+    open({ scoring: { scorer: "AI", ready: false } });
+    expect(screen.getByRole("note")).toHaveTextContent("The agent scores postings with the AI provider in Settings → AI provider, which isn't set up yet. Choose one first.");
+    expect(screen.getByRole("link", { name: "Settings → AI provider" })).toHaveAttribute("href", "/settings?section=ai");
+  });
+
+  it("asks for the TypeSafe key when Jev scores without one (#274)", () => {
+    open({ scoring: { scorer: "JEV", ready: false } });
+    expect(screen.getByRole("note")).toHaveTextContent("The agent scores postings with Jev, which needs your TypeSafe key in Settings → Scoring.");
+    expect(screen.getByRole("link", { name: "Settings → Scoring" })).toHaveAttribute("href", "/settings?section=scoring");
+  });
+
+  it("says it doesn't search the Bundesagentur für Arbeit (#223)", () => {
+    open({ source: "ARBEITSAGENTUR" });
+    expect(screen.getByRole("note")).toHaveTextContent("The agent doesn't search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in Settings → Job search for it.");
+    expect(screen.getByRole("link", { name: "Settings → Job search" })).toHaveAttribute("href", "/settings?section=jobs");
+  });
+
   it("caps at three including disabled searches, moves accessibly and confirms deletion", async () => {
     const user = userEvent.setup();
     const second = { ...search, id: "two", name: "Second", sort: 1 };
     const third = { ...search, id: "three", name: "Third", enabled: false, sort: 2 };
     open({ searches: [search, second, third] });
     expect(screen.getByRole("button", { name: "Add search" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Move Data roles up" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move up: Data roles" })).toBeDisabled();
     vi.mocked(moveRecurringSearch).mockResolvedValueOnce({ ok: true, data: [second, search, third] });
-    await user.click(screen.getByRole("button", { name: "Move Second up" }));
+    await user.click(screen.getByRole("button", { name: "Move up: Second" }));
     expect(moveRecurringSearch).toHaveBeenCalledWith({ id: "two", direction: "up" });
-    expect(screen.getByRole("button", { name: "Move Second up" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move up: Second" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Delete Third" }));
     expect(deleteRecurringSearch).not.toHaveBeenCalled();
     const dialog = screen.getByRole("alertdialog");

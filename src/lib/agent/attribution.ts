@@ -12,8 +12,8 @@ import { lockAgentSearches } from "./searches";
  * seen before). Call after scoring too, so overlapping searches share one
  * candidate. No raw results or dismissed/Find jobs exclusions are recorded.
  * Repeating this leaves the first name snapshot untouched.
- * Eligibility is checked during attribution, not a permanent invariant:
- * a later dismissal/save does not erase historical attribution.
+ * Candidate dismissal shares the write lock and removes these labels.
+ * Later Find jobs saves do not erase historical attribution.
  */
 export async function attributeAgentCandidates(search: { id: string; name: string }, postings: readonly FoundPosting[]): Promise<void> {
   if (postings.length === 0) return;

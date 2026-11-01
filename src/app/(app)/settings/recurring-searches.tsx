@@ -92,7 +92,7 @@ export function RecurringSearches({ initial, suggestedQuery, source, countries }
                 key={direction}
                 variant="secondary"
                 size="sm"
-                aria-label={`Move ${controlName(search, index)} ${direction}`}
+                aria-label={`Move ${direction}: ${controlName(search, index)}`}
                 disabled={pending || editing !== null || (direction === "up" ? index === 0 : index === searches.length - 1)}
                 onClick={() => move(search.id, direction)}
               >

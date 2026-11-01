@@ -56,10 +56,10 @@ export type AgentView = {
   minScore: number;
   maxScores: number;
   maxDrafts: number;
-  /** Why it can't run: no search, AI provider, source or key; null when it's set up. */
+  /** Why it can't run: no search, scorer, source or key; null when it's set up. */
   setupProblem: string | null;
   /** Which settings section fixes it. */
-  setupSection: "agent" | "ai" | "jobs" | null;
+  setupSection: "agent" | "ai" | "jobs" | "scoring" | null;
   /** The daily limit is used up. */
   limitReached: boolean;
   lastRun: { at: string; message: string | null } | null;
@@ -91,7 +91,7 @@ export async function countAgentQueue(): Promise<number> {
 const posted = (ago: string) => (ago === "Today" || ago === "Yesterday" ? ago.toLowerCase() : ago);
 
 const sectionOf = (problem: string): AgentView["setupSection"] =>
-  problem.includes("AI provider") ? "ai" : problem.includes("Job search") ? "jobs" : "agent";
+  problem.includes("AI provider") ? "ai" : problem.includes("Scoring") ? "scoring" : problem.includes("Job search") ? "jobs" : "agent";
 
 export async function loadAgentView(now = new Date()): Promise<AgentView> {
   const [settings, timeZone, candidates, draftJobs, runJobs, searches] = await Promise.all([

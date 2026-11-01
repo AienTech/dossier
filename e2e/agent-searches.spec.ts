@@ -70,8 +70,8 @@ test("multiple searches persist CRUD/order/toggles, enforce the cap across tabs,
   await page.getByLabel("What", { exact: true }).fill("Senior designer");
   await page.getByRole("button", { name: "Save search", exact: true }).click();
   await expect(page.getByRole("switch", { name: "Renamed design", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Move Remote up", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Move Remote up", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Move up: Remote", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Move up: Remote", exact: true })).toBeDisabled();
   await page.getByRole("switch", { name: "Remote", exact: true }).click();
   await expect(page.getByRole("switch", { name: "Remote", exact: true })).toHaveAttribute("aria-checked", "false");
   await page.reload();
@@ -123,8 +123,8 @@ test("a stale tab toggles only enabled and validates the current query's country
   await other.getByLabel("Where", { exact: true }).fill("Utrecht");
   await other.getByRole("button", { name: "Save search", exact: true }).click();
   await expect(other.getByRole("switch", { name: "Renamed elsewhere", exact: true })).toBeVisible();
-  await other.getByRole("button", { name: "Move Renamed elsewhere down", exact: true }).click();
-  await expect(other.getByRole("button", { name: "Move Renamed elsewhere down", exact: true })).toBeDisabled();
+  await other.getByRole("button", { name: "Move down: Renamed elsewhere", exact: true }).click();
+  await expect(other.getByRole("button", { name: "Move down: Renamed elsewhere", exact: true })).toBeDisabled();
   const currentRow = () => sql(`SELECT id, name, query, sort, enabled FROM "AgentSearch" WHERE id = $1`, [original.id]);
   const [edited] = await currentRow();
   expect(edited).toMatchObject({ name: "Renamed elsewhere", query: { keywords: "Engineer", place: "Utrecht", country: "nl" }, sort: 1, enabled: true });
@@ -133,7 +133,7 @@ test("a stale tab toggles only enabled and validates the current query's country
   await page.getByRole("switch", { name: "Design", exact: true }).click();
   await expect(page.getByRole("switch", { name: "Renamed elsewhere", exact: true })).toHaveAttribute("aria-checked", "false");
   expect(await currentRow()).toEqual([{ ...edited, enabled: false }]);
-  await expect(page.getByRole("button", { name: "Move Renamed elsewhere down", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Move down: Renamed elsewhere", exact: true })).toBeDisabled();
 
   // Change the now-disabled query elsewhere. Enabling from the stale tab must
   // validate this CURRENT query/name, not restore its old valid country.
@@ -196,7 +196,7 @@ test("all searches share scores/quota, retain partial source results and immutab
   const response = await page.request.get("/api/export");
   expect(response.ok()).toBe(true);
   const exported = await response.json();
-  expect(exported.schemaVersion).toBe(6);
+  expect(exported.schemaVersion).toBe(8);
   expect(exported.agentSearches.map((search: { name: string }) => search.name)).toEqual(["New design name", "Unavailable"]);
   expect(exported.agentCandidateSearches).toHaveLength(4);
   expect(exported.agentCandidateSearches.filter((link: { searchId: string | null }) => link.searchId === null)).toEqual([
@@ -207,4 +207,12 @@ test("all searches share scores/quota, retain partial source results and immutab
   await accessible(page);
   await capture(page, "agent-searches-results-mobile");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  await scored.getByRole("button", { name: "Dismiss", exact: true }).first().click();
+  await expect(scored.getByText("Found by: Design · Overlap (deleted search)", { exact: true })).toHaveCount(1);
+  const afterDismissal = await (await page.request.get("/api/export")).json();
+  const dismissed = afterDismissal.agentCandidates.find((candidate: { status: string }) => candidate.status === "DISMISSED");
+  expect(dismissed).toBeDefined();
+  expect(afterDismissal.agentCandidateSearches).toHaveLength(2);
+  expect(afterDismissal.agentCandidateSearches.some((link: { candidateId: string }) => link.candidateId === dismissed.id)).toBe(false);
 });

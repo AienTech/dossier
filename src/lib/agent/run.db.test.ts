@@ -1,9 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { json, stubFetch } from "@/lib/ai/test-http";
 import { demoProfile } from "@/lib/demo-profile";
 import type { FoundPosting, SearchQuery } from "@/lib/job-search/search";
 import type { JobContext } from "@/lib/jobs/runner";
 import { sweepFinishedJobs } from "@/lib/jobs/retention";
+import { encryptSecret, TYPESAFE_KEY } from "@/lib/secrets";
 import { saveSettings, loadSettings } from "@/lib/settings-data";
 import { createTestClient, resetDatabase } from "@/test/db";
 
@@ -25,6 +27,8 @@ vi.mock("./scan-lock", async (original) => {
   const { testDatabaseUrl } = await import("@/test/db");
   return { withAgentScanLock: <T>(work: (signal: AbortSignal) => Promise<T>) => withAgentScanLock(work, testDatabaseUrl()) };
 });
+// Settings → Scoring reads DOSSIER_SCORER (#274).
+vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
 // Drafts are their own jobs; here it's enough to see them queued.
 vi.mock("@/lib/jobs/runner", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/jobs/runner")>()),
@@ -41,7 +45,7 @@ vi.mock("@/lib/profile-data", async () => {
 const fake = vi.hoisted(() => ({
   postings: [] as FoundPosting[],
   searches: 0,
-  source: "JSEARCH" as "JSEARCH" | "ADZUNA" | "ARBEITSAGENTUR" | null,
+  source: "JSEARCH" as "JSEARCH" | "ADZUNA" | "FREEHIRE" | "ARBEITSAGENTUR" | null,
   ai: true,
   failOn: null as string | null,
   onScore: (() => {}) as (title: string) => void,
@@ -117,6 +121,15 @@ beforeEach(async () => {
 afterAll(() => prisma().$disconnect());
 
 describe("runAgentScan (E16-3)", () => {
+  it("runs recurring searches with FreeHire under the same request budget", async () => {
+    fake.source = "FREEHIRE";
+    fake.postings = page.map((posting) => ({ ...posting, source: "FREEHIRE" }));
+    const result = await runAgentScan({ manual: false }, context(), now);
+    expect(result).toMatchObject({ found: 3, scored: 3 });
+    expect((await loadSettings()).agentRuns[0].sourceRequests).toBe(1);
+    expect(await prisma().agentCandidate.count({ where: { source: "FREEHIRE" } })).toBe(3);
+  });
+
   it.each(["ARBEITSAGENTUR", null] as const)("uses its validated source snapshot despite a concurrent switch to %s", async (source) => {
     const { loadJobSearchConfig } = await import("@/lib/job-search/config");
     const original = vi.mocked(loadJobSearchConfig).getMockImplementation()!;
@@ -270,6 +283,37 @@ describe("runAgentScan (E16-3)", () => {
     expect((await loadSettings()).agentRuns).toEqual([{ at: now.toISOString(), manual: false, message: "2 new postings are waiting for a look.", sourceRequests: 1, sourceRequestAts: [expect.any(String)], searches: [expect.objectContaining({ searchName: "My search", found: 3, fresh: 3, error: null })] }]);
   });
 
+  it("scores with Jev when Settings → Scoring chose it, without an AI provider (#274)", async () => {
+    fake.ai = false;
+    await saveSettings({ scorer: "JEV" });
+    expect(await runAgentScan({ manual: false }, context(), now)).toMatchObject({ found: 0, message: "Enter your TypeSafe key in Settings → Scoring first." });
+    expect(fake.searches).toBe(0);
+
+    await saveSettings({ typesafeKeyEnc: encryptSecret(TYPESAFE_KEY, "ts_secret") });
+    // Jev at its most sure: every Score at the top for a designer's posting and at the bottom otherwise.
+    const requests = stubFetch(({ body }) => {
+      const { questions, state } = body as { questions: Record<string, { type: string; criteria?: unknown[] }>; state: { posting: { title: string } } };
+      const fits = /designer/i.test(state.posting.title);
+      const answer = (id: string, question: { type: string; criteria?: unknown[] }) =>
+        question.type === "score"
+          ? { type: "score", score: fits ? question.criteria!.length - 1 : 0, confidence: 0.9, probabilities: {} }
+          : question.type === "choice"
+            ? { type: "choice", choice: "required", confidence: 0.9, probabilities: {} }
+            : { type: "noul", noul: id.endsWith("Shown") && fits ? 0.9 : 0.05 };
+      return json({ model: "jev-1.14.0", answers: Object.fromEntries(Object.entries(questions).map(([id, question]) => [id, answer(id, question)])) });
+    });
+    const result = await runAgentScan({ manual: false }, context(), now);
+    vi.unstubAllGlobals();
+
+    expect(result).toMatchObject({ found: 3, scored: 3, message: "2 new postings are waiting for a look." });
+    expect(requests.map((request) => request.headers.get("authorization"))).toEqual(["Bearer ts_secret", "Bearer ts_secret", "Bearer ts_secret"]);
+    const candidates = await prisma().agentCandidate.findMany({ orderBy: { externalId: "asc" } });
+    expect(candidates.map((candidate) => [candidate.externalId, candidate.score])).toEqual([["a", 100], ["b", 100], ["c", 0]]);
+    expect(candidates[0].reasons).toContain("Covers: Senior Product Designer at Company a.");
+    expect(candidates[2].redFlags).toEqual(["The role's level is far from your experience.", "Missing: Office Manager at Company c."]);
+    expect((await prisma().postingScore.findFirstOrThrow({ where: { externalId: "a" } })).scoredWith).toBe("score-posting-jev@1 (jev-1.14.0)");
+  });
+
   it("scores the newest new postings first, up to the cap", async () => {
     await saveSettings({ agentMaxScores: 2 });
     const scoredTitles: string[] = [];
@@ -321,7 +365,7 @@ describe("runAgentScan (E16-3)", () => {
     expect(await stop()).toBe("Choose a job source in Settings → Job search first.");
     // It never searches the Bundesagentur für Arbeit on its own (#223).
     fake.source = "ARBEITSAGENTUR";
-    expect(await stop()).toBe("The job agent doesn't search the Bundesagentur für Arbeit. Choose JSearch or Adzuna in Settings → Job search for it.");
+    expect(await stop()).toBe("The job agent doesn't search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in Settings → Job search for it.");
     fake.source = "JSEARCH";
     expect(fake.searches).toBe(0);
     expect((await loadSettings()).agentRuns).toEqual([]);

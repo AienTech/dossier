@@ -199,6 +199,11 @@ describe("AgentScreen (E16-6)", () => {
     expect(screen.getByRole("note")).toHaveTextContent("The whole batch needs more source requests than are available.");
   });
 
+  it("links missing Jev credentials to the scoring settings", () => {
+    open({ setupProblem: "Enter your TypeSafe key in Settings → Scoring first.", setupSection: "scoring" });
+    expect(screen.getByRole("link", { name: "Go to Settings → Scoring" })).toHaveAttribute("href", "/settings?section=scoring");
+  });
+
   it("says when there's nothing yet", () => {
     open({ drafts: [], scored: [], belowMinimum: [], lastRun: null, autoDraft: true });
     expect(screen.getByText("No drafts yet. After a run, the best new postings get a draft here.")).toBeInTheDocument();

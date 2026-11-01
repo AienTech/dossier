@@ -76,8 +76,9 @@ const jsonList = (value: unknown) => (Array.isArray(value) ? value : []) as Pris
 /**
  * Replaces all user data with the export's, in one transaction. Each saved
  * key (the AI provider's, the job sources') stays as it is unless the file
- * carries one, which is then encrypted with this server's secret. The
- * install's own settings (the usage ping's) stay as they are.
+ * carries one, which is then encrypted with this server's secret; the
+ * TypeSafe key, which exports never carry, always stays. The install's own
+ * settings (the usage ping's) stay as they are.
  */
 export async function importExport(db: PrismaClient, data: DossierExport): Promise<void> {
   const { profile, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks, apiKey, jobSourceKeys } = data;
@@ -88,9 +89,9 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
   };
   const keptKeys = [...SECRET_SETTINGS.filter((key) => !fromFile[key]), ...INSTALL_SETTINGS];
   // Also validate direct callers, before deleting anything. Legacy conversion
-  // is confined to <=5 files; v6 never resurrects an obsolete setting.
+  // is confined to <=7 files; v8 never resurrects an obsolete setting.
   let agentSearches = data.agentSearches ?? [];
-  if (data.schemaVersion <= 5 && agentSearches.length === 0) {
+  if (data.schemaVersion <= 7 && agentSearches.length === 0) {
     const query = legacyAgentQuery(settings.find((setting) => setting.key === "agentQuery")?.value ?? "null");
     if (query) agentSearches = [{ id: "agent-search-legacy", name: "My search", query, enabled: true, sort: 0, createdAt: data.exportedAt, updatedAt: data.exportedAt }];
   }
@@ -220,7 +221,7 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
       });
       await tx.agentSearch.createMany({ data: agentSearches });
       const searchIds = new Set(agentSearches.map((search) => search.id));
-      const candidateIds = new Set(agentCandidates.map((candidate) => candidate.id));
+      const candidateIds = new Set(agentCandidates.filter((candidate) => candidate.status !== "DISMISSED").map((candidate) => candidate.id));
       await tx.agentCandidateSearch.createMany({
         data: (data.agentCandidateSearches ?? []).filter((link) => candidateIds.has(link.candidateId)).map((link) => ({
           ...link, searchId: link.searchId && searchIds.has(link.searchId) ? link.searchId : null,

@@ -62,6 +62,8 @@ describe("stored settings", () => {
       adzunaAppId: null,
       adzunaKeyEnc: null,
       arbeitsagenturAcceptedAt: null,
+      scorer: null,
+      typesafeKeyEnc: null,
       agentEnabled: false,
       agentHour: 7,
       agentMinScore: 70,
@@ -96,6 +98,7 @@ describe("stored settings", () => {
       usagePingChoiceAt: null,
       usagePingChoiceText: null,
       connectorEnabledAt: null,
+      connectorRedirects: [],
       browserTimeZone: null,
     });
   });

@@ -14,6 +14,8 @@ vi.mock("@/lib/prisma", async () => {
   db.client = createTestClient();
   return { prisma: db.client };
 });
+// Settings → Scoring reads DOSSIER_SCORER (#274).
+vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
 vi.mock("@/lib/auth/session", () => ({
   getSession: vi.fn(async () => ({ persistent: false, issuedAt: new Date(), expiresAt: new Date(Date.now() + 60_000) })),
 }));
@@ -123,12 +125,13 @@ describe("the drafts' actions (E16-5)", () => {
     const result = await dismissAgentCandidate({ candidateId: scored.id });
     expect(result).toMatchObject({ ok: true, data: { undo: { id: scored.id, url: "https://jobs.example/1", reasons: ["Python"] } } });
     expect(await prisma().agentCandidate.findUniqueOrThrow({ where: { id: scored.id } })).toMatchObject({ status: "DISMISSED", url: "", description: "", reasons: [] });
-    expect(await prisma().agentCandidateSearch.findMany()).toEqual([expect.objectContaining({ candidateId: scored.id, searchName: "Original search name" })]);
+    expect(await prisma().agentCandidateSearch.findMany()).toEqual([]);
     if (!result.ok || !result.data.undo) throw new Error("no undo");
     // As the browser sends it back: dates as strings, and a link that must stay a web address.
     const sent = JSON.parse(JSON.stringify(result.data.undo));
     expect(await restoreAgentCandidate({ ...sent, url: "javascript:alert(1)" })).toEqual({ ok: true, data: null });
     expect(await prisma().agentCandidate.findUniqueOrThrow({ where: { id: scored.id } })).toMatchObject({ status: "SCORED", url: "", reasons: ["Python"] });
+    expect(await prisma().agentCandidateSearch.findMany()).toEqual([]);
   });
 
   it("approves a draft waiting for review when its status moves on (#195)", async () => {
