@@ -201,40 +201,43 @@ describe("addDocumentLanguage (E10-3)", () => {
 });
 
 describe("job search settings (E14-4)", () => {
-  it("saves the source, Off included, and says what the section shows", async () => {
-    expect(await saveJobSource({ source: "JSEARCH" })).toEqual({
+  it("turns sources on and off, any number of them, and says what the section shows", async () => {
+    expect(await saveJobSource({ source: "JSEARCH", on: true })).toEqual({
       ok: true,
       data: {
-        source: "JSEARCH",
+        sources: ["JSEARCH"],
         jsearch: { host: "openwebninja", keyState: "none", keyStates: { openwebninja: "none", rapidapi: "none" } },
         adzuna: { appId: "", keyState: "none" },
         arbeitsagentur: { offered: true, acceptedAt: null },
         freehire: { host: "freehire.me" },
       },
     });
-    await saveJobSource({ source: "OFF" });
-    expect((await settings()).jobSource).toBe("OFF");
-    expect(await saveJobSource({ source: "LINKEDIN" as never })).toMatchObject({ ok: false });
+    await saveJobSource({ source: "FREEHIRE", on: true });
+    expect((await settings()).jobSources).toEqual(["JSEARCH", "FREEHIRE"]);
+    await saveJobSource({ source: "JSEARCH", on: false });
+    await saveJobSource({ source: "FREEHIRE", on: false });
+    expect((await settings()).jobSources).toEqual([]);
+    expect(await saveJobSource({ source: "LINKEDIN" as never, on: true })).toMatchObject({ ok: false });
   });
 
-  it("saves the Bundesagentur für Arbeit only with its note accepted (#223)", async () => {
-    expect(await saveJobSource({ source: "ARBEITSAGENTUR" })).toEqual({
+  it("turns the Bundesagentur für Arbeit on only with its note accepted (#223)", async () => {
+    expect(await saveJobSource({ source: "ARBEITSAGENTUR", on: true })).toEqual({
       ok: false,
       error: "Tick “I understand” under the note about the Bundesagentur für Arbeit first.",
     });
-    expect((await settings()).jobSource).toBeNull();
-    const saved = await saveJobSource({ source: "ARBEITSAGENTUR", accepted: true });
-    expect(saved).toMatchObject({ ok: true, data: { source: "ARBEITSAGENTUR", arbeitsagentur: { offered: true, acceptedAt: expect.any(String) } } });
-    const { jobSource, arbeitsagenturAcceptedAt } = await settings();
-    expect(jobSource).toBe("ARBEITSAGENTUR");
+    expect((await settings()).jobSources).toBeNull();
+    const saved = await saveJobSource({ source: "ARBEITSAGENTUR", on: true, accepted: true });
+    expect(saved).toMatchObject({ ok: true, data: { sources: ["ARBEITSAGENTUR"], arbeitsagentur: { offered: true, acceptedAt: expect.any(String) } } });
+    const { jobSources, arbeitsagenturAcceptedAt } = await settings();
+    expect(jobSources).toEqual(["ARBEITSAGENTUR"]);
     expect(Date.parse(arbeitsagenturAcceptedAt!)).toBeGreaterThan(Date.now() - 60_000);
-    // Once accepted, switching back needs no second tick.
-    await saveJobSource({ source: "JSEARCH" });
-    expect(await saveJobSource({ source: "ARBEITSAGENTUR" })).toMatchObject({ ok: true });
+    // Once accepted, turning it on again needs no second tick.
+    await saveJobSource({ source: "ARBEITSAGENTUR", on: false });
+    expect(await saveJobSource({ source: "ARBEITSAGENTUR", on: true })).toMatchObject({ ok: true });
   });
 
-  it("stores each key encrypted, JSearch's per host, keeps them when switching, and only says it's set", async () => {
-    await saveJobSource({ source: "JSEARCH" });
+  it("stores each key encrypted, JSearch's per host, and only says it's set", async () => {
+    await saveJobSource({ source: "JSEARCH", on: true });
     const result = await saveJobSourceKey({ source: "JSEARCH", change: { action: "set", value: " ak_secret " } });
     expect(result).toMatchObject({ ok: true, data: { jsearch: { keyState: "set" } } });
     expect(JSON.stringify(result)).not.toContain("ak_secret");
@@ -246,11 +249,11 @@ describe("job search settings (E14-4)", () => {
     expect(rapid).toMatchObject({ ok: true, data: { jsearch: { host: "openwebninja", keyStates: { openwebninja: "set", rapidapi: "set" } } } });
     expect(decryptSecret(JOB_SOURCE_KEY, (await settings()).jsearchRapidapiKeyEnc!)).toBe("rk_secret");
 
-    await saveJobSource({ source: "ADZUNA" });
+    await saveJobSource({ source: "ADZUNA", on: true });
     await saveJobSearchDetails({ adzunaAppId: " app-1 " });
     await saveJobSourceKey({ source: "ADZUNA", change: { action: "set", value: "adz" } });
-    await saveJobSource({ source: "JSEARCH" });
-    expect(await settings()).toMatchObject({ jobSource: "JSEARCH", adzunaAppId: "app-1", jsearchKeyEnc: stored });
+    await saveJobSource({ source: "ADZUNA", on: false });
+    expect(await settings()).toMatchObject({ jobSources: ["JSEARCH"], adzunaAppId: "app-1", jsearchKeyEnc: stored });
 
     await saveJobSourceKey({ source: "JSEARCH", change: { action: "clear" } });
     expect((await settings()).jsearchKeyEnc).toBeNull();
@@ -263,27 +266,25 @@ describe("job search settings (E14-4)", () => {
     expect((await settings()).jsearchHost).toBe("rapidapi");
   });
 
-  it("tests the chosen source with its key, JSearch with one host's", async () => {
+  it("tests a source with its key, JSearch with one host's", async () => {
     clearJobSearchCache();
-    expect(await testJobSource({})).toEqual({ ok: true, data: { connected: false, message: "Choose a source first." } });
-
-    await saveJobSource({ source: "JSEARCH" });
-    expect(await testJobSource({})).toEqual({
+    await saveJobSource({ source: "JSEARCH", on: true });
+    expect(await testJobSource({ source: "JSEARCH" })).toEqual({
       ok: true,
       data: { connected: false, message: "Add your JSearch key in Settings → Job search first." },
     });
 
     await saveJobSourceKey({ source: "JSEARCH", change: { action: "set", value: "ak_secret" } });
     const requests = stubFetch(() => json(jsearchV2LastPage));
-    expect(await testJobSource({})).toEqual({ ok: true, data: { connected: true, seconds: expect.any(Number) } });
+    expect(await testJobSource({ source: "JSEARCH" })).toEqual({ ok: true, data: { connected: true, seconds: expect.any(Number) } });
     expect(requests[0].headers.get("x-api-key")).toBe("ak_secret");
-    expect(await testJobSource({ host: "rapidapi" })).toEqual({
+    expect(await testJobSource({ source: "JSEARCH", host: "rapidapi" })).toEqual({
       ok: true,
       data: { connected: false, message: "Add your JSearch key for RapidAPI first." },
     });
 
     stubFetch(() => json({}, { status: 401 }));
-    expect(await testJobSource({})).toEqual({
+    expect(await testJobSource({ source: "JSEARCH" })).toEqual({
       ok: true,
       data: { connected: false, message: "JSearch didn't accept your key. Check it in Settings → Job search." },
     });
@@ -292,7 +293,7 @@ describe("job search settings (E14-4)", () => {
 
   it("falls back to the other JSearch host when the first refuses its key", async () => {
     clearJobSearchCache();
-    await saveJobSource({ source: "JSEARCH" });
+    await saveJobSource({ source: "JSEARCH", on: true });
     await saveJobSourceKey({ source: "JSEARCH", change: { action: "set", value: "ak_spent" } });
     await saveJobSourceKey({ source: "JSEARCH", host: "rapidapi", change: { action: "set", value: "rk_fresh" } });
     const requests = stubFetch((request) => (request.headers.get("x-api-key") === "ak_spent" ? json({}, { status: 429 }) : json(jsearchV2LastPage)));

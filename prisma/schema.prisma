@@ -721,18 +721,19 @@ model PostingScore {
 /// A search on Find jobs, kept with what it found until the user removes it
 /// (E14-10), so going back to it costs no searches from the source's plan.
 model PostingSearch {
-  id        String        @id @default(cuid())
-  source    PostingSource
+  id        String          @id @default(cuid())
+  /// The sources asked, in order.
+  sources   PostingSource[]
   /// The search as asked (searchQuerySchema in src/lib/job-search/search.ts).
   query     Json
-  /// The postings found, in order (foundPostingSchema[]); "Show more" adds to them.
+  /// The postings found, in order (storedPostingSchema[]); "Show more" adds to them.
   postings  Json
   /// How many postings it holds, for the Past searches list.
-  found     Int           @default(0)
-  /// What to ask the source for the next page; null on the last one.
-  next      String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  found     Int             @default(0)
+  /// Per source: what to ask for its next page (null on its last), how many it found, and what went wrong (sourceResultSchema[]).
+  results   Json            @default("[]")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@index([createdAt])
 }

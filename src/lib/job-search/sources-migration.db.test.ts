@@ -7,9 +7,15 @@ import { createTestClient, resetDatabase } from "@/test/db";
 const client = createTestClient();
 const prisma = () => client;
 
-/** A migration's statements, run again on the migrated test database. */
-const dataStatements = (name: string) => readFileSync(`prisma/migrations/${name}/migration.sql`, "utf8");
-const run = async (sql: string) => {
+/** A migration's statements that move data, run again on the migrated test database. */
+const dataStatements = (name: string, from?: string, to?: string) => {
+  let sql = readFileSync(`prisma/migrations/${name}/migration.sql`, "utf8");
+  if (from) sql = sql.split(from)[1];
+  if (to) sql = sql.split(to)[0];
+  return sql;
+};
+const run = async (sql: string, { block = false } = {}) => {
+  if (block) return void (await prisma().$executeRawUnsafe(sql));
   const code = sql.replace(/^--.*$/gm, "");
   for (const statement of code.split(";").map((part) => part.trim()).filter(Boolean)) await prisma().$executeRawUnsafe(statement);
 };
@@ -31,5 +37,19 @@ describe("the jsearch_keys migration", () => {
     await prisma().setting.create({ data: { key: "jsearchKeyEnc", value: "v1.a.b" } });
     await migrate();
     expect(await settings()).toEqual({ jsearchKeyEnc: "v1.a.b" });
+  });
+});
+
+describe("the job_sources migration", () => {
+  const migrate = () => run(dataStatements("20261101090200_job_sources", undefined, "-- A kept search can ask several sources"));
+
+  it("turns the chosen source into a list, and Off into an empty one", async () => {
+    await prisma().setting.create({ data: { key: "jobSource", value: "ADZUNA" } });
+    await migrate();
+    expect(await settings()).toEqual({ jobSources: '["ADZUNA"]' });
+    await prisma().setting.deleteMany();
+    await prisma().setting.create({ data: { key: "jobSource", value: "OFF" } });
+    await migrate();
+    expect(await settings()).toEqual({ jobSources: "[]" });
   });
 });

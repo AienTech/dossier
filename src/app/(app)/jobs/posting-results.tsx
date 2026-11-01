@@ -12,7 +12,7 @@ import { openPendingTab, sendPendingTab } from "@/lib/claude-tab";
 import { cn } from "@/lib/cn";
 import { fitBand, type PostingFit } from "@/lib/fit";
 import type { JobView } from "@/lib/jobs/runner";
-import { postedAgo, postingKey, type FoundPosting, type PostingState, type ShownPosting, type StoredSearch } from "@/lib/job-search/search";
+import { hasMore, postedAgo, postingKey, type FoundPosting, type JobSource, type PostingState, type ShownPosting, type StoredSearch } from "@/lib/job-search/search";
 import { arbeitsagenturPage, SOURCE_INFO } from "@/lib/job-search/sources";
 
 import { dismissFoundPosting, loadFullText, restorePosting, savePostingForLater, showMorePostings, startScoringPosting, unsavePosting } from "./actions";
@@ -48,7 +48,8 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 export function PostingResults(props: PostingResultsProps) {
   const { mode } = props;
   const [postings, setPostings] = useState(mode === "search" ? props.search.postings : props.postings);
-  const [next, setNext] = useState(mode === "search" ? props.search.next : null);
+  const [results, setResults] = useState(mode === "search" ? props.search.results : []);
+  const next = hasMore(results);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
   const inView = ({ state }: ShownPosting) => (mode === "saved" ? state.saved : mode === "dismissed" ? state.dismissed : showDismissed || !state.dismissed);
@@ -153,11 +154,13 @@ export function PostingResults(props: PostingResultsProps) {
     if (!result.data.ok) return void toast(result.data.message);
     const seen = new Set(postings.map(postingKey));
     setPostings([...postings, ...result.data.postings.filter((posting) => !seen.has(postingKey(posting)))]);
-    setNext(result.data.next);
+    setResults(result.data.results);
   };
 
   const searched = props.mode === "search" ? props.search.query : null;
-  const radius = props.mode === "search" && SOURCE_INFO[props.search.source].radius;
+  const sources = props.mode === "search" ? props.search.sources : [];
+  const radius = sources.some((source) => SOURCE_INFO[source].radius);
+  const problems = results.filter((result) => result.problem);
   const empty =
     mode === "saved"
       ? "Nothing saved yet. Save a posting from your search results to keep it here."
@@ -178,7 +181,7 @@ export function PostingResults(props: PostingResultsProps) {
         <p className={cn("flex flex-wrap items-baseline gap-x-3 gap-y-1 text-meta text-muted", mode !== "search" && visible.length === 0 && "hidden")}>
           <span>
             {props.mode === "search"
-              ? `${plural(postings.length, "posting", "postings")} from ${SOURCE_INFO[props.search.source].name}${next ? ", more to come" : ""} · searched ${props.search.ranAt}`
+              ? `${plural(postings.length, "posting", "postings")} from ${sourceNames(results.filter((result) => !result.problem).map((result) => result.source))}${next ? ", more to come" : ""} · searched ${props.search.ranAt}`
               : mode === "saved"
                 ? plural(visible.length, "saved posting", "saved postings")
                 : `${plural(visible.length, "dismissed posting", "dismissed postings")}, kept out of your searches`}
@@ -205,6 +208,12 @@ export function PostingResults(props: PostingResultsProps) {
           )}
         </p>
 
+        {problems.map((result) => (
+          <p key={result.source} role="note" className="rounded-card bg-warning-surface px-4 py-2.5 text-meta text-warning">
+            {result.problem}
+          </p>
+        ))}
+
         {visible.length === 0 ? (
           <div className="rounded-panel border border-line-card bg-card px-5 py-9 text-center text-sm text-muted">{empty}</div>
         ) : (
@@ -215,6 +224,7 @@ export function PostingResults(props: PostingResultsProps) {
             onSelect={select}
             scoring={scoring}
             onScore={(posting) => void score(posting)}
+            showSource={sources.length > 1}
           />
         )}
 
@@ -269,10 +279,17 @@ export function StartButton({ starting, onClick }: { starting: boolean; onClick:
   );
 }
 
+/** "JSearch, Adzuna and FreeHire". */
+function sourceNames(sources: readonly JobSource[]): string {
+  const names = sources.map((source) => SOURCE_INFO[source].name);
+  return names.length <= 1 ? (names[0] ?? "no source") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+
 /** The posting as the server takes it back: without where it stands. */
 function withoutState(posting: ShownPosting): FoundPosting {
-  const { state, ...found } = posting;
+  const { state, alsoOn, ...found } = posting;
   void state;
+  void alsoOn;
   return found;
 }
 
@@ -286,6 +303,7 @@ function PostingList({
   onSelect,
   scoring,
   onScore,
+  showSource,
 }: {
   postings: ShownPosting[];
   selectedKey: string | null;
@@ -294,6 +312,8 @@ function PostingList({
   /** Postings being scored, by postingKey. */
   scoring: Record<string, unknown>;
   onScore: (posting: ShownPosting) => void;
+  /** Name the source on each posting, when a search asked more than one. */
+  showSource: boolean;
 }) {
   // Up and down move through the list, as in a mail inbox.
   const move = (event: KeyboardEvent<HTMLUListElement>) => {
@@ -343,7 +363,14 @@ function PostingList({
               <span className="text-meta text-muted">{[posting.company, posting.place, posting.remote ? "Remote" : ""].filter(Boolean).join(" · ")}</span>
               <span className="flex items-center justify-between gap-3">
                 <span className="min-w-0 truncate text-xs text-muted">
-                  {[postedAgo(posting.postedAt, now), posting.via && `via ${posting.via}`, posting.salary].filter(Boolean).join(" · ")}
+                  {[
+                    postedAgo(posting.postedAt, now),
+                    posting.via && `via ${posting.via}`,
+                    posting.salary,
+                    showSource && `${SOURCE_INFO[posting.source].name}${posting.alsoOn?.length ? `, also ${sourceNames(posting.alsoOn)}` : ""}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
                 <SourceAttribution source={posting.source} url={posting.url} placeholder />
               </span>

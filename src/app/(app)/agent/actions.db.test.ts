@@ -23,10 +23,11 @@ vi.mock("@/lib/jobs/runner", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/jobs/runner")>()),
   startJob: vi.fn(async () => "new-run"),
 }));
-const setup = vi.hoisted(() => ({ ai: true, source: "JSEARCH" as "JSEARCH" | null }));
+const setup = vi.hoisted(() => ({ ai: true, sources: ["JSEARCH"] as string[] }));
 vi.mock("@/lib/ai/config", () => ({ isAiConfigured: async () => setup.ai }));
 vi.mock("@/lib/job-search/config", () => ({
-  loadJobSearchConfig: async () => ({ source: setup.source, saved: true, jsearch: { key: "k", host: "openwebninja", keyState: "set" }, adzuna: { appId: "", key: null, keyState: "none" } }),
+  loadJobSearchConfig: async () => ({ sources: setup.sources, saved: true, jsearch: { key: "k", host: "openwebninja", keyState: "set" }, adzuna: { appId: "", key: null, keyState: "none" } }),
+  agentSources: (config: { sources: string[] }) => config.sources.filter((source) => source !== "ARBEITSAGENTUR"),
   credentialsFor: () => ({ key: "k", host: "openwebninja" }),
   requestContext: () => ({}),
 }));
@@ -39,7 +40,7 @@ const candidate = (data: { status?: "SCORED" | "DRAFTED" | "DRAFTING"; applicati
 const query: SearchQuery = { keywords: "Data scientist", place: "", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" };
 
 beforeEach(async () => {
-  Object.assign(setup, { ai: true, source: "JSEARCH" });
+  Object.assign(setup, { ai: true, sources: ["JSEARCH"] });
   await resetDatabase(prisma());
   await saveSettings({ agentEnabled: true, agentQuery: query });
 });
@@ -66,7 +67,7 @@ describe("Run now (E16-4)", () => {
     setup.ai = false;
     expect(await runAgentNow({})).toMatchObject({ ok: false, error: "Choose an AI provider in Settings → AI provider first." });
     setup.ai = true;
-    setup.source = null;
+    setup.sources = [];
     expect(await runAgentNow({})).toMatchObject({ ok: false, error: "Choose a job source in Settings → Job search first." });
   });
 

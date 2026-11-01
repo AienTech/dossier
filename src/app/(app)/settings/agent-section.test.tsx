@@ -24,7 +24,7 @@ const countries = [
   { code: "nl", name: "Netherlands" },
 ];
 const open = (props: Partial<Parameters<typeof AgentSection>[0]> = {}) =>
-  render(<AgentSection initial={initial} source="JSEARCH" scoring={{ scorer: "AI", ready: true }} countries={countries} timeZone="Europe/Berlin" {...props} />);
+  render(<AgentSection initial={initial} sources={["JSEARCH"]} scoring={{ scorer: "AI", ready: true }} countries={countries} timeZone="Europe/Berlin" {...props} />);
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -81,9 +81,9 @@ describe("Settings → Job agent (E16-7)", () => {
     expect(screen.getByText(/^One search a day, and at most three in any 24 hours\. Each run scores up to 15 postings\./)).toBeInTheDocument();
   });
 
-  it("points to the source or AI provider while one isn't set up", () => {
-    const { unmount } = open({ source: null });
-    expect(screen.getByRole("note")).toHaveTextContent("The agent searches the source you choose in Settings → Job search, which is off. Choose one first.");
+  it("points to the sources or AI provider while one isn't set up", () => {
+    const { unmount } = open({ sources: [] });
+    expect(screen.getByRole("note")).toHaveTextContent("The agent searches the sources you choose in Settings → Job search, which is off. Choose one first.");
     expect(screen.getByRole("link", { name: "Settings → Job search" })).toHaveAttribute("href", "/settings?section=jobs");
     unmount();
     open({ scoring: { scorer: "AI", ready: false } });
@@ -98,7 +98,7 @@ describe("Settings → Job agent (E16-7)", () => {
   });
 
   it("says it doesn't search the Bundesagentur für Arbeit (#223)", () => {
-    open({ source: "ARBEITSAGENTUR" });
+    open({ sources: ["ARBEITSAGENTUR"] });
     expect(screen.getByRole("note")).toHaveTextContent("The agent doesn't search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in Settings → Job search for it.");
     expect(screen.getByRole("link", { name: "Settings → Job search" })).toHaveAttribute("href", "/settings?section=jobs");
   });

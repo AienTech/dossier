@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { toast } from "@/components/toast";
-import { EMPTY_QUERY, type PostingState, type ShownPosting, type StoredSearch } from "@/lib/job-search/search";
+import { EMPTY_QUERY, type JobSource, type PostingState, type ShownPosting, type StoredSearch } from "@/lib/job-search/search";
 
 import {
   acceptArbeitsagenturNote,
@@ -61,10 +61,17 @@ const posting = (id: string, extra: Partial<ShownPosting> = {}): ShownPosting =>
   ...extra,
 });
 
-const stored = (postings: ShownPosting[], next: string | null = null): StoredSearch => ({ id: "run-1", source: "JSEARCH", query, ranAt: "today at 14:32", postings, next });
+const stored = (postings: ShownPosting[], next: string | null = null, source: JobSource = "JSEARCH"): StoredSearch => ({
+  id: "run-1",
+  sources: [source],
+  query,
+  ranAt: "today at 14:32",
+  postings,
+  results: [{ source, found: postings.length, next, problem: null }],
+});
 
 const screenProps: ComponentProps<typeof JobsScreen> = {
-  source: "JSEARCH",
+  sources: ["JSEARCH"],
   countries,
   view: "search",
   query,
@@ -89,7 +96,7 @@ beforeEach(() => {
 
 describe("the search form", () => {
   it("points to Settings while job search is off", () => {
-    renderScreen({ source: null });
+    renderScreen({ sources: [] });
     expect(screen.getByRole("heading", { name: "Choose where to search" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Set up job search" })).toHaveAttribute("href", "/settings?section=jobs");
     expect(screen.queryByRole("search")).not.toBeInTheDocument();
@@ -151,13 +158,13 @@ describe("the search form", () => {
   });
 
   it("has no radius for a source without one", () => {
-    renderScreen({ source: "FREEHIRE" });
+    renderScreen({ sources: ["FREEHIRE"] });
     expect(screen.getByLabelText("Within")).toBeDisabled();
     expect(screen.getByText("FreeHire has no distance filter")).toBeInTheDocument();
   });
 
   it("says when the source doesn't cover the country", async () => {
-    renderScreen({ source: "ARBEITSAGENTUR" });
+    renderScreen({ sources: ["ARBEITSAGENTUR"] });
     await userEvent.selectOptions(screen.getByLabelText("Country"), "fr");
     expect(screen.getByText("Bundesagentur für Arbeit doesn't list jobs in France.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Search" }));
@@ -165,7 +172,7 @@ describe("the search form", () => {
   });
 
   it("warns that Adzuna can only add 'remote' to the words", async () => {
-    renderScreen({ source: "ADZUNA" });
+    renderScreen({ sources: ["ADZUNA"] });
     await userEvent.click(screen.getByLabelText("Remote only"));
     expect(screen.getByText("Adzuna has no remote filter, so this adds “remote” to your search.")).toBeInTheDocument();
   });
@@ -249,8 +256,24 @@ describe("the results", () => {
     expect(screen.getByRole("button", { name: /^Designer a/ })).toBeInTheDocument();
   });
 
+  it("names each posting's source and notes a source that failed, when a search asked several", () => {
+    const search: StoredSearch = {
+      ...stored([posting("a", { alsoOn: ["ADZUNA"] }), posting("b", { source: "FREEHIRE" })]),
+      sources: ["JSEARCH", "ADZUNA", "FREEHIRE"],
+      results: [
+        { source: "JSEARCH", found: 1, next: null, problem: null },
+        { source: "ADZUNA", found: 1, next: null, problem: null },
+        { source: "FREEHIRE", found: 0, next: null, problem: "FreeHire isn't answering right now. Try again in a minute." },
+      ],
+    };
+    renderScreen({ sources: ["JSEARCH", "ADZUNA", "FREEHIRE"], search });
+    expect(screen.getByText(/^2 postings from JSearch and Adzuna · searched today at 14:32$/)).toBeInTheDocument();
+    expect(screen.getByRole("note")).toHaveTextContent("FreeHire isn't answering right now. Try again in a minute.");
+    expect(screen.getByRole("button", { name: /^Designer a/ })).toHaveTextContent("JSearch, also Adzuna");
+  });
+
   it("loads the next page into the kept search, once each", async () => {
-    vi.mocked(showMorePostings).mockResolvedValue({ ok: true, data: { ok: true, postings: [posting("b"), posting("c")], next: null } });
+    vi.mocked(showMorePostings).mockResolvedValue({ ok: true, data: { ok: true, postings: [posting("b"), posting("c")], results: [{ source: "JSEARCH", found: 4, next: null, problem: null }] } });
     renderScreen({ search: stored([posting("a"), posting("b")], "cursor:2") });
     await userEvent.click(screen.getByRole("button", { name: "Show more" }));
     expect(showMorePostings).toHaveBeenCalledWith({ searchId: "run-1" });
@@ -318,13 +341,13 @@ describe("the results", () => {
   });
 
   it("says when nothing was found on a source without a radius", () => {
-    renderScreen({ source: "FREEHIRE", search: { ...stored([]), source: "FREEHIRE" } });
+    renderScreen({ sources: ["FREEHIRE"], search: stored([], null, "FREEHIRE") });
     expect(screen.getByText("No postings for “product designer” in Hamburg. Try fewer words.")).toBeInTheDocument();
   });
 
   it("labels each of Adzuna's postings with a link to its site for the posting's country, as its terms ask", () => {
     const url = "https://www.adzuna.de/land/ad/4721394012?se=abc&utm_medium=api&utm_source=dossier&v=1";
-    renderScreen({ source: "ADZUNA", search: stored([posting("a", { source: "ADZUNA", url }), posting("b", { source: "ADZUNA", url })]) });
+    renderScreen({ sources: ["ADZUNA"], search: stored([posting("a", { source: "ADZUNA", url }), posting("b", { source: "ADZUNA", url })]) });
     const labels = screen.getAllByRole("link", { name: "Jobs by Adzuna (opens in a new tab)" });
     // One on each card and one on the posting shown.
     expect(labels).toHaveLength(3);
@@ -335,7 +358,7 @@ describe("the results", () => {
   });
 
   it("names the Bundesagentur für Arbeit in plain text, on the posting only", () => {
-    renderScreen({ source: "ARBEITSAGENTUR", search: stored([posting("a", { source: "ARBEITSAGENTUR" })]) });
+    renderScreen({ sources: ["ARBEITSAGENTUR"], search: stored([posting("a", { source: "ARBEITSAGENTUR" })]) });
     expect(screen.getAllByText("Source: Bundesagentur für Arbeit")).toHaveLength(1);
     expect(screen.queryByRole("link", { name: /Source: Bundesagentur/ })).not.toBeInTheDocument();
   });
@@ -366,7 +389,7 @@ describe("problems", () => {
 describe("the Bundesagentur für Arbeit (#223)", () => {
   it("shows its note above the search until it's ticked", async () => {
     vi.mocked(acceptArbeitsagenturNote).mockResolvedValue({ ok: true, data: null });
-    renderScreen({ source: "ARBEITSAGENTUR", arbeitsagenturNote: true });
+    renderScreen({ sources: ["ARBEITSAGENTUR"], arbeitsagenturNote: true });
     expect(screen.getByRole("note")).toHaveTextContent(/has no official API.*on your own responsibility/);
     await userEvent.click(screen.getByRole("checkbox", { name: "I understand, and choose this source myself" }));
     expect(acceptArbeitsagenturNote).toHaveBeenCalledWith({});
@@ -374,20 +397,20 @@ describe("the Bundesagentur für Arbeit (#223)", () => {
   });
 
   it("leaves the note out once it's accepted, and for other sources", () => {
-    renderScreen({ source: "ARBEITSAGENTUR" });
+    renderScreen({ sources: ["ARBEITSAGENTUR"] });
     expect(screen.queryByRole("checkbox", { name: /I understand/ })).not.toBeInTheDocument();
   });
 
   it("links each posting to its ad on arbeitsagentur.de, next to the employer's own link", () => {
     const ba = posting("10000-1234-S", { source: "ARBEITSAGENTUR", url: "https://careers.example/1" });
-    renderScreen({ source: "ARBEITSAGENTUR", search: stored([ba]) });
+    renderScreen({ sources: ["ARBEITSAGENTUR"], search: stored([ba]) });
     expect(screen.getByRole("link", { name: /Open posting/ })).toHaveAttribute("href", "https://careers.example/1");
     expect(screen.getByRole("link", { name: /On arbeitsagentur\.de/ })).toHaveAttribute("href", "https://www.arbeitsagentur.de/jobsuche/jobdetail/10000-1234-S");
   });
 
   it("has one link when the posting's own link is its ad", () => {
     const ba = posting("10000-1234-S", { source: "ARBEITSAGENTUR", url: "https://www.arbeitsagentur.de/jobsuche/jobdetail/10000-1234-S" });
-    renderScreen({ source: "ARBEITSAGENTUR", search: stored([ba]) });
+    renderScreen({ sources: ["ARBEITSAGENTUR"], search: stored([ba]) });
     expect(screen.queryByRole("link", { name: /On arbeitsagentur\.de/ })).not.toBeInTheDocument();
   });
 });
@@ -397,11 +420,11 @@ describe("past searches (E14-10)", () => {
     {
       day: "Today",
       searches: [
-        { id: "s1", source: "JSEARCH" as const, query: { ...query, radiusKm: 50 as const, remoteOnly: true, postedWithin: "week" as const }, found: 16, time: "14:32" },
-        { id: "s2", source: "JSEARCH" as const, query: { ...query, keywords: "researcher", place: "" }, found: 1, time: "09:05" },
+        { id: "s1", sources: ["JSEARCH" as const], query: { ...query, radiusKm: 50 as const, remoteOnly: true, postedWithin: "week" as const }, found: 16, time: "14:32" },
+        { id: "s2", sources: ["JSEARCH" as const], query: { ...query, keywords: "researcher", place: "" }, found: 1, time: "09:05" },
       ],
     },
-    { day: "Mon 28 Sep", searches: [{ id: "s3", source: "ADZUNA" as const, query: { ...query, keywords: "writer" }, found: 0, time: "10:00" }] },
+    { day: "Mon 28 Sep", searches: [{ id: "s3", sources: ["ADZUNA" as const], query: { ...query, keywords: "writer" }, found: 0, time: "10:00" }] },
   ];
 
   it("lists them by day, each opening without asking the source again", () => {
@@ -449,7 +472,7 @@ describe("the Saved and Dismissed views (E14-7)", () => {
   });
 
   it("lists the saved postings, without the search form, even with job search off", () => {
-    renderScreen({ source: null, view: "saved", kept: [posting("a", { state: { ...state, saved: true } })], counts: { searches: 0, saved: 1, dismissed: 0 } });
+    renderScreen({ sources: [], view: "saved", kept: [posting("a", { state: { ...state, saved: true } })], counts: { searches: 0, saved: 1, dismissed: 0 } });
     expect(screen.queryByRole("search")).not.toBeInTheDocument();
     expect(screen.queryByText("Choose where to search")).not.toBeInTheDocument();
     expect(screen.getByText("1 saved posting")).toBeInTheDocument();

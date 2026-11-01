@@ -42,14 +42,14 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
  */
 export function AgentSection({
   initial,
-  source,
+  sources,
   scoring,
   countries,
   timeZone,
 }: {
   initial: AgentSettings;
-  /** The source in Settings → Job search; null while job search is off. */
-  source: JobSource | null;
+  /** The sources in Settings → Job search; empty while job search is off. */
+  sources: JobSource[];
   /** What scores the postings (Settings → Scoring), and whether it's set up. */
   scoring: { scorer: Scorer; ready: boolean };
   countries: readonly Country[];
@@ -57,6 +57,8 @@ export function AgentSection({
   timeZone: string;
 }) {
   const track = useTrackSave();
+  // It searches on its own, which the BA's terms forbid most clearly (#223).
+  const searched = sources.filter((source) => source !== "ARBEITSAGENTUR");
   const [settings, setSettings] = useState(initial);
   const [errors, setErrors] = useState<SearchFieldErrors>({});
 
@@ -93,8 +95,7 @@ export function AgentSection({
         Once a day it runs one search, scores the new postings against your profile, and keeps the best on the Agent screen. It never sends or applies.
       </SettingsSectionIntro>
 
-      {source === "ARBEITSAGENTUR" ? (
-        // It searches on its own, which the BA's terms forbid most clearly (#223).
+      {sources.length > 0 && searched.length === 0 ? (
         <p role="note" className="rounded-card bg-warning-surface px-4 py-3 text-meta text-warning">
           The agent doesn&apos;t search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in{" "}
           <Link href="/settings?section=jobs" className="font-medium text-warning underline underline-offset-2">
@@ -102,8 +103,8 @@ export function AgentSection({
           </Link>{" "}
           for it.
         </p>
-      ) : !source ? (
-        <SetupNote before="The agent searches the source you choose in " section="jobs" after=", which is off. Choose one first." />
+      ) : sources.length === 0 ? (
+        <SetupNote before="The agent searches the sources you choose in " section="jobs" after=", which is off. Choose one first." />
       ) : scoring.ready ? null : scoring.scorer === "JEV" ? (
         <SetupNote before="The agent scores postings with Jev, which needs your TypeSafe key in " section="scoring" after="." />
       ) : (
@@ -131,13 +132,13 @@ export function AgentSection({
             <Link href={searchHref(settings.query)} className="font-medium text-ink underline underline-offset-2">
               Find jobs
             </Link>
-            , through the source in Settings → Job search. Postings you saved, dismissed or applied for there are left out.
+            , through the sources in Settings → Job search. Postings you saved, dismissed or applied for there are left out.
           </p>
         </div>
         <div className="grid grid-cols-1 items-start gap-x-4 gap-y-4 sm:grid-cols-2" onBlur={flush}>
-          <SearchFields value={settings.query} onChange={setQuery} source={source} countries={countries} errors={errors} />
+          <SearchFields value={settings.query} onChange={setQuery} sources={searched} countries={countries} errors={errors} />
           <div className="sm:col-span-2">
-            <RemoteOnlyField value={settings.query} onChange={setQuery} source={source} />
+            <RemoteOnlyField value={settings.query} onChange={setQuery} sources={searched} />
           </div>
         </div>
       </Card>

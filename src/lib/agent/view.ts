@@ -2,7 +2,7 @@ import "server-only";
 
 import { AgentCandidateStatus, JobStatus } from "@/generated/prisma/enums";
 import { formatDateTime } from "@/lib/dates";
-import { loadJobSearchConfig } from "@/lib/job-search/config";
+import { agentSources, loadJobSearchConfig } from "@/lib/job-search/config";
 import { countryName } from "@/lib/job-search/countries";
 import { describeSearch, postedAgo, type JobSource } from "@/lib/job-search/search";
 import { SOURCE_INFO } from "@/lib/job-search/sources";
@@ -102,9 +102,9 @@ export async function loadAgentView(now = new Date()): Promise<AgentView> {
   const draftJob = new Map(draftJobs.map((job) => [job.key?.replace(/^agent-candidate:/, ""), job.id]));
 
   const query = settings.agentQuery;
-  const source: JobSource | null = config.source;
+  const sources = agentSources(config);
   const search = query.keywords.trim()
-    ? `${describeSearch(query, countryName(query.country) || query.country.toUpperCase(), source)}${source ? ` · via ${SOURCE_INFO[source].name}` : ""}`
+    ? `${describeSearch(query, countryName(query.country) || query.country.toUpperCase(), sources)}${sources.length > 0 ? ` · via ${sources.map((source) => SOURCE_INFO[source].name).join(", ")}` : ""}`
     : null;
   const setupProblem = await agentSetupProblem(query);
 

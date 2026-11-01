@@ -54,7 +54,7 @@ describe("stored settings", () => {
       projectOrder: "date",
       educationOrder: "date",
       backupProblem: null,
-      jobSource: null,
+      jobSources: null,
       jsearchKeyEnc: null,
       jsearchRapidapiKeyEnc: null,
       jsearchHost: "openwebninja",

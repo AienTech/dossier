@@ -64,9 +64,10 @@ describe("a search in a line", () => {
   it("names the radius only for a source that has one", () => {
     const query = { ...EMPTY_QUERY, keywords: "product designer", place: "Hamburg", country: "de", remoteOnly: true, postedWithin: "week" as const };
     expect(describeSearch(query, "Germany")).toBe("product designer · Hamburg, 25 km · Remote only · Past week");
-    expect(describeSearch(query, "Germany", "ADZUNA")).toBe("product designer · Hamburg, 25 km · Remote only · Past week");
-    expect(describeSearch(query, "Germany", "FREEHIRE")).toBe("product designer · Hamburg · Remote only · Past week");
-    expect(describeSearch({ ...query, place: "" }, "Germany", "FREEHIRE")).toBe("product designer · Germany · Remote only · Past week");
+    expect(describeSearch(query, "Germany", ["ADZUNA"])).toBe("product designer · Hamburg, 25 km · Remote only · Past week");
+    expect(describeSearch(query, "Germany", ["FREEHIRE", "ADZUNA"])).toBe("product designer · Hamburg, 25 km · Remote only · Past week");
+    expect(describeSearch(query, "Germany", ["FREEHIRE"])).toBe("product designer · Hamburg · Remote only · Past week");
+    expect(describeSearch({ ...query, place: "" }, "Germany", ["FREEHIRE"])).toBe("product designer · Germany · Remote only · Past week");
   });
 });
 

@@ -174,7 +174,14 @@ describe("importExport (E10-6)", () => {
 
   it("restores past searches with what they found (E14-10)", async () => {
     await prisma().postingSearch.create({
-      data: { source: "JSEARCH", query: { keywords: "designer" }, postings: [{ externalId: "job-1" }], found: 1, next: "cursor:2", createdAt: now },
+      data: {
+        sources: ["JSEARCH"],
+        query: { keywords: "designer" },
+        postings: [{ externalId: "job-1" }],
+        found: 1,
+        results: [{ source: "JSEARCH", found: 1, next: "cursor:2", problem: null }],
+        createdAt: now,
+      },
     });
     const file = await asFile();
     expect(file.searches).toHaveLength(1);
@@ -184,15 +191,27 @@ describe("importExport (E10-6)", () => {
       query: { keywords: "designer" },
       postings: [{ externalId: "job-1" }],
       found: 1,
-      next: "cursor:2",
+      sources: ["JSEARCH"],
+      results: [{ source: "JSEARCH", found: 1, next: "cursor:2", problem: null }],
       createdAt: now,
     });
   });
 
-  it("puts an older file's JSearch key in the slot of its host", async () => {
+  it("turns an older file's search and job source into today's shapes", async () => {
     const file = await asFile();
-    const older = { ...file, schemaVersion: 7 as const, settings: [...file.settings, { key: "jsearchHost", value: "rapidapi" }], jobSourceKeys: { jsearch: "ak-rapid" } };
+    const older = {
+      ...file,
+      schemaVersion: 7 as const,
+      settings: [...file.settings, { key: "jobSource", value: "ADZUNA" }, { key: "jsearchHost", value: "rapidapi" }],
+      searches: [{ id: "s1", source: "JSEARCH" as const, next: "cursor:2", query: { keywords: "designer" }, postings: [], found: 0, createdAt: now, updatedAt: now }],
+      jobSourceKeys: { jsearch: "ak-rapid" },
+    };
     await importExport(prisma(), older);
+    expect(await prisma().setting.findUnique({ where: { key: "jobSources" } })).toMatchObject({ value: '["ADZUNA"]' });
+    expect(await prisma().postingSearch.findUniqueOrThrow({ where: { id: "s1" } })).toMatchObject({
+      sources: ["JSEARCH"],
+      results: [{ source: "JSEARCH", found: 0, next: "cursor:2", problem: null }],
+    });
     // The one JSearch key was RapidAPI's.
     expect(await prisma().setting.findUnique({ where: { key: "jsearchKeyEnc" } })).toBeNull();
     const rapid = await prisma().setting.findUniqueOrThrow({ where: { key: "jsearchRapidapiKeyEnc" } });

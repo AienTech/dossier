@@ -12,32 +12,33 @@ import { SOURCE_INFO, sourceCovers } from "@/lib/job-search/sources";
 
 export type SearchFieldErrors = { keywords?: string; country?: string };
 
-/** Why `source` can't search the country, in words, or undefined. */
-export function uncoveredCountry(source: JobSource | null, query: SearchQuery, countries: readonly Country[]): string | undefined {
-  if (!source || !query.country || sourceCovers(source, query.country)) return undefined;
+/** Why none of `sources` can search the country, in words, or undefined; a source that can't is skipped when others can. */
+export function uncoveredCountry(sources: readonly JobSource[], query: SearchQuery, countries: readonly Country[]): string | undefined {
+  if (sources.length === 0 || !query.country || sources.some((source) => sourceCovers(source, query.country))) return undefined;
   const name = countries.find((country) => country.code === query.country)?.name ?? query.country.toUpperCase();
-  return `${SOURCE_INFO[source].name} doesn't list jobs in ${name}.`;
+  return `${sources.map((source) => SOURCE_INFO[source].name).join(" and ")} ${sources.length === 1 ? "doesn't" : "don't"} list jobs in ${name}.`;
 }
 
 /** What, Where, Country, Within and Posted, for a grid; Remote only is RemoteOnlyField. */
 export function SearchFields({
   value,
   onChange,
-  source,
+  sources,
   countries,
   errors = {},
   onBlur,
 }: {
   value: SearchQuery;
   onChange: (patch: Partial<SearchQuery>) => void;
-  source: JobSource | null;
+  sources: readonly JobSource[];
   countries: readonly Country[];
   errors?: SearchFieldErrors;
   /** For text fields that save once typing is done. */
   onBlur?: () => void;
 }) {
-  const uncovered = uncoveredCountry(source, value, countries);
-  const noRadius = source !== null && !SOURCE_INFO[source].radius;
+  const uncovered = uncoveredCountry(sources, value, countries);
+  const withoutRadius = sources.filter((source) => !SOURCE_INFO[source].radius);
+  const noRadius = sources.length > 0 && withoutRadius.length === sources.length;
   return (
     <>
       <Input
@@ -62,7 +63,13 @@ export function SearchFields({
         label="Within"
         value={String(value.radiusKm)}
         disabled={noRadius || !value.place.trim()}
-        hint={noRadius ? `${SOURCE_INFO[source].name} has no distance filter` : value.place.trim() ? undefined : "Add a place first"}
+        hint={
+          withoutRadius.length > 0
+            ? `${withoutRadius.map((source) => SOURCE_INFO[source].name).join(" and ")} ${withoutRadius.length === 1 ? "has" : "have"} no distance filter`
+            : value.place.trim()
+              ? undefined
+              : "Add a place first"
+        }
         onChange={(event) => onChange({ radiusKm: Number(event.target.value) as RadiusKm })}
       >
         {RADII_KM.map((km) => (
@@ -83,13 +90,13 @@ export function SearchFields({
 }
 
 /** "Remote only", with what it means on Adzuna, which has no such filter. */
-export function RemoteOnlyField({ value, onChange, source }: { value: SearchQuery; onChange: (patch: Partial<SearchQuery>) => void; source: JobSource | null }) {
+export function RemoteOnlyField({ value, onChange, sources }: { value: SearchQuery; onChange: (patch: Partial<SearchQuery>) => void; sources: readonly JobSource[] }) {
   return (
     <Checkbox
       label="Remote only"
       checked={value.remoteOnly}
       onChange={(event) => onChange({ remoteOnly: event.target.checked })}
-      hint={source === "ADZUNA" && value.remoteOnly ? "Adzuna has no remote filter, so this adds “remote” to your search." : undefined}
+      hint={sources.includes("ADZUNA") && value.remoteOnly ? "Adzuna has no remote filter, so this adds “remote” to your search." : undefined}
     />
   );
 }

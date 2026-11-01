@@ -2,17 +2,20 @@ import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { daysBetween, formatDay, formatTime } from "@/lib/dates";
-import { askSource } from "@/lib/job-search/find";
+import { agentDedupeKey } from "@/lib/job-search/dedupe";
+import { askSources } from "@/lib/job-search/find";
 import {
   EMPTY_QUERY,
-  foundPostingSchema,
   postingKey,
   searchQuerySchema,
-  type FoundPosting,
+  sourceResultSchema,
+  storedPostingSchema,
   type PastSearchDay,
   type SearchProblem,
   type SearchQuery,
   type ShownPosting,
+  type SourceResult,
+  type StoredPosting,
   type StoredSearch,
 } from "@/lib/job-search/search";
 import { postingStates } from "@/lib/postings";
@@ -22,18 +25,27 @@ import { prisma } from "@/lib/prisma";
 // so going back to one costs no searches from the source's plan.
 
 /** The postings column, read back; a posting that no longer fits the shape is left out. */
-function postingsOf(value: Prisma.JsonValue): FoundPosting[] {
+function postingsOf(value: Prisma.JsonValue): StoredPosting[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
-    const posting = foundPostingSchema.safeParse(item);
+    const posting = storedPostingSchema.safeParse(item);
     return posting.success ? [posting.data] : [];
+  });
+}
+
+/** The results column, read back. */
+function resultsOf(value: Prisma.JsonValue): SourceResult[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const result = sourceResultSchema.safeParse(item);
+    return result.success ? [result.data] : [];
   });
 }
 
 const queryOf = (value: Prisma.JsonValue): SearchQuery => searchQuerySchema.catch(EMPTY_QUERY).parse(value);
 
 /** Postings with where each stands for the user now. */
-async function withStates(postings: FoundPosting[]): Promise<ShownPosting[]> {
+async function withStates(postings: StoredPosting[]): Promise<ShownPosting[]> {
   const states = await postingStates(postings);
   return postings.map((posting) => ({ ...posting, state: states.get(postingKey(posting))! }));
 }
@@ -45,12 +57,18 @@ function ranAtLabel(date: Date, timeZone?: string, now = new Date()): string {
   return `${day} at ${formatTime(date, timeZone)}`;
 }
 
-/** Runs a search on the chosen source and keeps it with its first page. */
+/** Runs a search on the chosen sources and keeps it with their first pages. */
 export async function runSearch(query: SearchQuery): Promise<{ ok: true; id: string } | SearchProblem> {
-  const answer = await askSource(query);
+  const answer = await askSources(query);
   if (!answer.ok) return answer;
   const search = await prisma.postingSearch.create({
-    data: { source: answer.source, query, postings: answer.postings, found: answer.postings.length, next: answer.next },
+    data: {
+      sources: answer.results.map((result) => result.source),
+      query,
+      postings: answer.postings,
+      found: answer.postings.length,
+      results: answer.results,
+    },
     select: { id: true },
   });
   return { ok: true, id: search.id };
@@ -64,33 +82,42 @@ export async function loadSearch(id?: string, { timeZone, now = new Date() }: { 
   if (!search) return null;
   return {
     id: search.id,
-    source: search.source,
+    sources: search.sources,
     query: queryOf(search.query),
     ranAt: ranAtLabel(search.createdAt, timeZone, now),
     postings: await withStates(postingsOf(search.postings)),
-    next: search.next,
+    results: resultsOf(search.results),
   };
 }
 
-/** "Show more": the next page from the search's own source, added to the kept search. */
-export async function showMoreFor(id: string): Promise<{ ok: true; postings: ShownPosting[]; next: string | null } | SearchProblem> {
+/**
+ * "Show more": the next page from each of the search's sources that has
+ * one, added to the kept search without the jobs it already holds.
+ */
+export async function showMoreFor(id: string): Promise<{ ok: true; postings: ShownPosting[]; results: SourceResult[] } | SearchProblem> {
   const search = await prisma.postingSearch.findUnique({ where: { id } });
   if (!search) return { ok: false, problem: "changed", message: "That search is no longer kept. Search again." };
-  if (!search.next) return { ok: true, postings: [], next: null };
-  const answer = await askSource(queryOf(search.query), { source: search.source, next: search.next });
+  const before = resultsOf(search.results);
+  if (!before.some((result) => result.next !== null)) return { ok: true, postings: [], results: before };
+  const answer = await askSources(queryOf(search.query), { sources: search.sources, cursors: before });
   if (!answer.ok) return answer;
   const kept = postingsOf(search.postings);
-  const seen = new Set(kept.map(postingKey));
-  const added = answer.postings.filter((posting) => !seen.has(postingKey(posting)));
+  const seen = new Set([...kept.map(postingKey), ...kept.map(agentDedupeKey)]);
+  const added = answer.postings.filter((posting) => !seen.has(postingKey(posting)) && !seen.has(agentDedupeKey(posting)));
   const postings = [...kept, ...added];
-  await prisma.postingSearch.update({ where: { id }, data: { postings, found: postings.length, next: answer.next } });
-  return { ok: true, postings: await withStates(added), next: answer.next };
+  // Each source's count adds up; a source not asked this time keeps what it had.
+  const results = before.map((result) => {
+    const now = answer.results.find((entry) => entry.source === result.source);
+    return now ? { ...now, found: result.found + now.found } : result;
+  });
+  await prisma.postingSearch.update({ where: { id }, data: { postings, found: postings.length, results } });
+  return { ok: true, postings: await withStates(added), results };
 }
 
 /** Every kept search, newest first, grouped by the day it ran in the user's time zone. */
 export async function listSearches({ timeZone, now = new Date() }: { timeZone?: string; now?: Date } = {}): Promise<PastSearchDay[]> {
   const searches = await prisma.postingSearch.findMany({
-    select: { id: true, source: true, query: true, found: true, createdAt: true },
+    select: { id: true, sources: true, query: true, found: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });
   const days: PastSearchDay[] = [];
@@ -98,7 +125,7 @@ export async function listSearches({ timeZone, now = new Date() }: { timeZone?: 
     const ago = daysBetween(search.createdAt, now, timeZone);
     const day = ago === 0 ? "Today" : ago === 1 ? "Yesterday" : formatDay(search.createdAt, timeZone, now);
     if (days.at(-1)?.day !== day) days.push({ day, searches: [] });
-    days.at(-1)!.searches.push({ id: search.id, source: search.source, query: queryOf(search.query), found: search.found, time: formatTime(search.createdAt, timeZone) });
+    days.at(-1)!.searches.push({ id: search.id, sources: search.sources, query: queryOf(search.query), found: search.found, time: formatTime(search.createdAt, timeZone) });
   }
   return days;
 }

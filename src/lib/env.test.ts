@@ -147,14 +147,15 @@ describe("job search variables (E14-4)", () => {
         DOSSIER_FREEHIRE_URL: "https://jobs.example/",
       }),
     ).toMatchObject({
-      DOSSIER_JOBS_SOURCE: "jsearch",
+      DOSSIER_JOBS_SOURCE: ["jsearch"],
       DOSSIER_JSEARCH_KEY: "ak_test",
       DOSSIER_JSEARCH_HOST: "rapidapi",
       DOSSIER_ADZUNA_APP_ID: "app",
       DOSSIER_ADZUNA_KEY: "adz",
       DOSSIER_FREEHIRE_URL: "https://jobs.example",
     });
-    expect(parseEnv({ ...valid, DOSSIER_JOBS_SOURCE: "freehire" }).DOSSIER_JOBS_SOURCE).toBe("freehire");
+    expect(parseEnv({ ...valid, DOSSIER_JOBS_SOURCE: "freehire" }).DOSSIER_JOBS_SOURCE).toEqual(["freehire"]);
+    expect(parseEnv({ ...valid, DOSSIER_JOBS_SOURCE: " JSearch, freehire ,jsearch" }).DOSSIER_JOBS_SOURCE).toEqual(["jsearch", "freehire"]);
   });
 
   it("reads whether the Bundesagentur für Arbeit is offered, and refuses choosing it while it's off (#223)", () => {

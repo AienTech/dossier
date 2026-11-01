@@ -109,10 +109,18 @@ const schema = z.object({
       .pipe(z.number().min(5, { error: "DOSSIER_AI_TIMEOUT_SECONDS must be at least 5." })),
   ),
   // Defaults for Settings → Job search (E14-4), until a choice is saved there.
+  // One source, or several separated by commas: "jsearch,freehire".
   DOSSIER_JOBS_SOURCE: optional(
-    z.enum(JOB_SOURCE_NAMES, {
-      error: (issue) => `DOSSIER_JOBS_SOURCE must be one of ${JOB_SOURCE_NAMES.join(", ")} (got "${String(issue.input)}").`,
-    }),
+    z
+      .string()
+      .transform((value) => [...new Set(value.split(",").map((name) => name.trim().toLowerCase()).filter(Boolean))])
+      .pipe(
+        z.array(
+          z.enum(JOB_SOURCE_NAMES, {
+            error: (issue) => `DOSSIER_JOBS_SOURCE must be one of ${JOB_SOURCE_NAMES.join(", ")} (got "${String(issue.input)}").`,
+          }),
+        ),
+      ),
   ),
   // Never echo the values: they're API keys.
   DOSSIER_JSEARCH_KEY: optional(z.string()),
@@ -185,7 +193,7 @@ const schema = z.object({
     z.url({ protocol: /^https?$/, error: "DOSSIER_TYPESAFE_TEST_BASE_URL must be an http:// or https:// URL." }),
   ),
 }).check((context) => {
-  if (context.value.DOSSIER_JOBS_SOURCE === "arbeitsagentur" && context.value.DOSSIER_JOBS_ARBEITSAGENTUR === "off") {
+  if (context.value.DOSSIER_JOBS_SOURCE?.includes("arbeitsagentur") && context.value.DOSSIER_JOBS_ARBEITSAGENTUR === "off") {
     context.issues.push({
       code: "custom",
       input: context.value,

@@ -22,7 +22,8 @@ vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
 const prisma = () => db.client!;
 
 const query = { ...EMPTY_QUERY, keywords: "product designer", place: "Hamburg", country: "de" };
-const useJSearch = () => saveSettings({ jobSource: "JSEARCH", jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_test") });
+const useJSearch = () => saveSettings({ jobSources: ["JSEARCH"], jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_test") });
+const results = (next: string | null, found = 0) => [{ source: "JSEARCH" as const, found, next, problem: null }];
 
 beforeEach(async () => {
   await resetDatabase(prisma());
@@ -37,7 +38,7 @@ afterAll(() => prisma().$disconnect());
 describe("runSearch", () => {
   it("is off until a source is chosen, and needs a country and a key", async () => {
     expect(await runSearch(query)).toEqual({ ok: false, problem: "off", message: "Choose where to search in Settings → Job search first." });
-    await saveSettings({ jobSource: "JSEARCH" });
+    await saveSettings({ jobSources: ["JSEARCH"] });
     expect(await runSearch({ ...query, country: "" })).toMatchObject({ ok: false, problem: "no-country" });
     expect(await runSearch(query)).toEqual({ ok: false, problem: "no-key", message: "Add your JSearch key in Settings → Job search first." });
     expect(await countSearches()).toBe(0);
@@ -50,7 +51,26 @@ describe("runSearch", () => {
     expect(result).toEqual({ ok: true, id: expect.any(String) });
     expect(requests[0].headers.get("x-api-key")).toBe("ak_test");
     const kept = await prisma().postingSearch.findUniqueOrThrow({ where: { id: result.ok ? result.id : "" } });
-    expect(kept).toMatchObject({ source: "JSEARCH", query, found: 2, next: "cursor:CURSOR-PAGE-2" });
+    expect(kept).toMatchObject({ sources: ["JSEARCH"], query, found: 2, results: results("cursor:CURSOR-PAGE-2", 2) });
+  });
+
+  it("asks every chosen source in turn, merges what they found, and notes a source that fails", async () => {
+    await saveSettings({ jobSources: ["JSEARCH", "ADZUNA", "FREEHIRE"], jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_test") });
+    const requests = stubFetch((request) => (request.url.hostname.includes("freehire") ? json({}, { status: 503 }) : json(jsearchV2Page)));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await runSearch(query);
+    // JSearch, then FreeHire; Adzuna has no key, so it isn't asked.
+    expect(requests.map((request) => request.url.hostname)).toEqual(["api.openwebninja.com", "freehire.me"]);
+    const kept = await prisma().postingSearch.findUniqueOrThrow({ where: { id: result.ok ? result.id : "" } });
+    expect(kept).toMatchObject({
+      sources: ["JSEARCH", "ADZUNA", "FREEHIRE"],
+      found: 2,
+      results: [
+        { source: "JSEARCH", found: 2, next: "cursor:CURSOR-PAGE-2", problem: null },
+        { source: "ADZUNA", found: 0, next: null, problem: "Add your Adzuna app ID and key in Settings → Job search first." },
+        { source: "FREEHIRE", found: 0, next: null, problem: expect.stringMatching(/FreeHire/) },
+      ],
+    });
   });
 
   it("keeps nothing when the source says no", async () => {
@@ -80,7 +100,7 @@ describe("loadSearch", () => {
     const now = new Date();
     const search = await loadSearch(run.ok ? run.id : "", { now });
     expect(requests).toHaveLength(0);
-    expect(search).toMatchObject({ source: "JSEARCH", query, next: "cursor:CURSOR-PAGE-2", ranAt: expect.stringMatching(/^today at \d\d:\d\d$/) });
+    expect(search).toMatchObject({ sources: ["JSEARCH"], query, results: results("cursor:CURSOR-PAGE-2", 2), ranAt: expect.stringMatching(/^today at \d\d:\d\d$/) });
     expect(search!.postings.map((posting) => [posting.title, posting.state.saved])).toEqual([
       ["Senior Product Designer, Payments", false],
       ["UX Researcher", false],
@@ -94,15 +114,15 @@ describe("loadSearch", () => {
 
   it("opens the latest search without an id, and nothing when there's none or it's gone", async () => {
     expect(await loadSearch()).toBeNull();
-    await prisma().postingSearch.create({ data: { source: "JSEARCH", query, postings: [], createdAt: new Date("2026-10-01T10:00:00Z") } });
-    const latest = await prisma().postingSearch.create({ data: { source: "JSEARCH", query: { ...query, keywords: "researcher" }, postings: [] } });
+    await prisma().postingSearch.create({ data: { sources: ["JSEARCH"], query, postings: [], createdAt: new Date("2026-10-01T10:00:00Z") } });
+    const latest = await prisma().postingSearch.create({ data: { sources: ["JSEARCH"], query: { ...query, keywords: "researcher" }, postings: [] } });
     expect((await loadSearch())?.id).toBe(latest.id);
     expect(await loadSearch("gone")).toBeNull();
   });
 
   it("reads past an old posting that no longer fits, and a damaged search", async () => {
     const search = await prisma().postingSearch.create({
-      data: { source: "ADZUNA", query: { keywords: 1 }, postings: [{ title: "No id" }, ...jsearchV2LastPage.data.jobs.map(() => ({ ...EMPTY_POSTING }))] },
+      data: { sources: ["ADZUNA"], query: { keywords: 1 }, postings: [{ title: "No id" }, ...jsearchV2LastPage.data.jobs.map(() => ({ ...EMPTY_POSTING }))] },
       select: { id: true },
     });
     expect(await loadSearch(search.id, { now: new Date() })).toMatchObject({ query: EMPTY_QUERY, postings: [expect.objectContaining({ externalId: "kept" })] });
@@ -111,8 +131,8 @@ describe("loadSearch", () => {
   });
 
   it("says when it ran: yesterday, or the day", async () => {
-    const yesterday = await prisma().postingSearch.create({ data: { source: "JSEARCH", query, postings: [], createdAt: new Date("2026-10-02T16:20:00Z") } });
-    const older = await prisma().postingSearch.create({ data: { source: "JSEARCH", query, postings: [], createdAt: new Date("2026-09-28T08:05:00Z") } });
+    const yesterday = await prisma().postingSearch.create({ data: { sources: ["JSEARCH"], query, postings: [], createdAt: new Date("2026-10-02T16:20:00Z") } });
+    const older = await prisma().postingSearch.create({ data: { sources: ["JSEARCH"], query, postings: [], createdAt: new Date("2026-09-28T08:05:00Z") } });
     const now = new Date("2026-10-03T12:00:00Z");
     expect((await loadSearch(yesterday.id, { timeZone: "Europe/Berlin", now }))!.ranAt).toBe("yesterday at 18:20");
     expect((await loadSearch(older.id, { timeZone: "Europe/Berlin", now }))!.ranAt).toBe("on Mon 28 Sep at 10:05");
@@ -141,17 +161,17 @@ describe("showMoreFor", () => {
     const run = await runSearch(query);
     const id = run.ok ? run.id : "";
     // The user switched sources meanwhile: the search goes on with its own.
-    await saveSettings({ jobSource: "ARBEITSAGENTUR" });
+    await saveSettings({ jobSources: ["ARBEITSAGENTUR"] });
 
     const requests = stubFetch(() => json(jsearchV2LastPage));
     const more = await showMoreFor(id);
     expect(requests[0].url.searchParams.get("cursor")).toBe("CURSOR-PAGE-2");
     // UX Researcher was on the first page already.
-    expect(more).toEqual({ ok: true, postings: [], next: null });
-    expect(await prisma().postingSearch.findUniqueOrThrow({ where: { id } })).toMatchObject({ found: 2, next: null });
+    expect(more).toEqual({ ok: true, postings: [], results: results(null, 3) });
+    expect(await prisma().postingSearch.findUniqueOrThrow({ where: { id } })).toMatchObject({ found: 2, results: results(null, 3) });
 
     // The last page: nothing more to ask.
-    expect(await showMoreFor(id)).toEqual({ ok: true, postings: [], next: null });
+    expect(await showMoreFor(id)).toEqual({ ok: true, postings: [], results: results(null, 3) });
     expect(requests).toHaveLength(1);
   });
 
@@ -160,10 +180,10 @@ describe("showMoreFor", () => {
     stubFetch(() => json(jsearchV2LastPage));
     const run = await runSearch({ ...query, keywords: "researcher" });
     const id = run.ok ? run.id : "";
-    await prisma().postingSearch.update({ where: { id }, data: { next: "cursor:MORE" } });
+    await prisma().postingSearch.update({ where: { id }, data: { results: results("cursor:MORE", 1) } });
     stubFetch(() => json(jsearchV2Page));
     const more = await showMoreFor(id);
-    expect(more).toMatchObject({ ok: true, next: "cursor:CURSOR-PAGE-2", postings: [expect.objectContaining({ title: "Senior Product Designer, Payments", state: expect.objectContaining({ saved: false }) })] });
+    expect(more).toMatchObject({ ok: true, results: results("cursor:CURSOR-PAGE-2", 3), postings: [expect.objectContaining({ title: "Senior Product Designer, Payments", state: expect.objectContaining({ saved: false }) })] });
     expect((await prisma().postingSearch.findUniqueOrThrow({ where: { id } })).found).toBe(2);
   });
 
@@ -180,7 +200,7 @@ describe("showMoreFor", () => {
 describe("listSearches and removeSearch", () => {
   it("lists kept searches newest first, grouped by the day they ran in the user's time zone", async () => {
     const at = (iso: string, keywords: string) =>
-      prisma().postingSearch.create({ data: { source: "JSEARCH", query: { ...query, keywords }, postings: [], found: 3, createdAt: new Date(iso) } });
+      prisma().postingSearch.create({ data: { sources: ["JSEARCH"], query: { ...query, keywords }, postings: [], found: 3, createdAt: new Date(iso) } });
     await at("2026-10-03T09:30:00Z", "designer");
     await at("2026-10-02T22:30:00Z", "researcher"); // Already the 3rd in Berlin.
     await at("2026-10-02T10:00:00Z", "writer");
@@ -196,7 +216,7 @@ describe("listSearches and removeSearch", () => {
   });
 
   it("removes a search, and leaves saved postings alone", async () => {
-    const search = await prisma().postingSearch.create({ data: { source: "JSEARCH", query, postings: [EMPTY_POSTING] } });
+    const search = await prisma().postingSearch.create({ data: { sources: ["JSEARCH"], query, postings: [EMPTY_POSTING] } });
     await savePosting({ ...EMPTY_POSTING, source: "JSEARCH" });
     await removeSearch(search.id);
     await removeSearch("gone");

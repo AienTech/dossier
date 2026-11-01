@@ -1,33 +1,12 @@
-import { createHash } from "node:crypto";
-
 import type { Prisma } from "@/generated/prisma/client";
-import { linkKey, type FoundPosting } from "@/lib/job-search/search";
+import { agentDedupeKey } from "@/lib/job-search/dedupe";
+import type { FoundPosting } from "@/lib/job-search/search";
+
+export { agentDedupeKey };
 
 // The job agent's candidates (E16): postings it found and scored. A dismissed
 // one stays, so the posting never comes back, but keeps only what dedupe
 // needs.
-
-/** Lower case, letters and digits only, accents dropped: "Café  GmbH" and "cafe gmbh" are the same. */
-const normal = (value: string) =>
-  value
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLocaleLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-
-/**
- * The dedupe key: a hash of the link without tracking parameters, else of
- * company, title and place, so the same job found through another source or
- * in a later run matches. A posting with none of those falls back to its
- * source's id.
- */
-export function agentDedupeKey(posting: Pick<FoundPosting, "source" | "externalId" | "url" | "title" | "company" | "place">): string {
-  const link = linkKey(posting.url);
-  const facts = [posting.company, posting.title, posting.place].map(normal);
-  const basis = link ? `link:${link}` : facts.some(Boolean) ? `job:${facts.join("|")}` : `id:${posting.source}:${posting.externalId}`;
-  return createHash("sha256").update(basis).digest("hex");
-}
 
 /** A posting as a new candidate, with its score. */
 export function candidateData(posting: FoundPosting, score: { score: number; reasons: string[]; redFlags: string[] }): Prisma.AgentCandidateCreateInput {

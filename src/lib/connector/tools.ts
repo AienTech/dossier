@@ -12,7 +12,7 @@ import { unitsSchema } from "@/lib/application-data";
 import { fitBand } from "@/lib/fit";
 import { countryCodeFor, countryName } from "@/lib/job-search/countries";
 import { fullText } from "@/lib/job-search/find";
-import { DEFAULT_RADIUS_KM, foundPostingSchema, POSTED_WITHIN, postingText, RADII_KM, type FoundPosting, type PostedWithin, type SearchQuery, type ShownPosting } from "@/lib/job-search/search";
+import { DEFAULT_RADIUS_KM, foundPostingSchema, hasMore, POSTED_WITHIN, postingText, RADII_KM, type FoundPosting, type PostedWithin, type SearchQuery, type ShownPosting } from "@/lib/job-search/search";
 import { getJob, startJob } from "@/lib/jobs/runner";
 import { withoutPrivateParts } from "@/lib/letter-frame";
 import { fetchPosting } from "@/lib/posting-fetch";
@@ -189,7 +189,7 @@ export function createDossierServer(origin: string): McpServer {
         search_id: search.id,
         searched: `${query.keywords} in ${query.place || countryName(country)}${query.remoteOnly ? " (remote only)" : ""}`,
         found: search.postings.length,
-        more_available: search.next !== null,
+        more_available: hasMore(search.results),
         postings: search.postings.map((posting, index) => postingLine(posting, index + 1)),
         link: linkTo(`/jobs?search=${search.id}`),
       });
@@ -212,7 +212,7 @@ export function createDossierServer(origin: string): McpServer {
       return text({
         search_id,
         added: more.postings.length,
-        more_available: more.next !== null,
+        more_available: hasMore(more.results),
         postings: more.postings.map((posting, index) => postingLine(posting, before.found + index + 1)),
       });
     },

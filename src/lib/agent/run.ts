@@ -6,7 +6,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { AgentCandidateStatus } from "@/generated/prisma/enums";
 import { AiError } from "@/lib/ai/errors";
 import { searchPostings } from "@/lib/job-search";
-import { credentialsFor, loadJobSearchConfig, requestContext } from "@/lib/job-search/config";
+import { agentSources, credentialsFor, loadJobSearchConfig, requestContext } from "@/lib/job-search/config";
+import { mergePostings } from "@/lib/job-search/dedupe";
 import { JobSearchError } from "@/lib/job-search/errors";
 import { postingKey, type FoundPosting, type SearchQuery } from "@/lib/job-search/search";
 import { startJob, type JobContext } from "@/lib/jobs/runner";
@@ -22,7 +23,7 @@ import { agentDedupeKey, candidateData } from "./candidates";
 import { agentDraftJob, draftJobKey } from "./draft";
 import { recordRunEnd, recordRunStart, runLimitProblem } from "./runs";
 
-// One run of the job agent (E16-3): one search, the postings seen before
+// One run of the job agent (E16-3): one search on each source, the postings seen before
 // dropped, and a score for the newest of the rest. It never sends anything.
 // Adapted from avinashbatchala's fork of Dossier.
 
@@ -53,11 +54,15 @@ export async function agentSetupProblem(query: SearchQuery): Promise<string | nu
   const scoring = await scoringProblem();
   if (scoring) return scoring;
   const config = await loadJobSearchConfig();
-  if (!config.source) return "Choose a job source in Settings → Job search first.";
-  // It searches on its own, which the BA's terms forbid most clearly (#223).
-  if (config.source === "ARBEITSAGENTUR") return "The job agent doesn't search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in Settings → Job search for it.";
+  const sources = agentSources(config);
+  if (sources.length === 0) {
+    // It searches on its own, which the BA's terms forbid most clearly (#223).
+    return config.sources.includes("ARBEITSAGENTUR")
+      ? "The job agent doesn't search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in Settings → Job search for it."
+      : "Choose a job source in Settings → Job search first.";
+  }
   try {
-    credentialsFor(config, config.source);
+    for (const source of sources) credentialsFor(config, source);
   } catch (error) {
     if (error instanceof JobSearchError) return error.message;
     throw error;
@@ -89,7 +94,7 @@ export async function newPostings(postings: readonly FoundPosting[]): Promise<Fo
 const newestFirst = (a: FoundPosting, b: FoundPosting) => (b.postedAt ? Date.parse(b.postedAt) : 0) - (a.postedAt ? Date.parse(a.postedAt) : 0);
 
 /**
- * One run: the first page of results only (one source request), then a
+ * One run: the first page of results only (one request per source), then a
  * score for the newest new postings, up to agentMaxScores. Each is kept as a
  * candidate, so it doesn't come back; one below agentMinScore stays out of
  * the queue. With auto-draft on, the best of them get a draft each, up to
@@ -112,15 +117,21 @@ export async function runAgentScan({ manual }: { manual: boolean }, context: Job
 
   await context.step("Searching for new postings");
   const config = await loadJobSearchConfig();
-  const source = config.source!;
-  let postings: FoundPosting[];
-  try {
-    // The first page only: the agent never asks for a second.
-    postings = (await searchPostings(source, credentialsFor(config, source), settings.agentQuery, null, requestContext(source))).postings;
-  } catch (error) {
-    if (error instanceof JobSearchError) return finish(stopped(error.message));
-    throw error;
+  const lists: FoundPosting[][] = [];
+  let failed: string | null = null;
+  // One source at a time, never in parallel; one that fails leaves the others' postings.
+  for (const source of agentSources(config)) {
+    try {
+      // The first page only: the agent never asks for a second.
+      lists.push((await searchPostings(source, credentialsFor(config, source), settings.agentQuery, null, requestContext(source))).postings);
+    } catch (error) {
+      if (!(error instanceof JobSearchError)) throw error;
+      failed ??= error.message;
+    }
   }
+  if (lists.length === 0 && failed) return finish(stopped(failed));
+  // The same job from two sources counts once.
+  const postings = mergePostings(lists);
 
   const fresh = await newPostings(postings);
   const counts = { found: postings.length, fresh: fresh.length, skipped: postings.length - fresh.length, drafted: 0 };

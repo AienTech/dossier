@@ -313,11 +313,14 @@ const posting = z.object({
 /** A search kept with what it found (E14-10); its search and postings are checked when it's opened. */
 const postingSearch = z.object({
   id: text,
-  source: z.enum(PostingSource),
+  /** Version 8: the sources asked, and how each answered. Before, one `source` and its `next`. */
+  sources: z.array(z.enum(PostingSource)).optional(),
+  results: z.unknown().optional(),
+  source: z.enum(PostingSource).optional(),
+  next: text.nullable().optional(),
   query: z.unknown(),
   postings: z.unknown(),
   found: int,
-  next: text.nullable(),
   createdAt: date,
   updatedAt: date,
 });

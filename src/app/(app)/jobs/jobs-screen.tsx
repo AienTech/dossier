@@ -30,8 +30,8 @@ import { PostingResults } from "./posting-results";
 import { RemoteOnlyField, SearchFields, uncoveredCountry } from "./search-fields";
 
 export type JobsScreenProps = {
-  /** The source chosen in Settings; null while job search is off. */
-  source: JobSource | null;
+  /** The sources chosen in Settings; empty while job search is off. */
+  sources: JobSource[];
   /** The Bundesagentur für Arbeit is chosen, but its note isn't accepted yet: it isn't searched until then (#223). */
   arbeitsagenturNote?: boolean;
   /** Score opens a Claude chat, which scores through the connector (#221). */
@@ -60,7 +60,7 @@ const SETTINGS_HREF = "/settings?section=jobs";
 
 /** Find jobs (E14-6, E14-7, E14-10): the search form and a kept search's postings, past searches, or the postings kept from them. */
 export function JobsScreen({
-  source,
+  sources,
   arbeitsagenturNote = false,
   scoreInClaude = false,
   countries,
@@ -81,7 +81,7 @@ export function JobsScreen({
     <>
       <PageHeader
         title="Find jobs"
-        description={`Search ${source ? SOURCE_INFO[source].name : "job postings"} for postings near you, then start an application from the one you like.`}
+        description={`Search ${sources.length > 0 ? sources.map((source) => SOURCE_INFO[source].name).join(", ") : "job postings"} for postings near you, then start an application from the one you like.`}
       />
       <ViewTabs view={view} counts={counts} />
     </>
@@ -105,7 +105,7 @@ export function JobsScreen({
     );
   }
 
-  if (!source) {
+  if (sources.length === 0) {
     return (
       <>
         {header}
@@ -137,7 +137,7 @@ export function JobsScreen({
     <>
       {header}
       {arbeitsagenturNote && <ArbeitsagenturNote accepted={false} onAccept={acceptArbeitsagentur} className="mx-10 mb-5 max-w-[760px]" />}
-      <SearchForm source={source} countries={countries} query={query} pending={pending} onSearch={run} />
+      <SearchForm sources={sources} countries={countries} query={query} pending={pending} onSearch={run} />
       {/* Announces each new set of results; the list itself is replaced. */}
       <p role="status" className="sr-only">
         {pending ? "Searching…" : failed ? failed.problem.message : search ? `${search.postings.length} postings found.` : ""}
@@ -168,13 +168,13 @@ export function JobsScreen({
 }
 
 function SearchForm({
-  source,
+  sources,
   countries,
   query,
   pending,
   onSearch,
 }: {
-  source: JobSource;
+  sources: JobSource[];
   countries: readonly Country[];
   query: SearchQuery;
   pending: boolean;
@@ -191,7 +191,7 @@ function SearchForm({
   }
 
   const set = (patch: Partial<SearchQuery>) => setForm((current) => ({ ...current, ...patch }));
-  const uncovered = uncoveredCountry(source, form, countries);
+  const uncovered = uncoveredCountry(sources, form, countries);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -213,9 +213,9 @@ function SearchForm({
       onSubmit={submit}
       className="mx-10 mb-7 grid grid-cols-1 items-start gap-x-4 gap-y-4 rounded-panel border border-line-card bg-card p-6 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1.3fr_1fr_1fr]"
     >
-      <SearchFields value={form} onChange={set} source={source} countries={countries} errors={errors} />
+      <SearchFields value={form} onChange={set} sources={sources} countries={countries} errors={errors} />
       <div className="flex flex-wrap items-center justify-between gap-4 sm:col-span-2 lg:col-span-5">
-        <RemoteOnlyField value={form} onChange={set} source={source} />
+        <RemoteOnlyField value={form} onChange={set} sources={sources} />
         <Button type="submit" aria-disabled={pending || undefined}>
           {pending ? "Searching…" : "Search"}
         </Button>
@@ -259,7 +259,7 @@ function NoSource() {
     <div className="mx-10 mb-16 flex max-w-[640px] flex-col items-start gap-3 rounded-panel border border-line-card bg-card px-7 py-7">
       <h2 className="font-serif text-section">Choose where to search</h2>
       <p className="text-sm text-muted">
-        Find jobs searches one job source for you, such as JSearch (LinkedIn, Indeed and more) or Adzuna. Pick one in Settings. Until then,
+        Find jobs searches the job sources you choose, such as JSearch (LinkedIn, Indeed and more), Adzuna or FreeHire. Pick them in Settings. Until then,
         nothing is sent anywhere.
       </p>
       <Link href={SETTINGS_HREF} className={buttonClassName("primary", "md", "mt-1 hover:text-on-primary")}>

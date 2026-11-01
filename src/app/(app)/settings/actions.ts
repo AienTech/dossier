@@ -177,20 +177,26 @@ export const testAiConnection = action(z.object({ profileId }), async ({ profile
 const loadView = async () => jobSearchView(await loadJobSearchConfig());
 
 /**
- * Picks the source to search, or Off. The Bundesagentur für Arbeit only with
- * its note accepted, now (`accepted`) or before, and only while the server
- * offers it (#223).
+ * Turns a source on or off for searching; with none on, job search is off.
+ * The Bundesagentur für Arbeit only with its note accepted, now
+ * (`accepted`) or before, and only while the server offers it (#223).
  */
 export const saveJobSource = action(
-  z.object({ source: z.enum([...JOB_SOURCES, "OFF"]), accepted: z.literal(true).optional() }),
-  async ({ source, accepted }) => {
+  z.object({ source: z.enum(JOB_SOURCES), on: z.boolean(), accepted: z.literal(true).optional() }),
+  async ({ source, on, accepted }) => {
+    const config = await loadJobSearchConfig();
     const accepting = source === "ARBEITSAGENTUR" && accepted === true;
-    if (source === "ARBEITSAGENTUR") {
-      const { arbeitsagentur } = await loadJobSearchConfig();
-      if (!arbeitsagentur.offered) throw new ActionError("The Bundesagentur für Arbeit isn't offered on this server.");
-      if (!accepting && !arbeitsagentur.acceptedAt) throw new ActionError("Tick “I understand” under the note about the Bundesagentur für Arbeit first.");
+    if (source === "ARBEITSAGENTUR" && on) {
+      if (!config.arbeitsagentur.offered) throw new ActionError("The Bundesagentur für Arbeit isn't offered on this server.");
+      if (!accepting && !config.arbeitsagentur.acceptedAt) throw new ActionError("Tick “I understand” under the note about the Bundesagentur für Arbeit first.");
     }
-    await saveSettings({ jobSource: source, ...(accepting ? { arbeitsagenturAcceptedAt: new Date().toISOString() } : {}) });
+    const chosen = new Set(config.sources);
+    if (on) chosen.add(source);
+    else chosen.delete(source);
+    await saveSettings({
+      jobSources: JOB_SOURCES.filter((entry) => chosen.has(entry)),
+      ...(accepting ? { arbeitsagenturAcceptedAt: new Date().toISOString() } : {}),
+    });
     return loadView();
   },
 );
@@ -222,11 +228,9 @@ export const saveJobSourceKey = action(
   },
 );
 
-/** "Test connection": the smallest request the chosen source takes, timed; JSearch with one host's key when `host` is given. */
-export const testJobSource = action(z.object({ host: z.enum(JSEARCH_HOSTS).optional() }), async ({ host }) => {
+/** "Test connection": the smallest request a source takes, timed; JSearch with one host's key when `host` is given. */
+export const testJobSource = action(z.object({ source: z.enum(JOB_SOURCES), host: z.enum(JSEARCH_HOSTS).optional() }), async ({ source, host }) => {
   const config = await loadJobSearchConfig();
-  if (!config.source) return { connected: false as const, message: "Choose a source first." };
-  const source = config.source;
   const started = performance.now();
   try {
     if (source === "JSEARCH" && host) {

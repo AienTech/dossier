@@ -60,7 +60,7 @@ beforeEach(async () => {
   ai.ready = true;
   await resetDatabase(prisma());
   clearJobSearchCache();
-  await saveSettings({ jobSource: "JSEARCH", jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_test") });
+  await saveSettings({ jobSources: ["JSEARCH"], jsearchKeyEnc: encryptSecret(JOB_SOURCE_KEY, "ak_test") });
 });
 afterEach(() => vi.unstubAllGlobals());
 afterAll(() => prisma().$disconnect());
@@ -73,7 +73,7 @@ describe("Find jobs actions", () => {
     const id = run.ok && run.data.ok ? run.data.id : "";
 
     stubFetch(() => json(jsearchV2LastPage));
-    expect(await showMorePostings({ searchId: id })).toEqual({ ok: true, data: { ok: true, postings: [], next: null } });
+    expect(await showMorePostings({ searchId: id })).toEqual({ ok: true, data: { ok: true, postings: [], results: [{ source: "JSEARCH", found: 2, next: null, problem: null }] } });
 
     expect(await removeJobSearch({ id })).toEqual({ ok: true, data: null, toast: "Search removed. Saved postings from it stay in Saved." });
     expect(await prisma().postingSearch.count()).toBe(0);

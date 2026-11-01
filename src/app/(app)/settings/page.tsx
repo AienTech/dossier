@@ -69,7 +69,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             maxDrafts: settings.agentMaxDrafts,
             autoDraft: settings.agentAutoDraft,
           }}
-          source={(await loadJobSearchConfig()).source}
+          sources={(await loadJobSearchConfig()).sources}
           scoring={await scoringReadiness()}
           countries={COUNTRIES}
           timeZone={await lastKnownTimeZone()}

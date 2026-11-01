@@ -89,6 +89,19 @@ export const foundPostingSchema = z.object({
 });
 export type FoundPosting = z.output<typeof foundPostingSchema>;
 
+/** A posting kept with a search: also the other sources that found the same job. */
+export const storedPostingSchema = foundPostingSchema.extend({ alsoOn: z.array(z.enum(JOB_SOURCES)).catch([]).default([]) });
+export type StoredPosting = z.output<typeof storedPostingSchema>;
+
+/** How one source answered a search: what it found, what to ask for its next page (null on its last), or what went wrong. */
+export const sourceResultSchema = z.object({
+  source: z.enum(JOB_SOURCES),
+  found: z.number().int().min(0),
+  next: z.string().nullable(),
+  problem: z.string().nullable(),
+});
+export type SourceResult = z.output<typeof sourceResultSchema>;
+
 /** A page of results, and what to ask for the next page (null on the last one). */
 export type SearchPage = { postings: FoundPosting[]; next: string | null };
 
@@ -104,42 +117,46 @@ export type PostingState = {
   score: PostingFit | null;
 };
 
-/** A posting as Find jobs shows it. */
-export type ShownPosting = FoundPosting & { state: PostingState };
+/** A posting as Find jobs shows it; `alsoOn` names other sources that found the same job. */
+export type ShownPosting = FoundPosting & { state: PostingState; alsoOn?: JobSource[] };
 
 /** What went wrong with a search, in words for the screen (E14-6). */
 export type SearchProblem = { ok: false; problem: "off" | "not-accepted" | "no-country" | "no-key" | "key" | "quota" | "country" | "unavailable" | "changed"; message: string };
 
-/** What a search gives the screen: postings, or what went wrong. */
-export type SearchOutcome = { ok: true; postings: ShownPosting[]; next: string | null } | SearchProblem;
+/** What "Show more" gives the screen: more postings and how each source answered, or what went wrong. */
+export type SearchOutcome = { ok: true; postings: ShownPosting[]; results: SourceResult[] } | SearchProblem;
 
 /** A search kept with what it found (E14-10), as Find jobs opens it. */
 export type StoredSearch = {
   id: string;
-  source: JobSource;
+  sources: JobSource[];
   query: SearchQuery;
   /** "today at 14:32", "yesterday at 09:05", "on Thu 1 Oct at 18:20", in the user's time zone. */
   ranAt: string;
   postings: ShownPosting[];
-  next: string | null;
+  results: SourceResult[];
 };
+
+/** Whether any source has another page. */
+export const hasMore = (results: readonly SourceResult[]) => results.some((result) => result.next !== null);
 
 /** A search in the Past searches list, grouped by the day it ran. */
 export type PastSearchDay = {
   /** "Today", "Yesterday" or "Thu 1 Oct". */
   day: string;
-  searches: { id: string; source: JobSource; query: SearchQuery; found: number; time: string }[];
+  searches: { id: string; sources: JobSource[]; query: SearchQuery; found: number; time: string }[];
 };
 
-/** "product designer · Hamburg, 25 km · Remote only · Past week": a search in a line, without the km for a source that has no radius. */
-export function describeSearch(query: SearchQuery, countryName: string, source?: JobSource | null): string {
-  const where = query.place ? (source && !SOURCE_INFO[source].radius ? query.place : `${query.place}, ${query.radiusKm} km`) : countryName;
+/** "product designer · Hamburg, 25 km · Remote only · Past week": a search in a line, without the km when no source has a radius. */
+export function describeSearch(query: SearchQuery, countryName: string, sources?: readonly JobSource[] | null): string {
+  const noRadius = sources && sources.length > 0 && sources.every((source) => !SOURCE_INFO[source].radius);
+  const where = query.place ? (noRadius ? query.place : `${query.place}, ${query.radiusKm} km`) : countryName;
   const posted = POSTED_WITHIN.find((option) => option.value === query.postedWithin);
   return [query.keywords, where, query.remoteOnly ? "Remote only" : "", posted && posted.value !== "any" ? posted.label : ""].filter(Boolean).join(" · ");
 }
 
 /** Identifies a posting across searches. */
-export const postingKey = (posting: { source: JobSource; externalId: string }) => `${posting.source}:${posting.externalId}`;
+export const postingKey = (posting: { source: PostingSource; externalId: string }) => `${posting.source}:${posting.externalId}`;
 
 /** A link from a source, kept only when it's a web address, so it can't run script as an href. */
 export function safeLink(value: string | null | undefined): string {

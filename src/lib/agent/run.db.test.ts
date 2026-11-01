@@ -38,7 +38,7 @@ vi.mock("@/lib/profile-data", async () => {
 const fake = vi.hoisted(() => ({
   postings: [] as FoundPosting[],
   searches: 0,
-  source: "JSEARCH" as "JSEARCH" | "ADZUNA" | "ARBEITSAGENTUR" | null,
+  sources: ["JSEARCH"] as ("JSEARCH" | "ADZUNA" | "ARBEITSAGENTUR")[],
   ai: true,
   failOn: null as string | null,
   onScore: (() => {}) as (title: string) => void,
@@ -51,11 +51,12 @@ vi.mock("@/lib/job-search", () => ({
 }));
 vi.mock("@/lib/job-search/config", () => ({
   loadJobSearchConfig: async () => ({
-    source: fake.source,
+    sources: fake.sources,
     saved: true,
     jsearch: { key: "jsearch-key", host: "openwebninja", keyState: "set" },
     adzuna: { appId: "app", key: "adzuna-key", keyState: "set" },
   }),
+  agentSources: (config: { sources: string[] }) => config.sources.filter((source) => source !== "ARBEITSAGENTUR"),
   credentialsFor: () => ({ key: "jsearch-key", host: "openwebninja" }),
   requestContext: () => ({}),
 }));
@@ -107,12 +108,20 @@ const context = (abort?: AbortController): JobContext & { steps: string[] } => {
 
 beforeEach(async () => {
   await resetDatabase(prisma());
-  Object.assign(fake, { postings: page, searches: 0, source: "JSEARCH", ai: true, failOn: null, onScore: () => {} });
+  Object.assign(fake, { postings: page, searches: 0, sources: ["JSEARCH"], ai: true, failOn: null, onScore: () => {} });
   await saveSettings({ agentEnabled: true, agentQuery: query });
 });
 afterAll(() => prisma().$disconnect());
 
 describe("runAgentScan (E16-3)", () => {
+  it("asks each source once, and counts the same job from two sources once", async () => {
+    fake.sources = ["JSEARCH", "ADZUNA", "ARBEITSAGENTUR"];
+    const result = await runAgentScan({ manual: false }, context(), now);
+    // Not the Bundesagentur für Arbeit (#223).
+    expect(fake.searches).toBe(2);
+    expect(result).toMatchObject({ found: 3, fresh: 3, scored: 3 });
+  });
+
   it("searches once, scores the new postings and keeps them, below the minimum too", async () => {
     const run = context();
     const result = await runAgentScan({ manual: false }, run, now);
@@ -209,12 +218,12 @@ describe("runAgentScan (E16-3)", () => {
     fake.ai = false;
     expect(await stop()).toBe("Choose an AI provider in Settings → AI provider first.");
     fake.ai = true;
-    fake.source = null;
+    fake.sources = [];
     expect(await stop()).toBe("Choose a job source in Settings → Job search first.");
     // It never searches the Bundesagentur für Arbeit on its own (#223).
-    fake.source = "ARBEITSAGENTUR";
+    fake.sources = ["ARBEITSAGENTUR"];
     expect(await stop()).toBe("The job agent doesn't search the Bundesagentur für Arbeit. Choose JSearch, Adzuna or FreeHire in Settings → Job search for it.");
-    fake.source = "JSEARCH";
+    fake.sources = ["JSEARCH"];
     expect(fake.searches).toBe(0);
     expect((await loadSettings()).agentRuns).toEqual([]);
   });
