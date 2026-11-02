@@ -1,8 +1,11 @@
-import { execFileSync } from "node:child_process";
+import os from "node:os";
+import path from "node:path";
 import { crc32, deflateSync } from "node:zlib";
 
 import type { Locator, Page } from "@playwright/test";
 import { Pool } from "pg";
+
+import { runYarn } from "../src/test/run-yarn";
 
 // What the end-to-end tests (E11-2) run against: a production build on its
 // own port, with its own database and a fake AI server, so a run never
@@ -39,7 +42,8 @@ export function appEnv(): Record<string, string> {
     DATABASE_URL: e2eDatabaseUrl(),
     DOSSIER_PASSWORD: PASSWORD_HASH,
     DOSSIER_SECRET: "e2e-secret-e2e-secret-e2e-secret-e2e",
-    DOSSIER_DATA_DIR: "/tmp/dossier-e2e",
+    // os.tmpdir() is /tmp on Linux, so CI still uses /tmp/dossier-e2e.
+    DOSSIER_DATA_DIR: path.join(os.tmpdir(), "dossier-e2e"),
     DOSSIER_AI_PROVIDER: "openai",
     DOSSIER_AI_URL: `http://localhost:${FAKE_AI_PORT}/v1`,
     DOSSIER_AI_MODEL: "fake-model",
@@ -97,10 +101,7 @@ export async function resetData(): Promise<void> {
     "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'",
   );
   await sql(`TRUNCATE TABLE ${tables.map(({ tablename }) => `"${tablename}"`).join(", ")} RESTART IDENTITY CASCADE`);
-  execFileSync("yarn", ["prisma", "db", "seed", "--", "--demo"], {
-    env: { ...process.env, DATABASE_URL: e2eDatabaseUrl() },
-    stdio: "pipe",
-  });
+  runYarn(["prisma", "db", "seed", "--", "--demo"], { ...process.env, DATABASE_URL: e2eDatabaseUrl() });
   await answerUsagePing("off");
 }
 
