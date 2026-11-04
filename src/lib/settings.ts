@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 import { AiProvider, Creativity, DateFormat, PaperSize, Tone } from "@/generated/prisma/enums";
-import { EMPTY_QUERY, JOB_SOURCES, JSEARCH_HOSTS, searchQuerySchema } from "@/lib/job-search/search";
+import { JOB_SOURCES, JSEARCH_HOSTS } from "@/lib/job-search/search";
 import { SCORERS } from "@/lib/scoring/scorers";
 import { startupsRefreshSchema } from "@/lib/startups/types";
+import { AGENT_MAX_SOURCE_REQUESTS_PER_DAY } from "@/lib/agent/limits";
 
 /** Date styles for documents (SET-6), labelled with an example as in the prototype. */
 export const DATE_FORMATS: readonly { value: DateFormat; label: string }[] = [
@@ -88,13 +89,26 @@ const stringList = json(z.array(z.string()));
 
 /**
  * One run of the job agent (E16), kept here rather than as its Job, which
- * the task-data sweep deletes: the daily limit counts these.
+ * the task-data sweep deletes: the source-request quota counts these.
  */
+export const agentSearchRunSchema = z.object({
+  searchId: z.string(),
+  searchName: z.string(),
+  found: z.number().int().min(0),
+  fresh: z.number().int().min(0),
+  error: z.string().nullable(),
+});
+export type AgentSearchRun = z.infer<typeof agentSearchRunSchema>;
 export const agentRunSchema = z.object({
   at: z.iso.datetime(),
   manual: z.boolean(),
   /** What the run ended with, for the Agent screen; null while it runs. */
   message: z.string().nullable(),
+  /** Slots reserved together before dispatch. Legacy runs consumed one slot. */
+  sourceRequests: z.number().int().min(1).max(AGENT_MAX_SOURCE_REQUESTS_PER_DAY).optional(),
+  /** Each reserved slot's timestamp, advanced immediately before dispatch. */
+  sourceRequestAts: z.array(z.iso.datetime()).min(1).max(AGENT_MAX_SOURCE_REQUESTS_PER_DAY).optional(),
+  searches: z.array(agentSearchRunSchema).optional(),
 });
 export type AgentRun = z.infer<typeof agentRunSchema>;
 /** How many runs are kept: more than a day's worth, for the limit and the screen. */
@@ -161,11 +175,9 @@ export const settingsSchema = z.object({
   // AI model. Jev's key is encrypted like the others, under its own key.
   scorer: z.enum(SCORERS).nullable().catch(null),
   typesafeKeyEnc: z.string().nullable().catch(null),
-  // Job agent (E16): one search, run once a day. Off until it's turned on.
+  // Job agent (E16): recurring searches, run once a day. Off until turned on.
   // It asks the source in Settings → Job search, with its key.
   agentEnabled: flag(false),
-  /** The search it runs, as Find jobs asks it; it needs keywords and a country to run. */
-  agentQuery: json(searchQuerySchema).catch(EMPTY_QUERY),
   /** The hour of the day it runs, in the user's time zone. */
   agentHour: z.coerce.number().int().min(0).max(23).catch(7),
   /** Postings scored below this stay out of the queue. */
