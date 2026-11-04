@@ -49,10 +49,26 @@ describe("ResumeWorkspace", () => {
     render(<ResumeWorkspace {...props} />);
     expect(screen.getByRole("heading", { level: 1, name: "Base resume" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Edit profile" })).toHaveAttribute("href", "/profile");
+    expect(screen.getByRole("button", { name: "Fit to 1 page" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download PDF" })).toHaveAttribute("href", "/api/pdf?doc=base");
     expect(previewLabel()).toBe("Modern");
     expect(screen.getByText("A4 · 1 page")).toBeInTheDocument();
     expect(screen.getByRole("article", { name: "Resume" })).toHaveTextContent("Jane Doe");
+  });
+
+  it("toggles 1-page fit and updates the PDF download link", async () => {
+    render(<ResumeWorkspace {...props} />);
+    const fitButton = screen.getByRole("button", { name: "Fit to 1 page" });
+    expect(fitButton).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Download PDF" })).toHaveAttribute("href", "/api/pdf?doc=base");
+
+    await userEvent.click(fitButton);
+    expect(screen.getByRole("button", { name: "Fitted to 1 page" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Download PDF" })).toHaveAttribute("href", "/api/pdf?doc=base&fit=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "Fitted to 1 page" }));
+    expect(screen.getByRole("button", { name: "Fit to 1 page" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Download PDF" })).toHaveAttribute("href", "/api/pdf?doc=base");
   });
 
   it("points to the profile while it's empty, and only then (E11-4)", () => {

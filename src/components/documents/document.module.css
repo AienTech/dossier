@@ -25,7 +25,7 @@
   box-sizing: border-box;
   width: calc(var(--u) * 640);
   min-height: calc(var(--u) * var(--page-height));
-  padding: calc(var(--u) * var(--pad-y)) calc(var(--u) * var(--pad-x));
+  padding: calc(var(--u) * var(--pad-y, 50)) calc(var(--u) * var(--pad-x, 54));
   background: #fff;
   color: var(--doc-text);
   font-family: var(--body-font);
@@ -485,9 +485,9 @@
     column-count: 1;
     column-gap: 0;
     column-fill: auto;
-    column-height: calc(var(--paper-height) * 1mm - 2 * var(--u) * var(--pad-y));
+    column-height: calc(var(--paper-height) * 1mm - 2 * var(--u) * var(--pad-y, 50));
     column-wrap: wrap;
-    row-gap: calc(var(--u) * (2 * var(--pad-y) + var(--sheet-gap)));
+    row-gap: calc(var(--u) * (2 * var(--pad-y, 50) + var(--sheet-gap, 32)));
   }
 }
 

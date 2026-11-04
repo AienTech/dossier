@@ -56,6 +56,14 @@ describe("GET /api/pdf", () => {
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([37, 80, 68, 70]));
   });
 
+  it("downloads the fitted base resume when fit=1 is passed", async () => {
+    const response = await get("?doc=base&fit=1");
+    expect(response.status).toBe(200);
+    expect(renderPdf).toHaveBeenCalledWith("/print/base?fit=1");
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([37, 80, 68, 70]));
+  });
+
   it("answers 404 for documents it doesn't know", async () => {
     expect((await get("?doc=resume:abc")).status).toBe(404);
     expect((await get("")).status).toBe(404);

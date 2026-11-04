@@ -47,8 +47,9 @@ async function renderRequested(request: NextRequest): Promise<{ pdf: Uint8Array;
   const date = new Date();
 
   if (doc === "base") {
+    const fit = params.get("fit") === "1";
     return {
-      pdf: await renderPdf("/print/base"),
+      pdf: await renderPdf(fit ? "/print/base?fit=1" : "/print/base"),
       fileName: resolveFileName(settings.fileNamePattern, { name, doc: DocumentKind.RESUME, date }),
     };
   }

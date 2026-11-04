@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { DocumentPreview } from "@/components/documents/document-preview";
+import { DocumentPreview, SHEET_GAP } from "@/components/documents/document-preview";
 import { DownloadPdfButton } from "@/components/documents/download-pdf-button";
 import { ResumeDocument } from "@/components/documents/resume-document";
 import { PageHeader } from "@/components/page-header";
@@ -16,7 +16,7 @@ import type { ProfileData } from "@/lib/profile";
 import { saveFile } from "@/lib/save-file";
 import { pagesInWords } from "@/lib/settings";
 import { parseThemeFile, themeFile, themeFileName } from "@/lib/theme-file";
-import { PAPER_SIZES, type ThemeData } from "@/lib/themes";
+import { DENSITIES, PAGE_WIDTH, PAPER_SIZES, type ThemeData } from "@/lib/themes";
 
 import { deleteTheme, duplicateTheme, importTheme, saveTheme, setBaseTheme } from "./actions";
 import { draftFrom, ThemeBuilder, type ThemeDraft } from "./theme-builder";
@@ -51,6 +51,7 @@ export function ResumeWorkspace({ profile, themes: initialThemes, usage, baseThe
   const [draft, setDraft] = useState<ThemeDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<ThemeData | null>(null);
+  const [fit, setFit] = useState(false);
   // The last base theme the server confirmed, to go back to if a save fails,
   // and the last one picked, so an older failure doesn't undo a newer pick.
   const savedId = useRef(baseThemeId);
@@ -78,6 +79,85 @@ export function ResumeWorkspace({ profile, themes: initialThemes, usage, baseThe
     );
     return () => cancelAnimationFrame(frame);
   }, [panel]);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("dossier_fit_1_page") === "true") {
+        setFit(true);
+      }
+    } catch {
+      // Local storage unavailable
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("dossier_fit_1_page", fit ? "true" : "false");
+    } catch {
+      // Ignore
+    }
+
+    const el = document.querySelector<HTMLElement>("article[aria-label='Resume']");
+    if (!el) return;
+
+    if (!fit) {
+      el.style.removeProperty("--font-size");
+      el.style.removeProperty("--line-height");
+      el.style.removeProperty("--gap");
+      el.style.removeProperty("--item-gap");
+      el.style.removeProperty("--pad-y");
+      el.style.removeProperty("--pad-x");
+      return;
+    }
+
+    el.style.removeProperty("--font-size");
+    el.style.removeProperty("--line-height");
+    el.style.removeProperty("--gap");
+    el.style.removeProperty("--item-gap");
+    el.style.removeProperty("--pad-y");
+    el.style.removeProperty("--pad-x");
+
+    const baseDensity = DENSITIES[theme.density];
+    const pageHeight = PAPER_SIZES[paper].pageHeight;
+
+    const checkFit = (py: number) => {
+      const unit = el.offsetWidth / PAGE_WIDTH;
+      if (!unit) return 1;
+      const padding = py * 2;
+      const between = padding + SHEET_GAP;
+      const content = el.offsetHeight / unit - padding;
+      const perPage = pageHeight - padding;
+      return perPage > 0 ? Math.max(1, Math.ceil((content + between - 2) / (perPage + between))) : 1;
+    };
+
+    if (checkFit(baseDensity.paddingY) === 1) return;
+
+    for (let s = 1; s <= 12; s++) {
+      const py = Math.max(26, baseDensity.paddingY - s * 1.5);
+      const px = Math.max(30, baseDensity.paddingX - s * 1.2);
+      const gap = Math.max(8, baseDensity.gap - s * 0.7);
+      const itemGap = Math.max(4, baseDensity.itemGap - s * 0.4);
+      const lh = Math.max(1.36, baseDensity.lineHeight - s * 0.015);
+
+      el.style.setProperty("--pad-y", py.toFixed(1));
+      el.style.setProperty("--pad-x", px.toFixed(1));
+      el.style.setProperty("--gap", gap.toFixed(1));
+      el.style.setProperty("--item-gap", itemGap.toFixed(1));
+      el.style.setProperty("--line-height", lh.toFixed(2));
+
+      if (checkFit(py) === 1) return;
+    }
+
+    const currentPy = parseFloat(el.style.getPropertyValue("--pad-y")) || 26;
+    for (let s = 1; s <= 30; s++) {
+      const fontSize = Math.max(9.15, baseDensity.fontSize - s * 0.05);
+      const lh = Math.max(1.34, baseDensity.lineHeight - 0.12 - s * 0.005);
+      el.style.setProperty("--font-size", fontSize.toFixed(2));
+      el.style.setProperty("--line-height", lh.toFixed(2));
+
+      if (checkFit(currentPy) === 1) break;
+    }
+  }, [fit, theme, paper]);
 
   /** Switches panels; `moveFocus` when the control used goes away with the old panel. */
   const openPanel = (next: Panel, moveFocus = false) => {
@@ -164,7 +244,16 @@ export function ResumeWorkspace({ profile, themes: initialThemes, usage, baseThe
             <Link href="/profile" className={buttonClassName("secondary")}>
               Edit profile
             </Link>
-            <DownloadPdfButton href="/api/pdf?doc=base">Download PDF</DownloadPdfButton>
+            <button
+              type="button"
+              onClick={() => setFit((current) => !current)}
+              className={buttonClassName(fit ? "primary" : "secondary")}
+            >
+              {fit ? "Fitted to 1 page" : "Fit to 1 page"}
+            </button>
+            <DownloadPdfButton href={fit ? "/api/pdf?doc=base&fit=1" : "/api/pdf?doc=base"}>
+              Download PDF
+            </DownloadPdfButton>
           </>
         }
       />
