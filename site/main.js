@@ -217,13 +217,20 @@ function offerDownloads(release) {
   const system = desktopSystem();
   const file = system && fileFor(system === "windows" ? "windows" : "deb");
   const hero = document.querySelector("[data-download]");
-  if (!file || !hero) return;
+  const note = document.querySelector("[data-download-note]");
+  if (!file || !hero || !note) return;
   hero.href = file;
   hero.querySelector("[data-download-label]").textContent = system === "windows" ? "Download for Windows" : "Download for Linux";
-  hero.querySelector("[data-download-detail]").textContent =
-    system === "windows"
-      ? "One installer, no admin rights. No server, no Docker, nothing to set up."
-      : "A .deb for Ubuntu and Debian. No server, no Docker, nothing to set up.";
+  // The other system, and the AppImage, are on the install section's Desktop app tab.
+  const other = document.createElement("a");
+  other.href = "#install";
+  other.textContent = system === "windows" ? "Linux" : "an AppImage";
+  other.addEventListener("click", () => document.getElementById("tab-desktop")?.click());
+  note.replaceChildren(
+    system === "windows" ? "Free. One click to install, nothing to set up. Also for " : "Free. A .deb for Ubuntu and Debian, nothing to set up. Also as ",
+    other,
+    system === "windows" ? "." : ", and for Windows.",
+  );
 }
 
 getJson(`${repo}/releases/latest`)

@@ -113,27 +113,19 @@
         <p class="lede">
           One profile, a tailored resume and cover letter for every job, written only from facts in your profile, and every application tracked from draft to offer. With the AI model you choose, and your data in your own database.
         </p>
-        <div class="choices">
-          <a class="choice choice--primary" href="https://github.com/AienTech/dossier/releases/latest" data-download>
-            <span class="choice__icon" aria-hidden="true"><svg class="icon"><use href="#i-download"/></svg></span>
-            <span class="choice__body">
-              <b data-download-label>Download the desktop app</b>
-              <span data-download-detail>For Windows and Linux. Install it like any app: no server, no Docker, nothing to set up.</span>
-            </span>
-          </a>
-          <a class="choice" href="#install" data-show-tab="tab-server">
-            <span class="choice__icon" aria-hidden="true"><svg class="icon"><use href="#i-server"/></svg></span>
-            <span class="choice__body">
-              <b>Self-host it</b>
-              <span>On your own server, for every device you use: Docker, Coolify, Dokploy or CapRover.</span>
-            </span>
-          </a>
+        <div class="get">
+          <div class="get__actions">
+            <a class="button button--primary button--large" href="https://github.com/AienTech/dossier/releases/latest" data-download>
+              <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+              <span data-download-label>Download the desktop app</span>
+            </a>
+            <a class="button button--secondary button--large" href="#install" data-show-tab="tab-server">
+              Self-host it
+              <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
+            </a>
+          </div>
+          <p class="get__note" data-download-note>Free, for Windows and Linux. One click to install, nothing to set up.</p>
         </div>
-        <a class="tour-link" href="https://youtu.be/kygD5cApjqA" data-video-play>
-          <svg class="icon icon--play" aria-hidden="true"><use href="#i-play"/></svg>
-          Watch the tour
-          <span class="tour-link__meta">3:25</span>
-        </a>
       </div>
 
       <div class="wrap hero__stage">
@@ -369,7 +361,7 @@
         <header class="privacy__head reveal">
           <p class="eyebrow">Privacy</p>
           <h2 class="display" id="privacy-title">Your profile lives with you.</h2>
-          <p>Dossier is for one person on a small server: one password, your data in your own PostgreSQL database, and an AI model of your choice.</p>
+          <p>Dossier is for one person, on your own computer or a small server: your data in your own database, and an AI model of your choice.</p>
           <a class="link" href="https://github.com/AienTech/dossier/wiki/Privacy">What goes where <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
         </header>
         <div class="privacy__grid">

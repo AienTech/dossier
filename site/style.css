@@ -420,74 +420,45 @@ h3 {
   text-align: center;
 }
 .hero__text h1 { max-width: 13ch; }
+@media (min-width: 1024px) {
+  /* Two lines: the name of the thing, then where it lives, kept whole. */
+  .hero__text h1 { max-width: 17ch; }
+  .hero__text h1 em { display: inline-block; }
+}
 .hero__text .lede { margin-top: 20px; max-width: 47rem; }
 .hero__text .actions { justify-content: center; margin-top: 24px; }
 
-/* The two ways to get Dossier, in the hero: the desktop app first */
-.choices {
-  display: grid;
-  gap: 12px;
-  width: 100%;
-  max-width: 760px;
-  margin-top: 30px;
-  text-align: left;
-}
-@media (min-width: 680px) {
-  .choices { grid-template-columns: 1.1fr 1fr; }
-}
-.choice {
+/* Getting it, in the hero: the desktop app first, self-hosting beside it */
+.get {
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 18px 20px 19px;
-  border: 1px solid var(--line-control);
-  border-radius: var(--radius);
-  background: var(--card);
-  color: var(--ink);
-  text-decoration: none;
-  box-shadow: var(--shadow-control);
-  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.25s var(--ease), transform 0.25s var(--ease);
-}
-.choice:hover { border-color: var(--faint); box-shadow: var(--shadow-float); transform: translateY(-2px); }
-.choice:active { transform: translateY(0); }
-.choice__icon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--hover);
-}
-.choice__icon .icon { width: 20px; height: 20px; }
-.choice__body { display: grid; gap: 4px; min-width: 0; }
-.choice__body b { font-size: 16.5px; font-weight: 560; letter-spacing: -0.005em; }
-.choice__body span { color: var(--muted); font-size: 14.5px; line-height: 1.45; }
-.choice--primary {
-  border-color: transparent;
-  background: var(--primary);
-  color: var(--on-primary);
-  box-shadow: 0 1px 3px rgb(40 35 25 / 0.18), inset 0 1px 0 rgb(255 255 255 / 0.08), var(--shadow-float);
-}
-.choice--primary:hover { border-color: transparent; background: var(--primary-hover); }
-.choice--primary .choice__icon { background: color-mix(in srgb, var(--on-primary) 12%, transparent); }
-.choice--primary .choice__body span { color: color-mix(in srgb, var(--on-primary) 74%, var(--primary)); }
-.tour-link {
-  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  margin-top: 14px;
-  color: var(--muted);
-  font-size: 14.5px;
-  text-decoration: none;
-  transition: color 0.2s;
+  gap: 16px;
+  margin-top: 32px;
 }
-.tour-link:hover { color: var(--ink); }
-.tour-link__meta {
-  padding-left: 9px;
-  border-left: 1px solid var(--line-control);
-  font-variant-numeric: tabular-nums;
+.get__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+.button--large {
+  height: 54px;
+  padding: 0 26px;
+  font-size: 16.5px;
+  border-radius: 12px;
+}
+.button--large .icon { width: 19px; height: 19px; }
+.get__note {
+  max-width: 34rem;
+  color: var(--muted);
+  font-size: 15px;
+  text-wrap: balance;
+}
+.get__note a { color: var(--ink); text-underline-offset: 3px; }
+@media (max-width: 519px) {
+  .get, .get__actions { align-self: stretch; }
+  .get__actions { flex-direction: column; }
 }
 .fineprint {
   color: var(--muted);
@@ -1512,7 +1483,6 @@ h3 {
   .hero__text > :nth-child(2) { animation-delay: 0.06s; }
   .hero__text > :nth-child(3) { animation-delay: 0.14s; }
   .hero__text > :nth-child(4) { animation-delay: 0.22s; }
-  .hero__text > :nth-child(5) { animation-delay: 0.3s; }
   .hero__stage { animation: rise-stage 1.2s 0.25s var(--ease) backwards; }
 
   .js .reveal {
