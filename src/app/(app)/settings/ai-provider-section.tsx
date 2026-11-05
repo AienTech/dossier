@@ -177,7 +177,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
       <Card className="grid grid-cols-1 gap-x-[18px] gap-y-5 sm:grid-cols-2">
         <Input
           className="sm:col-span-2"
-          label="Server address"
+          label={option.urlLabel ?? "Server address"}
           inputClassName="font-mono text-[13.5px]"
           value={baseUrl}
           placeholder={option.urlPlaceholder}

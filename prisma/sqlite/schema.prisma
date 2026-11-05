@@ -314,6 +314,8 @@ enum AiProvider {
   MISTRAL
   /// LM Studio on the user's own hardware (#210).
   LMSTUDIO
+  /// Claude Code CLI on this computer (your Claude plan), or its Docker bridge.
+  CLAUDE_CLI
 }
 
 enum Creativity {

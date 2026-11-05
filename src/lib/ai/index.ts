@@ -7,6 +7,7 @@ import { AiError } from "./errors";
 import { providerOption } from "./provider-options";
 import type { AIProvider } from "./provider";
 import { AnthropicProvider } from "./providers/anthropic";
+import { ClaudeCliProvider } from "./providers/claude-cli";
 import { LocalProvider } from "./providers/local";
 import { LmStudioProvider } from "./providers/lmstudio";
 import { MistralProvider } from "./providers/mistral";
@@ -30,6 +31,8 @@ export function createProvider(config: AiConfig): AIProvider {
       return new MistralProvider(baseUrl, apiKey, model, timeoutMs);
     case AiProvider.LMSTUDIO:
       return new LmStudioProvider(baseUrl, apiKey, model, timeoutMs);
+    case AiProvider.CLAUDE_CLI:
+      return new ClaudeCliProvider(baseUrl, model, timeoutMs);
   }
 }
 

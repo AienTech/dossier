@@ -59,6 +59,15 @@ describe("resolveAiConfig", () => {
     });
   });
 
+  it("defaults Claude CLI to the Docker host bridge and Opus", () => {
+    expect(resolveAiConfig(nothingSaved, { DOSSIER_AI_PROVIDER: "claude-cli" })).toMatchObject({
+      provider: "CLAUDE_CLI",
+      baseUrl: "http://host.docker.internal:3460",
+      model: "claude-opus-5-5",
+      timeoutMs: 300_000,
+    });
+  });
+
   it("prefers what's saved in Settings, with its own key", () => {
     const saved = { provider: "OPENAI" as const, baseUrl: "https://llm.example/v1", model: "gpt-x", apiKeyEnc: encryptApiKey("sk-saved") };
     const config = resolveAiConfig(saved, { DOSSIER_AI_PROVIDER: "local", DOSSIER_AI_URL: "http://ollama:11434", DOSSIER_AI_KEY: "sk-env" });
@@ -87,6 +96,7 @@ describe("createProvider", () => {
     expect(createProvider({ ...base, provider: "ANTHROPIC" }).kind).toBe("ANTHROPIC");
     expect(createProvider({ ...base, provider: "MISTRAL" }).kind).toBe("MISTRAL");
     expect(createProvider({ ...base, provider: "LMSTUDIO" }).kind).toBe("LMSTUDIO");
+    expect(createProvider({ ...base, provider: "CLAUDE_CLI" }).kind).toBe("CLAUDE_CLI");
   });
 });
 

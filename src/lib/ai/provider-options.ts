@@ -13,6 +13,8 @@ export const PROVIDER_OPTIONS: readonly {
   /** Filled in when the card is picked; empty means "type your server's address". */
   defaultUrl: string;
   urlPlaceholder: string;
+  /** Label for the address field; defaults to "Server address". */
+  urlLabel?: string;
   /** Shown under the address. */
   urlHint?: string;
   defaultModel: string;
@@ -83,6 +85,22 @@ export const PROVIDER_OPTIONS: readonly {
     urlPlaceholder: "https://api.mistral.ai/v1",
     defaultModel: "mistral-medium-latest",
     apiKey: { label: "API key" },
+  },
+  {
+    value: AiProvider.CLAUDE_CLI,
+    name: "Claude CLI",
+    vendor: "Anthropic",
+    description: "Claude Code on this computer, on your Claude plan. In Docker, run the host bridge.",
+    tag: "Your Claude plan · local CLI",
+    // CLI runs here; answers still go to Anthropic under your plan (same as chat).
+    local: true,
+    defaultUrl: "http://host.docker.internal:3460",
+    urlPlaceholder: "http://host.docker.internal:3460",
+    urlLabel: "Bridge address",
+    urlHint:
+      "Dossier in Docker needs the bridge on this computer: `node scripts/claude-cli-bridge.mjs`. Without Docker, clear this field (or put the path to `claude`) and Dossier will spawn the CLI itself.",
+    defaultModel: "claude-opus-5-5",
+    apiKey: null,
   },
 ];
 
