@@ -29,8 +29,8 @@ import { parseAddress, stripQuoted } from "./mime";
 const MAX_BODY = 20_000;
 /** The first check looks this far back. */
 const FIRST_LOOK = "newer_than:21d";
-/** Gmail's tabs for mail that's never about an application. */
-const NOISE_LABELS = ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS", "SPAM", "TRASH", "CHAT"];
+/** Gmail's tabs for mail that's never about an application, and drafts, which weren't sent. */
+const NOISE_LABELS = ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS", "SPAM", "TRASH", "CHAT", "DRAFT"];
 
 export const questionsSchema = z.array(z.string());
 
