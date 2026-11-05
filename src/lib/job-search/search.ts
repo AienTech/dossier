@@ -36,6 +36,18 @@ export const POSTED_WITHIN = [
 export type PostedWithin = (typeof POSTED_WITHIN)[number]["value"];
 const POSTED_VALUES = POSTED_WITHIN.map((option) => option.value) as [PostedWithin, ...PostedWithin[]];
 
+/** The experience level a search asks for (public issue 59); "any" or none leaves it open. */
+export const EXPERIENCE_LEVELS = [
+  { value: "any", label: "Any level" },
+  { value: "intern", label: "Internship" },
+  { value: "junior", label: "Entry level" },
+  { value: "mid", label: "Mid level" },
+  { value: "senior", label: "Senior" },
+  { value: "lead", label: "Lead or director" },
+] as const;
+export type ExperienceLevel = (typeof EXPERIENCE_LEVELS)[number]["value"];
+const LEVEL_VALUES = EXPERIENCE_LEVELS.map((option) => option.value) as [ExperienceLevel, ...ExperienceLevel[]];
+
 /** One search, as every source gets it. */
 export const searchQuerySchema = z.object({
   keywords: z.string().trim().max(200),
@@ -50,8 +62,14 @@ export const searchQuerySchema = z.object({
   radiusKm: z.literal(RADII_KM),
   remoteOnly: z.boolean(),
   postedWithin: z.enum(POSTED_VALUES),
+  /** Missing in searches from before 1.12.0, which means any. */
+  experience: z.enum(LEVEL_VALUES).optional(),
 });
 export type SearchQuery = z.output<typeof searchQuerySchema>;
+
+/** The level a search asks for, or null for any. */
+export const experienceAskedFor = (query: Pick<SearchQuery, "experience">): Exclude<ExperienceLevel, "any"> | null =>
+  query.experience && query.experience !== "any" ? query.experience : null;
 
 export const EMPTY_QUERY: SearchQuery = {
   keywords: "",
@@ -135,7 +153,8 @@ export type PastSearchDay = {
 export function describeSearch(query: SearchQuery, countryName: string, source?: JobSource | null): string {
   const where = query.place ? (source && !SOURCE_INFO[source].radius ? query.place : `${query.place}, ${query.radiusKm} km`) : countryName;
   const posted = POSTED_WITHIN.find((option) => option.value === query.postedWithin);
-  return [query.keywords, where, query.remoteOnly ? "Remote only" : "", posted && posted.value !== "any" ? posted.label : ""].filter(Boolean).join(" · ");
+  const level = EXPERIENCE_LEVELS.find((option) => option.value === experienceAskedFor(query));
+  return [query.keywords, where, query.remoteOnly ? "Remote only" : "", posted && posted.value !== "any" ? posted.label : "", level?.label ?? ""].filter(Boolean).join(" · ");
 }
 
 /** Identifies a posting across searches. */
@@ -172,7 +191,7 @@ export function linkKey(link: string): string {
 }
 
 // ─── In the URL ──────────────────────────────────────────────────────────────
-// /jobs?q=designer&where=Hamburg&country=de&radius=25&remote=1&posted=week, so
+// /jobs?q=designer&where=Hamburg&country=de&radius=25&remote=1&posted=week&level=senior, so
 // Back, a reload or a bookmark show the same search.
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
@@ -183,6 +202,7 @@ export function queryFromParams(params: Record<string, string | string[] | undef
   if (!keywords) return null;
   const radius = Number(one(params.radius));
   const posted = POSTED_VALUES.find((value) => value === one(params.posted));
+  const level = LEVEL_VALUES.find((value) => value === one(params.level));
   const country = one(params.country).trim().toLowerCase();
   return {
     keywords: keywords.slice(0, 200),
@@ -191,6 +211,7 @@ export function queryFromParams(params: Record<string, string | string[] | undef
     radiusKm: RADII_KM.find((km) => km === radius) ?? DEFAULT_RADIUS_KM,
     remoteOnly: one(params.remote) === "1",
     postedWithin: posted ?? "any",
+    ...(level && level !== "any" ? { experience: level } : {}),
   };
 }
 
@@ -215,6 +236,8 @@ export function searchHref(query: SearchQuery): string {
   if (query.radiusKm !== DEFAULT_RADIUS_KM) params.set("radius", String(query.radiusKm));
   if (query.remoteOnly) params.set("remote", "1");
   if (query.postedWithin !== "any") params.set("posted", query.postedWithin);
+  const level = experienceAskedFor(query);
+  if (level) params.set("level", level);
   return `/jobs?${params.toString()}`;
 }
 

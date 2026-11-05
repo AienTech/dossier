@@ -31,6 +31,13 @@ const eslintConfig = defineConfig([
     "coverage/**",
     // The website, as site/build.sh puts it together.
     "_site/**",
+    // The desktop app's dependencies and what it builds.
+    "desktop/dist/**",
+    "desktop/build-server/**",
+    "desktop/build-input/**",
+    "desktop/release/**",
+    "desktop/**/node_modules/**",
+    "desktop/**/test-results/**",
     // End-to-end test output.
     "playwright-report/**",
     "test-results/**",

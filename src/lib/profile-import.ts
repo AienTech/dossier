@@ -22,14 +22,40 @@ export const importedProfileSchema = z.object({
   skills: z.array(z.object({ name: z.string(), found: z.boolean() })),
   languages: z.array(z.object({ name: z.string(), level: z.enum(LanguageLevel), levelGiven: z.boolean() })),
   experience: z.array(
-    // descriptor: absent in readings from before #257.
-    z.object({ role: z.string(), company: z.string(), location: z.string(), descriptor: z.string().default(""), bullets: z.string(), skills: z.array(z.string()), ...span, unverified }),
+    // descriptor: absent in readings from before #257; volunteering: from before #294.
+    z.object({
+      role: z.string(),
+      company: z.string(),
+      location: z.string(),
+      descriptor: z.string().default(""),
+      volunteering: z.boolean().default(false),
+      bullets: z.string(),
+      skills: z.array(z.string()),
+      ...span,
+      unverified,
+    }),
   ),
   /** Absent in readings made before projects (PRO-13). */
   projects: z
     .array(z.object({ name: z.string(), link: z.string(), bullets: z.string(), skills: z.array(z.string()), ...span, unverified }))
     .default([]),
   education: z.array(z.object({ degree: z.string(), school: z.string(), notes: z.string(), ...span, unverified })),
+  /** Absent in readings made before certifications (#293). */
+  certifications: z
+    .array(
+      z.object({
+        name: z.string(),
+        issuer: z.string(),
+        year: z.number().nullable(),
+        month: z.number().nullable(),
+        expiryYear: z.number().nullable(),
+        expiryMonth: z.number().nullable(),
+        credentialId: z.string(),
+        link: z.string(),
+        unverified,
+      }),
+    )
+    .default([]),
   /** Absent in readings made before publications (#218). */
   publications: z.array(z.object({ citation: z.string(), link: z.string(), unverified })).default([]),
   references: z.array(
@@ -51,7 +77,8 @@ export function importCounts(profile: ImportedProfile): string {
     plural(profile.experience.length, "role", "roles"),
     plural(profile.projects.length, "project", "projects"),
     plural(profile.education.length, "degree", "degrees"),
-    // Optional and rare: only said when there are some (#218).
+    // Optional and rare: only said when there are some (#293, #218).
+    ...(profile.certifications.length > 0 ? [plural(profile.certifications.length, "certification", "certifications")] : []),
     ...(profile.publications.length > 0 ? [plural(profile.publications.length, "publication", "publications")] : []),
     plural(profile.skills.length, "skill", "skills"),
     plural(profile.languages.length, "language", "languages"),

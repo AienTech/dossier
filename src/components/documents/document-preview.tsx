@@ -61,6 +61,7 @@ export function DocumentPreview({
   label,
   meta,
   notice,
+  onPages,
   className,
   children,
 }: {
@@ -68,6 +69,8 @@ export function DocumentPreview({
   meta?: ReactNode | ((pages: number) => ReactNode);
   /** A note between the label row and the page, e.g. what was left out to fit the page limit. */
   notice?: ReactNode | ((pages: number) => ReactNode);
+  /** Told the number of pages after each measurement, for "Fit to one page" (public issue 69). */
+  onPages?: (pages: number) => void;
   className?: string;
   /** A document component, e.g. ResumeDocument. */
   children: ReactNode;
@@ -88,7 +91,9 @@ export function DocumentPreview({
       const page = pageRef.current?.firstElementChild;
       if (!(page instanceof HTMLElement)) return;
       const style = getComputedStyle(page);
-      setPages(countPages(page, { paged }));
+      const counted = countPages(page, { paged });
+      setPages(counted);
+      onPages?.(counted);
       setPageHeight(pageHeightOf(style, paged));
       setPadY(Number(style.getPropertyValue("--pad-y")) || 0);
     };

@@ -348,6 +348,58 @@ exports[`ResumeDocument > renders the demo profile in Atlas 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -379,10 +431,6 @@ exports[`ResumeDocument > renders the demo profile in Atlas 1`] = `
           </p>
         </div>
       </section>
-    </div>
-    <div
-      class="_column_fa1ef7"
-    >
       <section
         class="_section_fa1ef7"
       >
@@ -770,6 +818,58 @@ exports[`ResumeDocument > renders the demo profile in Chronicle 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -801,10 +901,6 @@ exports[`ResumeDocument > renders the demo profile in Chronicle 1`] = `
           </p>
         </div>
       </section>
-    </div>
-    <div
-      class="_column_fa1ef7"
-    >
       <section
         class="_section_fa1ef7"
       >
@@ -1192,6 +1288,58 @@ exports[`ResumeDocument > renders the demo profile in Classic 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -1223,10 +1371,6 @@ exports[`ResumeDocument > renders the demo profile in Classic 1`] = `
           </p>
         </div>
       </section>
-    </div>
-    <div
-      class="_column_fa1ef7"
-    >
       <section
         class="_section_fa1ef7"
       >
@@ -1667,6 +1811,58 @@ exports[`ResumeDocument > renders the demo profile in Console 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -2051,6 +2247,58 @@ exports[`ResumeDocument > renders the demo profile in Editorial 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -2082,10 +2330,6 @@ exports[`ResumeDocument > renders the demo profile in Editorial 1`] = `
           </p>
         </div>
       </section>
-    </div>
-    <div
-      class="_column_fa1ef7"
-    >
       <section
         class="_section_fa1ef7"
       >
@@ -2473,6 +2717,58 @@ exports[`ResumeDocument > renders the demo profile in Folio 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -2504,10 +2800,6 @@ exports[`ResumeDocument > renders the demo profile in Folio 1`] = `
           </p>
         </div>
       </section>
-    </div>
-    <div
-      class="_column_fa1ef7"
-    >
       <section
         class="_section_fa1ef7"
       >
@@ -2948,6 +3240,58 @@ exports[`ResumeDocument > renders the demo profile in Ledger 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -3332,6 +3676,58 @@ exports[`ResumeDocument > renders the demo profile in Minimal 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -3363,10 +3759,6 @@ exports[`ResumeDocument > renders the demo profile in Minimal 1`] = `
           </p>
         </div>
       </section>
-    </div>
-    <div
-      class="_column_fa1ef7"
-    >
       <section
         class="_section_fa1ef7"
       >
@@ -3807,6 +4199,58 @@ exports[`ResumeDocument > renders the demo profile in Modern 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -4191,6 +4635,58 @@ exports[`ResumeDocument > renders the demo profile in Signal 1`] = `
         <h2
           class="_sectionTitle_fa1ef7"
         >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
           Publications
         </h2>
         <div
@@ -4222,10 +4718,6 @@ exports[`ResumeDocument > renders the demo profile in Signal 1`] = `
           </p>
         </div>
       </section>
-    </div>
-    <div
-      class="_column_fa1ef7"
-    >
       <section
         class="_section_fa1ef7"
       >
@@ -4572,6 +5064,58 @@ exports[`ResumeDocument > renders the demo profile in Studio 1`] = `
               2010 – 2013
             </span>
           </div>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
         </div>
       </section>
       <section
@@ -5095,6 +5639,58 @@ exports[`ResumeDocument > renders the demo profile in Technical 1`] = `
               2010 – 2013
             </span>
           </div>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
         </div>
       </section>
       <section

@@ -12,6 +12,7 @@ vi.mock("@/lib/profile-data", async () => {
   const { demoProfile } = await import("@/lib/demo-profile");
   return { loadProfile: async () => demoProfile() };
 });
+vi.mock("@/lib/settings-data", () => ({ loadSettings: async () => ({ resumeSections: { order: [], off: [] } }) }));
 vi.mock("./runner", () => ({ defineJob: <T,>(definition: T) => definition }));
 
 describe("writeDocumentsJob (E7-6)", () => {
@@ -32,7 +33,7 @@ describe("writeDocumentsJob (E7-6)", () => {
       { id: "test-job", step: async (name) => void steps.push(name), signal: new AbortController().signal },
     );
     expect(steps).toEqual(WRITE_DOCUMENTS_STEPS.slice(0, 2));
-    expect(result.resumeWith).toBe("tailor-resume@6");
+    expect(result.resumeWith).toBe("tailor-resume@8");
     expect(result.letterWith).toBe("write-cover-letter@5");
     // Strict mode: the fact guard marks what the profile doesn't back.
     expect(result.resume[0]).toMatchObject({ id: "summary", unverified: ["Google"] });

@@ -79,6 +79,7 @@ export const scorePosting: Task<ScorePostingInput, PostingScore> = async (provid
   // Models add up date ranges badly, and seniority is judged on it (#279).
   const years = Math.floor(experienceMonths(profile, today) / 12);
   const answer = await provider.complete({
+    task: "score-posting",
     system: system(
       INSTRUCTIONS,
       "Use only facts that are in the candidate's profile. Never invent or assume an employer, skill, date or credential.",

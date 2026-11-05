@@ -1,3 +1,4 @@
+import { DEFAULT_SECTION_LAYOUT } from "@/lib/resume-sections";
 import { describe, expect, it } from "vitest";
 
 import { DateFormat } from "@/generated/prisma/enums";
@@ -28,6 +29,9 @@ describe("document dates", () => {
 describe("stored settings", () => {
   it("reads an empty table as the prototype's defaults", () => {
     expect(settingsFromRows([])).toEqual({
+      setupGuide: null,
+      resumeSections: DEFAULT_SECTION_LAYOUT,
+      fitBaseResume: false,
       provider: null,
       baseUrl: null,
       model: null,
@@ -52,6 +56,7 @@ describe("stored settings", () => {
       applicationsSort: "updated",
       dashboardPeriod: "all",
       quietDays: 7,
+      skillOrder: "relevance",
       experienceOrder: "date",
       projectOrder: "date",
       educationOrder: "date",
@@ -79,6 +84,8 @@ describe("stored settings", () => {
       latestVersionUrl: null,
       updateCheckDay: null,
       updateDismissed: null,
+      announcementFeed: null,
+      announcementsDismissed: [],
       googleClientId: null,
       googleClientSecretEnc: null,
       gmailRead: true,

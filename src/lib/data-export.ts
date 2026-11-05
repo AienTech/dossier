@@ -8,6 +8,7 @@ import {
   ApplicationOrigin,
   ApplicationStatus,
   ChatRole,
+  CustomSectionFormat,
   DateStyle,
   Density,
   DocumentKind,
@@ -40,10 +41,10 @@ import { appVersion } from "@/lib/version";
 // behind: they belong to the server or the mailbox, not the user's data.
 
 export const EXPORT_FORMAT = "dossier-export";
-/** Bump when the file's shape changes; imports refuse versions they don't know. 2 added Find jobs' postings and keys (E14-9), 3 projects (PRO-13) and the job agent (E16), 4 facts (PRO-14, APP-15), 5 publications (#218), the profile photo's theme and application options (#224) and Startups (#222), 6 the line about a role's company (#257), 7 skill groups (#280). */
-export const EXPORT_SCHEMA_VERSION = 7;
+/** Bump when the file's shape changes; imports refuse versions they don't know. 2 added Find jobs' postings and keys (E14-9), 3 projects (PRO-13) and the job agent (E16), 4 facts (PRO-14, APP-15), 5 publications (#218), the profile photo's theme and application options (#224) and Startups (#222), 6 the line about a role's company (#257), 7 skill groups (#280), 8 certifications (#293) and volunteering (#294), 9 resume section order (#297), custom sections (#298) and what sent applications were sent with (#299), and the board's order (public issue 60). */
+export const EXPORT_SCHEMA_VERSION = 9;
 /** The versions imports can read. */
-export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7];
+export const EXPORT_SCHEMA_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 /** The setting that holds the encrypted API key, which only this server can read. */
 const API_KEY_SETTING = "apiKeyEnc";
@@ -56,6 +57,8 @@ export const INSTALL_SETTINGS: readonly string[] = [
   "usagePingChoice",
   "usagePingChoiceAt",
   "usagePingChoiceText",
+  // Whether this install's setup guide was opened, and where it was left (E21).
+  "setupGuide",
   // The job agent's runs count against this server's job source key (E16).
   "agentRuns",
   // When Startups was last opened and what its last refresh found (#222).
@@ -65,6 +68,8 @@ export const INSTALL_SETTINGS: readonly string[] = [
   "latestVersionUrl",
   "updateCheckDay",
   "updateDismissed",
+  "announcementFeed",
+  "announcementsDismissed",
   "googleClientId",
   "googleClientSecretEnc",
   "browserTimeZone",
@@ -95,6 +100,8 @@ const experience = z.object({
   location: text,
   /** Absent in files before version 6. */
   descriptor: text.optional(),
+  /** Absent in files before version 8, where every role is a paid one. */
+  volunteering: z.boolean().optional(),
   ...span,
   bullets: text,
   sort: int,
@@ -116,8 +123,46 @@ const project = z.object({
   updatedAt: date,
 });
 const education = z.object({ id: text, degree: text, school: text, ...span, notes: text, sort: int, createdAt: date, updatedAt: date });
+/** A certification (#293), with when it was obtained and when it runs out. */
+const certification = z.object({
+  id: text,
+  name: text,
+  issuer: text,
+  year: int.nullable(),
+  month: int.nullable(),
+  expiryYear: int.nullable(),
+  expiryMonth: int.nullable(),
+  credentialId: text,
+  link: text,
+  onResumes: z.boolean(),
+  sort: int,
+  createdAt: date,
+  updatedAt: date,
+});
 /** A publication (#218): its citation as written, with **bold** and *italic*. */
 const publication = z.object({ id: text, citation: text, link: text, onResumes: z.boolean(), sort: int, createdAt: date, updatedAt: date });
+/** A section the user made (#298), with its items. */
+const customSection = z.object({
+  id: text,
+  title: text,
+  format: z.enum(CustomSectionFormat),
+  items: z.array(
+    z.object({
+      id: text,
+      title: text,
+      subtitle: text,
+      ...span,
+      details: text,
+      link: text,
+      onResumes: z.boolean(),
+      sort: int,
+      createdAt: date,
+      updatedAt: date,
+    }),
+  ),
+  createdAt: date,
+  updatedAt: date,
+});
 const reference = z.object({
   id: text,
   name: text,
@@ -160,6 +205,8 @@ const statusEvent = z.object({
   at: date,
   previousFurthestStage: z.enum(FunnelStage).nullable(),
   previousSentAt: optionalDate,
+  /** Absent in files before version 9. */
+  previousBoardSort: int.nullable().optional(),
 });
 const document = z.object({
   id: text,
@@ -203,6 +250,8 @@ const application = z.object({
   match: z.unknown().nullable(),
   matchedWith: text.nullable(),
   status: z.enum(ApplicationStatus),
+  /** Its place on the board (public issue 60); absent in files before version 9, whose columns are newest first. */
+  boardSort: int.nullable().optional(),
   furthestStage: z.enum(FunnelStage).nullable(),
   sentAt: optionalDate,
   /** The next interview (E9-9); absent in older files. */
@@ -214,6 +263,10 @@ const application = z.object({
   followThemeLayout: z.boolean(),
   /** Absent before 1.9.0, which follows the profile (#224). */
   showPhoto: z.boolean().nullable().optional(),
+  /** Its own section order (#297); absent in files before version 9, which follow the base resume. */
+  sections: z.unknown().nullable().optional(),
+  /** What it was sent with (#299); absent in files before version 9, and made after importing them. */
+  frozen: z.unknown().nullable().optional(),
   /** The job agent's (E16); absent in older files, which hold only the user's own. */
   origin: z.enum(ApplicationOrigin).optional(),
   agentScore: int.nullable().optional(),
@@ -322,7 +375,7 @@ const postingSearch = z.object({
 /** An export file as read back (E10-6). */
 export const exportSchema = z.object({
   format: z.literal(EXPORT_FORMAT),
-  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7]),
+  schemaVersion: z.literal([1, 2, 3, 4, 5, 6, 7, 8, 9]),
   appVersion: text,
   exportedAt: date,
   profile: z.object({
@@ -333,6 +386,10 @@ export const exportSchema = z.object({
     /** Absent in files before version 3. */
     projects: z.array(project).default([]),
     education: z.array(education),
+    /** Absent in files before version 8. */
+    certifications: z.array(certification).default([]),
+    /** Absent in files before version 9. */
+    customSections: z.array(customSection).default([]),
     /** Absent in files before version 5. */
     publications: z.array(publication).default([]),
     references: z.array(reference),
@@ -376,13 +433,15 @@ export async function buildExport(
   { includeApiKey = false, now = new Date() }: { includeApiKey?: boolean; now?: Date } = {},
 ): Promise<DossierExport> {
   return db.$transaction(async (tx) => {
-    const [fields, skills, languages, experience, projects, education, publications, references, facts, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks] = await Promise.all([
+    const [fields, skills, languages, experience, projects, education, certifications, customSections, publications, references, facts, themes, settings, applications, postings, searches, agentCandidates, startups, startupBlocks] = await Promise.all([
       tx.profileField.findMany({ select: { key: true, value: true }, orderBy: { key: "asc" } }),
       tx.skill.findMany({ select: { id: true, name: true, sort: true, group: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
       tx.language.findMany({ select: { id: true, name: true, level: true, sort: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
       tx.experience.findMany({ include: { skills: { select: { skillId: true } } }, orderBy: { createdAt: "asc" } }),
       tx.project.findMany({ include: { skills: { select: { skillId: true } } }, orderBy: { createdAt: "asc" } }),
       tx.education.findMany({ orderBy: { createdAt: "asc" } }),
+      tx.certification.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
+      tx.customSection.findMany({ orderBy: { createdAt: "asc" }, include: { items: { omit: { sectionId: true }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] } } }),
       tx.publication.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
       tx.reference.findMany({ orderBy: { createdAt: "asc" } }),
       tx.fact.findMany({ where: { applicationId: null }, omit: { applicationId: true }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
@@ -440,6 +499,8 @@ export async function buildExport(
         experience: experience.map(({ skills: links, ...entry }) => ({ ...entry, skillIds: links.map((link) => link.skillId) })),
         projects: projects.map(({ skills: links, ...entry }) => ({ ...entry, skillIds: links.map((link) => link.skillId) })),
         education,
+        certifications,
+        customSections,
         publications,
         references,
         facts,

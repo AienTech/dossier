@@ -14,6 +14,7 @@ import {
   restoreExperience,
   saveExperience,
   setExperienceSkill,
+  setRoleVolunteering,
   sortEntriesByDate,
 } from "./actions";
 import { ExperienceSection } from "./experience-section";
@@ -22,6 +23,7 @@ import { parseYear } from "./month-year-field";
 vi.mock("./actions", () => ({
   attachNewSkill: vi.fn(),
   setExperienceSkill: vi.fn(async () => ({ ok: true, data: null })),
+  setRoleVolunteering: vi.fn(async () => ({ ok: true, data: null })),
   createExperience: vi.fn(),
   saveExperience: vi.fn(async () => ({ ok: true, data: null })),
   removeExperience: vi.fn(async () => ({ ok: true, data: null })),
@@ -29,7 +31,7 @@ vi.mock("./actions", () => ({
   reorderEntries: vi.fn(async () => ({ ok: true, data: null })),
   sortEntriesByDate: vi.fn(),
 }));
-vi.mock("@/components/toast", () => ({ toast: vi.fn() }));
+vi.mock("@/components/toast", () => ({ toast: vi.fn(), toastResult: <T,>(result: T) => result }));
 
 const northwind: ExperienceItem = {
   id: "e1",
@@ -37,6 +39,7 @@ const northwind: ExperienceItem = {
   company: "Northwind Logistics",
   location: "Rotterdam",
   descriptor: "",
+  volunteering: false,
   bullets: "Led the redesign",
   startYear: 2021,
   startMonth: 3,
@@ -48,7 +51,7 @@ const northwind: ExperienceItem = {
 const fieldnote: ExperienceItem = { ...northwind, id: "e2", role: "Product Designer", company: "Fieldnote", current: false, startYear: 2018, startMonth: 6, endYear: 2021, endMonth: 2, skillIds: [] };
 
 let latest: ProfileData;
-function Harness({ order = "date" }: { order?: EntryOrder }) {
+function Harness({ order = "date", volunteering = false }: { order?: EntryOrder; volunteering?: boolean }) {
   const [state, setState] = useState<ProfileData>({
     basics: {} as ProfileData["basics"],
     skills: [
@@ -59,15 +62,17 @@ function Harness({ order = "date" }: { order?: EntryOrder }) {
     experience: [northwind, fieldnote],
     projects: [],
     education: [],
+    certifications: [],
     publications: [],
     references: [],
+    customSections: [],
     facts: [],
     photo: null,
   });
   useEffect(() => {
     latest = state;
   });
-  return <ExperienceSection order={order} profile={state} update={(change) => setState(change)} />;
+  return <ExperienceSection key={String(volunteering)} order={order} profile={state} update={(change) => setState(change)} volunteering={volunteering} />;
 }
 
 const header = (name: RegExp | string) => screen.getByRole("button", { name, expanded: false });
@@ -112,6 +117,38 @@ describe("ExperienceSection", () => {
     await waitFor(() => expect(saveExperience).toHaveBeenLastCalledWith(expect.objectContaining({ id: "e2", startYear: 2017, startMonth: 6 })), { timeout: 2000 });
   });
 
+  it("moves a role to Volunteering, where it's listed and named for it (#294)", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness />);
+    await user.click(header(/Product Designer.*Fieldnote/));
+    expect(screen.getByRole("textbox", { name: "Company" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Move to Volunteering" }));
+    expect(setRoleVolunteering).toHaveBeenCalledWith({ id: "e2", volunteering: true });
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Product Designer.*Fieldnote/ })).not.toBeInTheDocument());
+    expect(toast).toHaveBeenCalledWith("Moved “Product Designer” to Volunteering.");
+    expect(latest.experience.find((entry) => entry.id === "e2")?.volunteering).toBe(true);
+
+    rerender(<Harness volunteering />);
+    await user.click(header(/Product Designer.*Fieldnote/));
+    expect(screen.getByRole("textbox", { name: "Organisation" })).toHaveValue("Fieldnote");
+    expect(screen.getByRole("checkbox", { name: "I still volunteer here" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Northwind/ })).not.toBeInTheDocument();
+  });
+
+  it("adds a role to the list it's on, and keeps the other list's roles when saving an order", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createExperience).mockResolvedValue({ ok: true, data: { ...northwind, id: "e3", role: "", company: "", volunteering: true, skillIds: [] } });
+    render(<Harness volunteering />);
+    await user.click(screen.getByRole("button", { name: "+ Add volunteering" }));
+    expect(createExperience).toHaveBeenCalledWith({ volunteering: true });
+    expect(latest.experience.map((entry) => entry.id)).toContain("e1");
+
+    vi.mocked(createExperience).mockResolvedValue({ ok: true, data: { ...northwind, id: "e4", role: "Treasurer", company: "", volunteering: true, skillIds: [] } });
+    await user.click(screen.getByRole("button", { name: "+ Add volunteering" }));
+    await user.click(screen.getByRole("button", { name: "Move “Treasurer” up" }));
+    expect(reorderEntries).toHaveBeenLastCalledWith({ section: "experience", ids: ["e4", "e3", "e1", "e2"] });
+  });
+
   it("adds a blank role and opens it with the cursor in Role", async () => {
     const user = userEvent.setup();
     vi.mocked(createExperience).mockResolvedValue({ ok: true, data: { ...northwind, id: "e3", role: "", company: "", location: "", bullets: "", startYear: null, startMonth: null, current: false, skillIds: [] } });
@@ -140,7 +177,7 @@ describe("ExperienceSection", () => {
 
   it("shows the empty state", () => {
     function Empty() {
-      const [state, setState] = useState<ProfileData>({ basics: {} as ProfileData["basics"], skills: [], languages: [], experience: [], projects: [], education: [], publications: [], references: [], facts: [], photo: null });
+      const [state, setState] = useState<ProfileData>({ basics: {} as ProfileData["basics"], skills: [], languages: [], experience: [], projects: [], education: [], certifications: [], publications: [], references: [], customSections: [], facts: [], photo: null });
       return <ExperienceSection order="date" profile={state} update={(change) => setState(change)} />;
     }
     render(<Empty />);

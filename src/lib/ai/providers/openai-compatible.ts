@@ -4,6 +4,9 @@ import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import type { ReasoningEffort } from "openai/resources/shared";
 
+import type { UsageSink } from "@/lib/usage";
+
+import { AiError } from "../errors";
 import { BaseProvider, SCHEMA_REFUSED, withJsonSchema, type ChatAnswer, type ChatCall } from "../provider";
 import { keyGuardedFetch } from "./guarded-fetch";
 import { apiAddress, ignoresSchemas, serverAt, type Server } from "./servers";
@@ -31,6 +34,10 @@ const promptSchemas = new Set<string>();
 // A way of asking for JSON refused. OpenRouter answers 404 "No endpoints found
 // that support the provided parameters" when none of a model's hosts takes it.
 const JSON_REFUSED = /response_format|json_schema|json_object|structured|invalid schema|support the provided parameters/i;
+
+// An answer that didn't fit. OpenAI's newer models, such as gpt-6-luna,
+// refuse it with a 400 instead of sending it cut off (public PR 51).
+const NO_ROOM = /could not finish the message because max_tokens/i;
 
 /**
  * The answer's text. Some servers, Mistral's among them, send a model that
@@ -79,8 +86,9 @@ export class OpenAICompatibleProvider extends BaseProvider {
     apiKey: string | null,
     model: string | null,
     timeoutMs: number,
+    onUsage?: UsageSink,
   ) {
-    super(model, timeoutMs);
+    super(model, timeoutMs, onUsage);
     this.baseURL = apiAddress(baseURL);
     this.server = serverAt(this.baseURL);
     // Local servers often need no key, but the SDK insists on one. It isn't
@@ -122,6 +130,13 @@ export class OpenAICompatibleProvider extends BaseProvider {
         const message = error instanceof OpenAI.APIError && (status === 400 || status === 404 || status === 422) ? refusal(error) : "";
         if (call.json && SCHEMA_REFUSED.test(message) && !promptSchemas.has(schemaKey)) {
           promptSchemas.add(schemaKey);
+          continue;
+        }
+        // As with an answer cut off: room for thinking, once, and from then on.
+        if (NO_ROOM.test(message)) {
+          if (known.thinks || this.thinkingRoom() === 0) throw AiError.of("cut-off");
+          known = { ...known, thinks: true };
+          quirks.set(key, known);
           continue;
         }
         const jsonRefused = call.json !== undefined && JSON_REFUSED.test(message);
@@ -184,6 +199,8 @@ export class OpenAICompatibleProvider extends BaseProvider {
       },
       { signal: call.signal },
     );
+    // Thinking is in the completion tokens. Not every server sends a usage.
+    call.used({ input: completion.usage?.prompt_tokens ?? null, output: completion.usage?.completion_tokens ?? null });
     const choice = completion.choices[0];
     // Mistral says `model_length` when the context ran out instead.
     const finish: string | undefined = choice?.finish_reason;

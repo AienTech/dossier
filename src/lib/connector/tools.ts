@@ -21,6 +21,8 @@ import { loadSearch, runSearch, showMoreFor } from "@/lib/posting-searches";
 import { foundFromPosting, storePosting } from "@/lib/postings";
 import { prisma } from "@/lib/prisma";
 import { loadProfile } from "@/lib/profile-data";
+import { withoutSectionsOff } from "@/lib/resume-sections";
+import { loadSettings } from "@/lib/settings-data";
 import { statusInfo } from "@/lib/status";
 import { applyStatusChange } from "@/lib/status-changes";
 import { appVersion } from "@/lib/version";
@@ -145,10 +147,13 @@ export function createDossierServer(origin: string): McpServer {
     {
       title: "Read the profile",
       description:
-        "The user's profile in Dossier: headline, summary, facts about them, skills, languages, experience, projects, education and publications, with the ids save_application uses. Contact details and links are left out.",
+        "The user's profile in Dossier: headline, summary, facts about them, skills, languages, experience, projects, education, certifications, publications and sections they made, with the ids save_application uses. Contact details and links are left out.",
       annotations: { readOnlyHint: true },
     },
-    async () => text({ ...JSON.parse(profileForPrompt(await loadProfile())), link: linkTo("/profile") }),
+    async () => {
+      const [profile, settings] = await Promise.all([loadProfile(), loadSettings()]);
+      return text({ ...JSON.parse(profileForPrompt(withoutSectionsOff(profile, settings.resumeSections))), link: linkTo("/profile") });
+    },
   );
 
   server.registerTool(

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "@/components/toast";
 import { copyText } from "@/lib/copy-text";
 import { demoLetterUnits, demoProfile, demoResumeUnits } from "@/lib/demo-profile";
+import { DEFAULT_SECTION_LAYOUT } from "@/lib/resume-sections";
 import { BUILT_IN_THEMES } from "@/lib/themes";
 
 import { retry } from "@/lib/jobs/actions";
@@ -109,6 +110,11 @@ const props: ApplicationViewProps = {
   resume: { units: demoResumeUnits(), theme: theme("editorial") },
   letter: { units: demoLetterUnits(), theme: theme("editorial") },
   themes: [...BUILT_IN_THEMES, { ...theme("modern"), id: "mine", name: "Mine", builtIn: false }],
+  sections: DEFAULT_SECTION_LAYOUT,
+  ownSections: false,
+  sent: false,
+  canUpdate: false,
+  baseSections: [],
   baseThemeId: "modern",
   email: null,
   writingEmail: null,
@@ -309,6 +315,12 @@ describe("editing a unit (E8-3)", () => {
     const publication = screen.getByRole("group", { name: /^Publication “Doe, J\./ });
     expect(within(publication).getAllByRole("button").map((button) => button.textContent)).toEqual(["Edit", "Leave out"]);
     expect(within(publication).getByText("Doe, J.").tagName).toBe("STRONG");
+  });
+
+  it("keeps a certification as written: Edit and Leave out, no Regenerate or Ask AI (#293)", () => {
+    render(<ApplicationView {...props} />);
+    const certification = screen.getByRole("group", { name: /^Certification “Certified Accessibility Specialist”/ });
+    expect(within(certification).getAllByRole("button").map((button) => button.textContent)).toEqual(["Edit", "Leave out"]);
   });
 
   it("leaves nothing out of the cover letter", () => {

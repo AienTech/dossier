@@ -57,3 +57,12 @@ next-env.d.ts
 /e2e/.auth/
 /playwright-report/
 /test-results/
+
+# The desktop app's dependencies and what it builds
+/desktop/dist
+/desktop/build-server
+/desktop/build-input
+/desktop/release
+desktop/**/.yarn
+desktop/**/node_modules
+desktop/**/test-results

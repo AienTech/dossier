@@ -17,9 +17,11 @@ vi.mock("./config", async (importOriginal) => ({ ...(await importOriginal<typeof
 vi.mock("@/lib/ai/config", () => ({ isAiConfigured: async () => state.aiReady }));
 vi.mock("@/lib/ai", () => ({ getAiProvider: async () => state.provider }));
 vi.mock("@/lib/ai/task-options", () => ({ loadTaskOptions: async () => ({ creativity: "BALANCED", strict: true, language: null }) }));
+vi.mock("@/lib/usage-data", () => ({ recordUsage: vi.fn() }));
 vi.mock("./jev", () => ({ scoreWithJev: vi.fn(async () => ({ data: { score: 80, reasons: ["Covers: Figma"], redFlags: [] }, scoredWith: "score-posting-jev@1 (jev-1.14.0)" })) }));
 
 const { scoreWithJev } = await import("./jev");
+const { recordUsage } = await import("@/lib/usage-data");
 
 const profile = demoProfile();
 const posting = { title: "Designer", company: "Ledgerly", place: "Amsterdam", remote: false, salary: "", description: "You know Figma." };
@@ -49,7 +51,8 @@ describe("loadPostingScorer", () => {
     state.aiReady = false;
     const score = await loadPostingScorer();
     expect(await score(posting, profile, signal)).toEqual({ data: { score: 80, reasons: ["Covers: Figma"], redFlags: [] }, scoredWith: "score-posting-jev@1 (jev-1.14.0)" });
-    expect(scoreWithJev).toHaveBeenCalledWith(posting, profile, { key: "ts", signal });
+    // Jev's tokens go to the Usage screen (#290).
+    expect(scoreWithJev).toHaveBeenCalledWith(posting, profile, { key: "ts", signal, onUsage: recordUsage });
   });
 
   it("scores with the AI model's score-posting otherwise, keeping its prompt version", async () => {

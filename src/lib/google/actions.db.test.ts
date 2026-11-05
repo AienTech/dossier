@@ -61,7 +61,7 @@ beforeEach(async () => {
   await resetDatabase(prisma());
   calls = [];
   ai.ready = true;
-  ai.provider = new MockProvider({ reply: () => ({ kind: "OFFER", summary: "Makes you an offer.", questions: [], confirmedTime: null }) });
+  ai.provider = new MockProvider({ reply: () => ({ kind: "OFFER", summary: "Makes you an offer.", questions: [], confirmedTime: null, unrelated: false }) });
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string | URL, init?: RequestInit) => {

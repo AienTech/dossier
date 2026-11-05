@@ -8,6 +8,8 @@ import { loadTaskOptions } from "@/lib/ai/task-options";
 import { tailorResume, writeCoverLetter } from "@/lib/ai/tasks";
 import { extractedSchema, matchSchema, unitsSchema } from "@/lib/application-data";
 import { loadProfile } from "@/lib/profile-data";
+import { withoutSectionsOff } from "@/lib/resume-sections";
+import { loadSettings } from "@/lib/settings-data";
 
 import { WRITE_DOCUMENTS_STEPS } from "./application-steps";
 import { defineJob } from "./runner";
@@ -33,10 +35,13 @@ export const writeDocumentsJob = defineJob({
   result: z.object({ resume: unitsSchema, resumeWith: z.string(), letter: unitsSchema, letterWith: z.string() }),
   async run({ posting, extracted, match, tone, note }, { step, signal }) {
     await step(WRITE_DOCUMENTS_STEPS[0]);
-    const [provider, options, profile] = await Promise.all([getAiProvider(), loadTaskOptions(), loadProfile()]);
+    const [provider, options, fullProfile, settings] = await Promise.all([getAiProvider(), loadTaskOptions(), loadProfile(), loadSettings()]);
+    // A section that's off on the base resume isn't written about (#297).
+    const profile = withoutSectionsOff(fullProfile, settings.resumeSections);
     // "Anything I should know?" is the application's first fact (APP-15).
     const facts = note.trim() ? [note.trim()] : [];
-    const resume = await tailorResume(provider, { profile, extracted, match, facts, posting }, { ...options, signal });
+    // Skills in the user's own order once they set one (public issue 62).
+    const resume = await tailorResume(provider, { profile, extracted, match, facts, posting, keepSkillOrder: settings.skillOrder === "manual" }, { ...options, signal });
 
     await step(WRITE_DOCUMENTS_STEPS[1]);
     const letter = await writeCoverLetter(provider, { profile, extracted, match, tone, facts, posting }, { ...options, signal });

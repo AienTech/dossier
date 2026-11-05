@@ -32,6 +32,20 @@ describe("JSearch search", () => {
     });
   });
 
+  it("asks for the level as far as JSearch can filter it (public issue 59)", async () => {
+    const requests = stubFetch(() => json(jsearchV2Page));
+    await jsearch.search({ ...query, experience: "intern" }, ninja, null);
+    await jsearch.search({ ...query, experience: "junior" }, ninja, null);
+    await jsearch.search({ ...query, experience: "mid" }, ninja, null);
+    await jsearch.search({ ...query, experience: "lead" }, ninja, null);
+    expect(requests.map(({ url }) => [url.searchParams.get("employment_types"), url.searchParams.get("job_requirements")])).toEqual([
+      ["INTERN", null],
+      [null, "under_3_years_experience"],
+      [null, null],
+      [null, "more_than_3_years_experience"],
+    ]);
+  });
+
   it("asks RapidAPI's search-v2 with its own headers, and pages by cursor", async () => {
     const requests = stubFetch(() => json(jsearchV2Page));
     const page = await jsearch.search({ ...query, place: "", remoteOnly: true, postedWithin: "any" }, rapid, null);

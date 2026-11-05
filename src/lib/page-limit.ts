@@ -7,17 +7,18 @@ import { saveVersion } from "@/lib/document-versions";
 import { countPdfPages } from "@/lib/pdf/pages";
 import { renderPdf } from "@/lib/pdf/render";
 import { prisma } from "@/lib/prisma";
-import type { ProfileData } from "@/lib/profile";
+import { paidRoles, type ProfileData } from "@/lib/profile";
 import { pagesInWords } from "@/lib/settings";
-import { bulletLines, isPublicationUnit } from "@/lib/unit-text";
+import { bulletLines, isCertificationUnit, isCustomUnit, isPublicationUnit } from "@/lib/unit-text";
 import { citationExcerpt } from "@/lib/citation";
 
 // "Resume length" (E10-10, SET-9): a new tailored resume that runs over its
 // page limit is trimmed once, when the application is created (decided 28
-// September 2026). Measured in the real PDF: the oldest roles go first, then
-// the last bullets of the oldest roles left, then the oldest projects, then
-// publications from the bottom of the list (#218). What's cut is kept on the
-// document, so it can be put back.
+// September 2026). Measured in the real PDF: custom sections go first, from
+// the bottom (#298), then volunteering, oldest first (#294), then the oldest roles, then the last bullets of the oldest
+// roles left, then the oldest projects, then certifications and then
+// publications from the bottom of their lists (#293, #218). What's cut is
+// kept on the document, so it can be put back.
 
 /** Enough for any resume: roles and bullets run out long before. */
 const MAX_CUTS = 30;
@@ -40,7 +41,13 @@ const leaveOut = (units: Unit[], { unit, index }: { unit: Unit; index: number })
 
 /** The next thing to leave out, or null when there's nothing left to cut. */
 export function nextCut(units: Unit[], profile: ProfileData): Cut | null {
-  const roles = oldestFirst(units, profile.experience, "experience:");
+  // Sections the user made first, from the bottom (#298).
+  const custom = units.findLastIndex((unit) => isCustomUnit(unit.id));
+  if (custom >= 0) return leaveOut(units, { unit: units[custom], index: custom });
+  // Volunteering before any paid role (#294).
+  const volunteering = oldestFirst(units, profile.experience.filter((entry) => entry.volunteering), "experience:");
+  if (volunteering.length > 0) return leaveOut(units, volunteering[0]);
+  const roles = oldestFirst(units, paidRoles(profile.experience), "experience:");
 
   // The oldest role, while more than one is left.
   if (roles.length > 1) return leaveOut(units, roles[0]);
@@ -58,9 +65,12 @@ export function nextCut(units: Unit[], profile: ProfileData): Cut | null {
   // Then the oldest project (PRO-13).
   const projects = oldestFirst(units, profile.projects, "project:");
   if (projects.length > 0) return leaveOut(units, projects[0]);
-  // Then the last publication (#218).
-  const index = units.findLastIndex((unit) => isPublicationUnit(unit.id));
-  return index >= 0 ? leaveOut(units, { unit: units[index], index }) : null;
+  // Then the last certification (#293), then the last publication (#218).
+  for (const isKind of [isCertificationUnit, isPublicationUnit]) {
+    const index = units.findLastIndex((unit) => isKind(unit.id));
+    if (index >= 0) return leaveOut(units, { unit: units[index], index });
+  }
+  return null;
 }
 
 /** Bullets cut from the same role one at a time are kept together. */
@@ -129,6 +139,8 @@ export function describeTrim(trimmed: Trimmed, profile: ProfileData, fits: boole
     }
     const project = profile.projects.find((entry) => `project:${entry.id}` === cut.unit.id);
     if (project) return `Left out the ${project.name.trim() || "untitled"} project to fit ${limit}`;
+    if (isCustomUnit(cut.unit.id)) return `Left out “${cut.unit.label.trim() || "a section of yours"}” to fit ${limit}`;
+    if (isCertificationUnit(cut.unit.id)) return `Left out the certification “${cut.unit.text.trim()}” to fit ${limit}`;
     if (isPublicationUnit(cut.unit.id)) return `Left out the publication “${citationExcerpt(cut.unit.text)}” to fit ${limit}`;
     const entry = profile.experience.find((role) => `experience:${role.id}` === cut.unit.id);
     const name = entry?.company.trim() || entry?.role.trim() || cut.unit.label;

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { matchSchema, type Extracted, type Match } from "@/lib/application-data";
-import { experienceMonths, formatMonthYear, languageLevelLabel, sameName, type ProfileData } from "@/lib/profile";
+import { experienceMonths, formatMonthYear, languageLevelLabel, paidRoles, sameName, type ProfileData } from "@/lib/profile";
 
 import { system, UNTRUSTED_POSTING, type Task } from "./prompt-parts";
 
@@ -34,6 +34,7 @@ export const matchRequirements: Task<MatchInput, Match> = async (provider, { req
   const needsModel = requirements.some((requirement) => requirement.kind !== "years");
   const answer = needsModel
     ? await provider.complete({
+        task: "match-requirements",
         system: system(INSTRUCTIONS, UNTRUSTED_POSTING),
         messages: [
           {
@@ -77,13 +78,15 @@ function classify(
   const base = { requirement: requirement.text, skill: null, experienceIds: [] as string[], note: null };
 
   if (requirement.kind === "years") {
-    const dated = profile.experience.filter((entry) => entry.startYear !== null);
+    // Years of experience are paid roles' (#294).
+    const paid = paidRoles(profile.experience);
+    const dated = paid.filter((entry) => entry.startYear !== null);
     if (dated.length === 0) return { ...base, result: "gap", note: "Add your experience to check this" };
     const first = dated.reduce(
       (earliest, entry) => (entry.startYear! * 12 + (entry.startMonth ?? 1) < earliest.startYear! * 12 + (earliest.startMonth ?? 1) ? entry : earliest),
       dated[0],
     );
-    const count = profile.experience.length;
+    const count = paid.length;
     const roles = `${count} ${count === 1 ? "role" : "roles"} in your profile, since ${formatMonthYear(first.startYear, first.startMonth)}`;
     const years = Math.floor(experienceMonths(profile, today) / 12);
     return years >= (requirement.years ?? 0)

@@ -46,6 +46,7 @@ export function AgentSection({
   scoring,
   countries,
   timeZone,
+  onlyWhileOpen = false,
 }: {
   initial: AgentSettings;
   /** The source in Settings → Job search; null while job search is off. */
@@ -55,6 +56,8 @@ export function AgentSection({
   countries: readonly Country[];
   /** The user's time zone, which the hour is in. */
   timeZone: string;
+  /** In the desktop app on this computer, where it only runs while the app is open (#325). */
+  onlyWhileOpen?: boolean;
 }) {
   const track = useTrackSave();
   const [settings, setSettings] = useState(initial);
@@ -115,7 +118,9 @@ export function AgentSection({
           label="Run the job agent"
           description={
             settings.enabled
-              ? `On. It runs once a day after ${clock(settings.hour)} your time (${timeZone}), and you can run it now and then on the Agent screen.`
+              ? `On. It runs once a day after ${clock(settings.hour)} your time (${timeZone}), and you can run it now and then on the Agent screen.${
+                  onlyWhileOpen ? " On this computer, only while Dossier is open: when it's closed at that hour, the run starts once you open it, the same day." : ""
+                }`
               : "Off. Nothing is searched or scored until it's on."
           }
           checked={settings.enabled}

@@ -5,6 +5,8 @@
 // punctuation or the end. So an asterisk on a name for equal contribution,
 // as in "Dombrowe, V.*", stays an asterisk, and "\*" is always one.
 
+import { webHref } from "@/lib/web-link";
+
 /** A run of a citation's text, bold, italic or both. */
 export type CitationSpan = { text: string; bold?: true; italic?: true };
 
@@ -191,13 +193,5 @@ export function publicationLink(link: string): string {
 
 /** The link a resume can open: http(s) only, with "https://" added when it's missing. */
 export function publicationHref(link: string): string | null {
-  const value = publicationLink(link);
-  if (!value) return null;
-  const withScheme = /^[a-z][a-z\d+.-]*:/i.test(value) ? value : `https://${value}`;
-  try {
-    const url = new URL(withScheme);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
-  } catch {
-    return null;
-  }
+  return webHref(publicationLink(link));
 }

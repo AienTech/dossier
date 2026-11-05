@@ -16,12 +16,18 @@ Design Lead, Acme Payments | Mar 2021 to present
 - Set up the design system in Figma
 Product Designer, Fieldnote | 2017 – 2021
 
+Volunteering
+Mentor, Code Club Utrecht | 2019 – present
+
 Projects
 Payout simulator, github.com/johndoe/payout-sim | 2023
 - Built a simulator for payout edge cases
 
 Education
 MSc Interaction Design, TU Delft, 2015 – 2017
+
+Certifications
+Certified Usability Analyst, Human Factors Board, June 2022, valid until June 2028, ID IDI-20481
 
 Publications
 Doe, J.*, & Roe, R.* (2024). Calm payouts. Journal of Studies, 12(3), 45–67. doi:10.5555/12345678
@@ -57,6 +63,7 @@ const answer = {
       company: "Acme Payments",
       location: null,
       descriptor: "  Payouts for online marketplaces, 60 people ",
+      volunteering: false,
       startYear: 2021,
       startMonth: 3,
       endYear: 2030,
@@ -65,8 +72,9 @@ const answer = {
       bullets: ["- Led the redesign of the payout flow", "• Set up the design system in Figma"],
       skills: ["Figma", "Accessibility"],
     },
-    { role: "Product Designer", company: "Fieldnote", location: null, descriptor: null, startYear: 2017, startMonth: 0, endYear: 2021, endMonth: null, current: false, bullets: [], skills: [] },
-    { role: "", company: "", location: null, descriptor: null, startYear: null, startMonth: null, endYear: null, endMonth: null, current: false, bullets: [], skills: [] },
+    { role: "Product Designer", company: "Fieldnote", location: null, descriptor: null, volunteering: false, startYear: 2017, startMonth: 0, endYear: 2021, endMonth: null, current: false, bullets: [], skills: [] },
+    { role: "Mentor", company: "Code Club Utrecht", location: null, descriptor: null, volunteering: true, startYear: 2019, startMonth: null, endYear: null, endMonth: null, current: true, bullets: [], skills: [] },
+    { role: "", company: "", location: null, descriptor: null, volunteering: false, startYear: null, startMonth: null, endYear: null, endMonth: null, current: false, bullets: [], skills: [] },
   ],
   projects: [
     {
@@ -83,6 +91,11 @@ const answer = {
     { name: " ", link: null, startYear: null, startMonth: null, endYear: null, endMonth: null, current: false, bullets: [], skills: [] },
   ],
   education: [{ degree: "MSc Interaction Design", school: "TU Delft", startYear: 2015, startMonth: null, endYear: 2017, endMonth: null, current: false, notes: null }],
+  certifications: [
+    { name: "Certified Usability Analyst", issuer: "Human Factors Board", year: 2022, month: 6, expiryYear: 2028, expiryMonth: 6, credentialId: "IDI-20481", link: null },
+    { name: "An invented certificate", issuer: null, year: 1900, month: 13, expiryYear: 2400, expiryMonth: 2, credentialId: null, link: "verify.example.org/x" },
+    { name: " ", issuer: "Nobody", year: null, month: null, expiryYear: null, expiryMonth: null, credentialId: null, link: null },
+  ],
   publications: [
     { citation: "Doe, J.*, & Roe, R.* (2024). Calm payouts. Journal of Studies, 12(3), 45–67.", link: "doi:10.5555/12345678" },
     { citation: "Doe, J. (2025). An invented paper.", link: null },
@@ -107,7 +120,7 @@ describe("extractProfile (E4-10)", () => {
   it("checks the answer: dates in range, levels, one of each skill, and names looked up in the resume", async () => {
     const provider = new MockProvider({ reply: () => answer });
     const { data, promptVersion } = await extractProfile(provider, { resume: RESUME, today: new Date("2026-09-29") }, options);
-    expect(promptVersion).toBe("extract-profile@4");
+    expect(promptVersion).toBe("extract-profile@5");
     expect(data.basics).toEqual({
       name: "John Doe",
       headline: "Senior Product Designer",
@@ -135,6 +148,7 @@ describe("extractProfile (E4-10)", () => {
         company: "Acme Payments",
         location: "",
         descriptor: "Payouts for online marketplaces, 60 people",
+        volunteering: false,
         bullets: "Led the redesign of the payout flow\nSet up the design system in Figma",
         skills: ["Figma", "Accessibility"],
         startYear: 2021,
@@ -149,6 +163,7 @@ describe("extractProfile (E4-10)", () => {
         company: "Fieldnote",
         location: "",
         descriptor: "",
+        volunteering: false,
         bullets: "",
         skills: [],
         startYear: 2017,
@@ -156,6 +171,22 @@ describe("extractProfile (E4-10)", () => {
         endYear: 2021,
         endMonth: null,
         current: false,
+        unverified: [],
+      },
+      // Volunteering is marked (#294).
+      {
+        role: "Mentor",
+        company: "Code Club Utrecht",
+        location: "",
+        descriptor: "",
+        volunteering: true,
+        bullets: "",
+        skills: [],
+        startYear: 2019,
+        startMonth: null,
+        endYear: null,
+        endMonth: null,
+        current: true,
         unverified: [],
       },
     ]);
@@ -175,6 +206,31 @@ describe("extractProfile (E4-10)", () => {
       },
     ]);
     expect(data.education[0]).toMatchObject({ degree: "MSc Interaction Design", school: "TU Delft", unverified: [] });
+    // Certifications (#293): one not in the resume is marked, impossible dates are dropped, and one without a name is.
+    expect(data.certifications).toEqual([
+      {
+        name: "Certified Usability Analyst",
+        issuer: "Human Factors Board",
+        year: 2022,
+        month: 6,
+        expiryYear: 2028,
+        expiryMonth: 6,
+        credentialId: "IDI-20481",
+        link: "",
+        unverified: [],
+      },
+      {
+        name: "An invented certificate",
+        issuer: "",
+        year: null,
+        month: null,
+        expiryYear: null,
+        expiryMonth: null,
+        credentialId: "",
+        link: "verify.example.org/x",
+        unverified: ["An invented certificate"],
+      },
+    ]);
     // Publications (#218) word for word, their asterisks kept as asterisks; one not in the resume is marked.
     expect(data.publications).toEqual([
       { citation: "Doe, J.\\*, & Roe, R.\\* (2024). Calm payouts. Journal of Studies, 12(3), 45–67.", link: "https://doi.org/10.5555/12345678", unverified: [] },

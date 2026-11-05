@@ -182,7 +182,7 @@
 
 .summary {
   text-wrap: pretty;
-  /* Its paragraphs, as typed in Profile → Basics (#277). */
+  /* Its paragraphs, as typed in Profile → Summary (#277). */
   white-space: pre-line;
 }
 

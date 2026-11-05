@@ -12,7 +12,7 @@ import { json, stubFetch, type FakeRequest } from "./test-http";
 afterEach(() => vi.unstubAllGlobals());
 
 const Posting = z.object({ company: z.string(), years: z.number() });
-const ask = { system: "Extract.", messages: [{ role: "user" as const, content: "Ledgerly wants 5 years." }], schema: Posting };
+const ask = { task: "extract-posting" as const, system: "Extract.", messages: [{ role: "user" as const, content: "Ledgerly wants 5 years." }], schema: Posting };
 
 describe("extractJson", () => {
   it("reads plain JSON", () => {

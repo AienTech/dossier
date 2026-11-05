@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { inEditorOrder, skillNamesIn } from "@/lib/skill-groups";
+
 import type { Extracted, Match } from "@/lib/application-data";
 import { demoLetterUnits, demoProfile, demoResumeUnits } from "@/lib/demo-profile";
 import { experienceMonths } from "@/lib/profile";
@@ -173,6 +175,14 @@ describe("matchRequirements", () => {
     expect(data.items[0]).toMatchObject({ result: "gap", note: "3 roles in your profile, since Sep 2015 (about 11 years)" });
     expect(experienceMonths(profile, today)).toBe(133);
   });
+
+  it("counts paid roles only towards years of experience (#294)", async () => {
+    const mentor = { ...profile.experience[0], id: "v1", role: "Mentor", company: "Code Club", volunteering: true, startYear: 2008, startMonth: 1, current: true };
+    const withVolunteering = { ...profile, experience: [...profile.experience, mentor] };
+    const { data } = await matchRequirements(model({ matches: [] }), { requirements: [{ ...extracted.requirements[0], years: 15 }], profile: withVolunteering, today }, options);
+    expect(data.items[0]).toMatchObject({ result: "gap", note: "3 roles in your profile, since Sep 2015 (about 11 years)" });
+    expect(experienceMonths(withVolunteering, today)).toBe(133);
+  });
 });
 
 describe("tailorResume", () => {
@@ -208,6 +218,16 @@ describe("tailorResume", () => {
     expect(sent(provider).effort).toBeUndefined();
   });
 
+  it("keeps the profile's order of skills when the user set one, and the model's ranking otherwise (public issue 62)", async () => {
+    const ranked = await tailorResume(model(answer), { profile, extracted, match: null, facts: [], posting }, options);
+    const kept = await tailorResume(model(answer), { profile, extracted, match: null, facts: [], posting, keepSkillOrder: true }, options);
+    const line = (units: { id: string; text: string }[]) => skillNamesIn(units.find((unit) => unit.id === "skills")!.text);
+    expect(line(ranked.data)).toEqual(["Design systems", "Figma", "User research"]);
+    const own = inEditorOrder(profile.skills).map((skill) => skill.name).filter((name) => ["Design systems", "Figma", "User research"].includes(name));
+    expect(line(kept.data)).toEqual(own);
+    expect(own).not.toEqual(["Design systems", "Figma", "User research"]);
+  });
+
   it("leaves facts out of the prompt when there are none", async () => {
     const provider = model(answer);
     await tailorResume(provider, { profile: { ...profile, facts: [{ id: "f1", text: "  " }] }, extracted, match: null, facts: [], posting }, options);
@@ -218,7 +238,7 @@ describe("tailorResume", () => {
 
   it("returns units, keeping only real roles and the profile's own skills (APP-4)", async () => {
     const { data, promptVersion } = await tailorResume(model(answer), { profile, extracted, match: null, facts: [], posting }, options);
-    expect(promptVersion).toBe("tailor-resume@6");
+    expect(promptVersion).toBe("tailor-resume@8");
     expect(data.map((unit) => unit.id)).toEqual([
       "summary",
       "experience:e1",
@@ -228,6 +248,7 @@ describe("tailorResume", () => {
       "skills",
       "education:d1",
       "education:d2",
+      "certification:c1",
       "publication:u1",
       "languages",
     ]);
@@ -254,6 +275,59 @@ describe("tailorResume", () => {
     expect(text).toContain(`"publications": [\n    "Doe, J., & Vermeer, K. (2016). Trust in automated scheduling`);
     expect(text).not.toContain("10.5555");
     expect(text).not.toContain("Kept off resumes");
+  });
+
+  it("copies the certifications as written, and sends their name, issuer and dates but never their links or IDs (#293)", async () => {
+    const hidden = { ...profile.certifications[0], id: "c2", name: "Kept off resumes", onResumes: false };
+    const provider = model(answer);
+    const { data } = await tailorResume(provider, { profile: { ...profile, certifications: [...profile.certifications, hidden] }, extracted, match: null, facts: [], posting }, options);
+    expect(data.filter((unit) => unit.id.startsWith("certification:"))).toEqual([
+      { id: "certification:c1", label: "Certification “Certified Accessibility Specialist”", text: "Certified Accessibility Specialist" },
+    ]);
+    const text = prompt(provider);
+    expect(text).toContain(`"certifications": [\n    {\n      "name": "Certified Accessibility Specialist",\n      "issuer": "Inclusive Design Institute",\n      "obtained": "Jun 2022",\n      "validUntil": "Jun 2028"\n    }\n  ]`);
+    expect(text).not.toContain("IDI-20481");
+    expect(text).not.toContain("Kept off resumes");
+    expect(text).toMatch(/certifications, publications and otherSections go on the resume word for word/);
+  });
+
+  it("copies custom sections word for word, and sends their text but never their links (#298)", async () => {
+    const item = { id: "i1", title: "", subtitle: "", startYear: null, startMonth: null, endYear: null, endMonth: null, current: false, details: "", link: "https://secret.example.org/x", onResumes: true };
+    const customSections = [
+      { id: "s1", title: "Awards", format: "LINES" as const, items: [{ ...item, title: "**Best Paper**, CHI 2023" }, { ...item, id: "i2", title: "Kept off resumes", onResumes: false }] },
+      { id: "s2", title: "Leadership", format: "ENTRIES" as const, items: [{ ...item, id: "i3", title: "Mentor", subtitle: "Code Club", startYear: 2021, details: "Taught 40 pupils\nRan the camp" }] },
+      { id: "s3", title: "Interests", format: "INLINE" as const, items: [{ ...item, id: "i4", title: "Climbing" }, { ...item, id: "i5", title: "Chess" }] },
+      { id: "s4", title: "Empty", format: "LINES" as const, items: [] },
+    ];
+    const provider = model(answer);
+    const { data } = await tailorResume(provider, { profile: { ...profile, customSections }, extracted, match: null, facts: [], posting }, options);
+    expect(data.filter((unit) => unit.id.startsWith("custom-"))).toEqual([
+      { id: "custom-line:i1", label: "Best Paper, CHI 2023", text: "**Best Paper**, CHI 2023" },
+      { id: "custom-entry:i3", label: "Mentor", text: "Taught 40 pupils\nRan the camp" },
+      { id: "custom-inline:s3", label: "Interests", text: "Climbing\nChess" },
+    ]);
+    const text = prompt(provider);
+    expect(text).toContain("otherSections");
+    expect(text).toContain("Best Paper, CHI 2023");
+    expect(text).toContain('"subtitle": "Code Club"');
+    expect(text).not.toContain("secret.example.org");
+    expect(text).not.toContain("Kept off resumes");
+    expect(text).not.toContain('"title": "Empty"');
+  });
+
+  it("leaves otherSections out of the prompt without any (#298)", async () => {
+    const provider = model(answer);
+    await tailorResume(provider, { profile, extracted, match: null, facts: [], posting }, options);
+    expect(prompt(provider)).not.toContain('"otherSections"');
+  });
+
+  it("tailors volunteering like a role, named as volunteering, and marks it in the prompt (#294)", async () => {
+    const mentor = { ...profile.experience[2], id: "v1", role: "Mentor", company: "Code Club", volunteering: true };
+    const provider = model(answer);
+    const { data } = await tailorResume(provider, { profile: { ...profile, experience: [...profile.experience, mentor] }, extracted, match: null, facts: [], posting }, options);
+    expect(data.find((unit) => unit.id === "experience:v1")).toMatchObject({ label: "Code Club volunteering", text: mentor.bullets });
+    expect(prompt(provider)).toContain(`"company": "Code Club",\n      "location": "Rotterdam",\n      "volunteering": true,`);
+    expect(prompt(provider).match(/"volunteering": true/g)).toHaveLength(1);
   });
 
   it("names language levels in the resume's language: the chosen one, or the posting's", async () => {
@@ -465,7 +539,7 @@ describe("refineChat", () => {
       declined: false,
     };
     const { data, promptVersion } = await refineChat(model(answer), input, options);
-    expect(promptVersion).toBe("refine-chat@7");
+    expect(promptVersion).toBe("refine-chat@9");
     expect(data).toEqual({
       reply: "I made the letter more formal.",
       tone: "FORMAL",
@@ -478,17 +552,20 @@ describe("refineChat", () => {
     });
   });
 
-  it("never edits a publication (#218)", async () => {
+  it("never edits a certification or a publication (#293, #218)", async () => {
     const answer = {
-      reply: "Shortened your publication.",
-      edits: [{ document: "RESUME", unitId: "publication:u1", text: "Doe, J. (2016)." }],
+      reply: "Shortened your certification and publication.",
+      edits: [
+        { document: "RESUME", unitId: "certification:c1", text: "Accessibility" },
+        { document: "RESUME", unitId: "publication:u1", text: "Doe, J. (2016)." },
+      ],
       tone: null,
       declined: false,
     };
     const provider = model(answer);
     const { data } = await refineChat(provider, input, options);
     expect(data.edits).toEqual([]);
-    expect(sent(provider).system).toMatch(/Never edit a publication/);
+    expect(sent(provider).system).toMatch(/Never edit a certification, a publication or a custom section/);
   });
 
   it("declines with guidance instead of inventing facts (APP-9)", async () => {

@@ -3,6 +3,7 @@ import "server-only";
 import { MAX_POSTING_CHARACTERS, profileForPrompt } from "@/lib/ai/tasks/prompt-parts";
 import type { PostingFit } from "@/lib/fit";
 import type { ProfileData } from "@/lib/profile";
+import type { UsageSink } from "@/lib/usage";
 
 import { postingLines } from "./posting-lines";
 import { askJev, typesafeError, type Answer, type AskOptions, type ChoiceQuestion, type NoulQuestion, type Question, type ScoreQuestion } from "./typesafe";
@@ -226,9 +227,18 @@ export function jevFit(parts: JevParts, weights: JevWeights = JEV_WEIGHTS): Post
   return { score: jevScore(parts, weights), reasons: reasons.slice(0, MAX_REASONS), redFlags: redFlags.slice(0, MAX_RED_FLAGS) };
 }
 
-/** Scores `posting` against `profile` with Jev, in one request; `scoredWith` names this version and Jev's. */
-export async function scoreWithJev(posting: JevPosting, profile: ProfileData, options: AskOptions): Promise<{ data: PostingFit; scoredWith: string }> {
+/**
+ * Scores `posting` against `profile` with Jev, in one request; `scoredWith`
+ * names this version and Jev's. `onUsage` gets its tokens: TypeSafe reports
+ * the input only.
+ */
+export async function scoreWithJev(
+  posting: JevPosting,
+  profile: ProfileData,
+  { onUsage, ...options }: AskOptions & { onUsage?: UsageSink },
+): Promise<{ data: PostingFit; scoredWith: string }> {
   const lines = postingLines(posting.description);
   const result = await askJev({ state: jevState(posting, profile), questions: jevQuestions(lines) }, options);
+  onUsage?.({ task: "score-posting-jev", provider: "JEV", model: result.model, input: result.usage?.input_tokens ?? null, output: null });
   return { data: jevFit(jevParts(result.answers, lines)), scoredWith: `${SCORE_POSTING_JEV_VERSION} (${result.model})` };
 }

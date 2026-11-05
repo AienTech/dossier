@@ -23,8 +23,10 @@ export type ApplicationRow = {
   sent: string | null;
   /** "Today", "3 days ago"… */
   updated: string;
-  /** For the board, which shows the latest update first. */
+  /** For the board, which shows the latest update first among cards without a place. */
   updatedAt: number;
+  /** Its place in its board column; null until reordered (public issue 60). */
+  boardSort: number | null;
 };
 
 /** Every application, archived ones only when asked for, sorted for the table; agent drafts once approved (#195). */
@@ -44,6 +46,7 @@ export async function loadApplicationRows({ archived, sort }: { archived: boolea
       match: true,
       sentAt: true,
       updatedAt: true,
+      boardSort: true,
     },
   });
   const rows = applications.map((application) => {
@@ -60,6 +63,7 @@ export async function loadApplicationRows({ archived, sort }: { archived: boolea
       match: match.success && match.data.items.length > 0 ? matchScore(match.data) : null,
       sentAt: application.sentAt,
       updatedAt: application.updatedAt,
+      boardSort: application.boardSort,
     };
   });
   return sortRows(rows, sort).map(({ sentAt, updatedAt, ...row }): ApplicationRow => ({

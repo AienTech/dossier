@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { Country } from "@/lib/job-search/countries";
-import { POSTED_WITHIN, RADII_KM, type JobSource, type RadiusKm, type SearchQuery } from "@/lib/job-search/search";
+import { EXPERIENCE_LEVELS, POSTED_WITHIN, RADII_KM, type JobSource, type RadiusKm, type SearchQuery } from "@/lib/job-search/search";
 import { SOURCE_INFO, sourceCovers } from "@/lib/job-search/sources";
 
 // A search's fields, as Find jobs asks them (E14-6) and Settings → Job agent
@@ -19,7 +19,7 @@ export function uncoveredCountry(source: JobSource | null, query: SearchQuery, c
   return `${SOURCE_INFO[source].name} doesn't list jobs in ${name}.`;
 }
 
-/** What, Where, Country, Within and Posted, for a grid; Remote only is RemoteOnlyField. */
+/** What, Where, Country, Within, Posted and Level, for a grid; Remote only is RemoteOnlyField. */
 export function SearchFields({
   value,
   onChange,
@@ -73,6 +73,18 @@ export function SearchFields({
       </Select>
       <Select label="Posted" value={value.postedWithin} onChange={(event) => onChange({ postedWithin: event.target.value as SearchQuery["postedWithin"] })}>
         {POSTED_WITHIN.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+      <Select
+        label="Level"
+        hint="Read from each posting's title and the years it asks for"
+        value={value.experience ?? "any"}
+        onChange={(event) => onChange({ experience: event.target.value as SearchQuery["experience"] })}
+      >
+        {EXPERIENCE_LEVELS.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>

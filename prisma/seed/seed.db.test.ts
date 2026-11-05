@@ -140,6 +140,7 @@ describe("demo seed", () => {
       "Skills",
       "MSc Design for Interaction",
       "BA Communication Design",
+      "Certification “Certified Accessibility Specialist”",
       "Publication “Doe, J., & Vermeer, K. (2016). Trust in…”",
       "Languages",
     ]);

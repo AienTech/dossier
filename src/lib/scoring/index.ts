@@ -8,6 +8,7 @@ import { scorePosting } from "@/lib/ai/tasks";
 import type { PostingFit } from "@/lib/fit";
 import { postingText, type FoundPosting } from "@/lib/job-search/search";
 import type { ProfileData } from "@/lib/profile";
+import { recordUsage } from "@/lib/usage-data";
 
 import { jevKey, loadScoringConfig, type ScoringConfig } from "./config";
 import { scoreWithJev } from "./jev";
@@ -40,7 +41,7 @@ export async function loadPostingScorer(): Promise<PostingScorer> {
     const jev = jevKey(config);
     if (jev.problem !== null) throw AiError.config(jev.problem);
     const { key } = jev;
-    return (posting, profile, signal) => scoreWithJev(posting, profile, { key, signal });
+    return (posting, profile, signal) => scoreWithJev(posting, profile, { key, signal, onUsage: recordUsage });
   }
   if (!(await isAiConfigured())) throw AiError.config(AI_PROVIDER_MISSING);
   const [provider, options] = await Promise.all([getAiProvider(), loadTaskOptions()]);

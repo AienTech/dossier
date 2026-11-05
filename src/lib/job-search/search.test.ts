@@ -31,6 +31,12 @@ describe("search in the URL", () => {
 
   it("leaves defaults out of the URL", () => {
     expect(searchHref({ ...EMPTY_QUERY, keywords: "nurse" })).toBe("/jobs?q=nurse");
+    // The level (public issue 59): in the address when it's asked for, and read back; "any" is the same as none.
+    expect(searchHref({ ...EMPTY_QUERY, keywords: "nurse", experience: "senior" })).toBe("/jobs?q=nurse&level=senior");
+    expect(searchHref({ ...EMPTY_QUERY, keywords: "nurse", experience: "any" })).toBe("/jobs?q=nurse");
+    expect(queryFromParams({ q: "nurse", level: "senior" })).toMatchObject({ experience: "senior" });
+    expect(queryFromParams({ q: "nurse", level: "boss" })).not.toHaveProperty("experience");
+    expect(describeSearch({ ...EMPTY_QUERY, keywords: "nurse", experience: "intern" }, "Germany")).toBe("nurse · Germany · Internship");
   });
 
   it("reads the view from the URL (E14-7)", () => {

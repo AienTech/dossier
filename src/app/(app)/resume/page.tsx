@@ -10,8 +10,8 @@ import { ResumeWorkspace } from "./resume-workspace";
 export const metadata: Metadata = { title: "Base resume" };
 
 /** The base resume: a live preview of the profile in the chosen theme (RES-1). */
-export default async function BaseResumePage() {
-  const [profile, themes, settings, usage] = await Promise.all([loadProfile(), loadThemes(), loadSettings(), loadThemeUsage()]);
+export default async function BaseResumePage({ searchParams }: PageProps<"/resume">) {
+  const [{ panel }, profile, themes, settings, usage] = await Promise.all([searchParams, loadProfile(), loadThemes(), loadSettings(), loadThemeUsage()]);
   return (
     <ResumeWorkspace
       profile={profile}
@@ -22,6 +22,9 @@ export default async function BaseResumePage() {
       includeReferences={settings.includeRefs}
       language={settings.resumeLanguage}
       maxPages={maxPages(settings.pageLimit)}
+      sections={settings.resumeSections}
+      fitToPage={settings.fitBaseResume}
+      initialPanel={panel === "sections" ? "sections" : "themes"}
     />
   );
 }

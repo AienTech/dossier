@@ -160,6 +160,8 @@ A server that speaks OpenAI's API with a difference (an address people tend to g
 
 Long AI tasks run as background jobs (`src/lib/jobs`): the page follows their named steps as they happen and picks them up again after a reload. A job's input and result hold personal data, so they don't last: a job that works on an application names it (`startJob(…, { applicationId })`) and is deleted with it, and finished jobs are deleted once they're older than **Keep task data for** in Settings → Your data (`src/lib/jobs/retention.ts`). Keep nothing in a job that has to outlast that; Undo on a toast and a page reattaching after a reload are fine. The prompts live in `src/lib/ai/tasks`; in strict mode ("Never invent experience", on by default) a fact guard flags names and numbers that aren't in the profile or the posting.
 
+The Usage screen shows the tokens each task used, as the servers counted them. Every request names its task (`task`, one of `USAGE_TASKS` in `src/lib/usage.ts`, where a new task gets its label), and a provider passes each answer's counts to `call.used`, null where the server sends none. That includes answers it asks again and answers that end in an error, since those used tokens too. Nothing of the prompt or the answer is kept.
+
 To try the AI features without a hosted provider, run a small model in Docker:
 
 ```bash
@@ -241,6 +243,33 @@ The answer, when it was given and the version of the question's text are the set
 
 The receiving end is a small service on the project's own server that isn't published with the app. Change what the ping sends only together with it, the wiki's [Privacy](https://github.com/AienTech/dossier/wiki/Privacy) page and Settings → About.
 
+## Announcements
+
+The project can publish short notices, such as a security fix, and each page shows them in a card over the page (`src/app/(app)/announcement-notice.tsx`), one at a time, until they're dismissed. The sidebar's notice is for updates only. The signed-in layout starts the check after a page load, using the settings it read anyway, so a page costs nothing until a check is due (`src/lib/announcements/check.ts`). When to ask next comes from the answer's `Cache-Control`, between 1 hour and 7 days.
+
+- **The request carries nothing about the install,** only `User-Agent: Dossier`. Which notices apply (version range, expiry, dismissed) is decided on the install (`src/lib/announcements/visible.ts`).
+- **A failure changes nothing:** the last good answer stays, and nothing is shown or logged.
+- **Notices are plain text,** with one optional link, which can go anywhere on the web. Anything but `http` or `https` is dropped, because the link becomes an `href`. This is not a channel for advertising.
+
+The answer and the dismissed IDs are the settings `announcementFeed` and `announcementsDismissed`, which exports leave out and imports keep (`INSTALL_SETTINGS` in `src/lib/data-export.ts`).
+
+The backend is the project's own service and isn't published with the app. `src/lib/announcements/api-v1.schema.json` is a copy of its contract, and a test compares it with what the app reads, so update the copy when the contract grows. The API only grows, so the app ignores what it doesn't know.
+
+A production server asks `https://api.dossier.aien.me/v1`. A development server only asks while `DOSSIER_API_URL` is set, and then on every page, so a change shows without the wait: the first reload asks, and the next one shows it. To try it against a local copy of the backend, set that variable, for example in an untracked `compose.override.yml`. The variable isn't in `.env.example` or `compose.production.yml`, because nobody running the image needs it. `e2e/announcements.spec.ts` points it at the fake job sources.
+## The desktop app
+
+`desktop/` is the app for Linux and Windows, built with Electron. One download, two modes, chosen on first launch: **On my server** opens the user's own Dossier in a window, and **On this computer** runs Dossier itself. There's no auto-update: people download each new version from the release page.
+
+It has its own `package.json` and `yarn.lock`, so the image doesn't carry Electron.
+
+The window has no title bar or menu row of the system's. `desktop/bar/` is the app's own top bar, with the system's window buttons drawn over it, and the page is a view below it, so no server version has to know about the bar. The bar takes its colours from the page's `body` (`bar-colors.ts`), read again when the page loads and when the `dossier_theme` cookie changes.
+
+On this computer runs the same standalone server as the image, on a plain Node binary that ships inside the app, and on SQLite in the user's app folder. So nothing native is built for Electron, and an Electron update, which is how Chromium's security fixes arrive, can't be held back by it. `desktop/scripts/prepare-server.mjs` puts it together for one platform, checking every download against a pinned hash, and the app's own Chromium prints the PDFs (`print-service.ts`, `src/lib/pdf/desktop-print.ts`). The server listens on 127.0.0.1 only. The app makes a secret on first launch and a token at each launch, and signs itself in with the token (`src/lib/desktop.ts`): there's no password, but the sign-in page stays, so other programs reaching the port get nowhere.
+
+Migrations run without Prisma's tools (`server-tools/migrate.mjs`) and **not in a transaction**, because SQLite ignores the files' `PRAGMA foreign_keys=OFF` inside one, and rebuilding a table would then delete the rows that point at it. It copies the database first, and refuses a database from a newer version.
+
+A view showing a server has no preload and is treated as any web page: other sites and mail go to the system browser (`window-rules.ts`), and the page may ask for nothing but writing to the clipboard, for the app's Copy buttons. Only the app's own start screen and bar get the small APIs in `preload.ts` and `bar-preload.ts`.
+
 ## Tests and checks
 
 Tests use [Vitest](https://vitest.dev) and run inside the container like everything else:
@@ -259,7 +288,7 @@ Put tests next to the code they cover. `*.test.ts` files run in Node (server cod
 They refuse to run against a database whose name doesn't end in `_test`, so your development data is never touched.
 With an SQLite `DATABASE_URL`, they run against the file next to it with `_test` added to its name (`file:/app/data/dev_test.db`).
 
-GitHub Actions (`.github/workflows/ci.yml`) runs lint, type-check and tests with coverage, with a Postgres service for the database tests (then runs those again on SQLite), on every pull request and push to `main`, and shows the coverage in the job summary. A newer push to the same branch or pull request cancels the run it replaces. On `main`, a pull request's merge commit isn't checked a second time when it holds exactly the code its pull request's run checked (the branch was up to date with `main`); every other push to `main` is. The coverage thresholds in `vitest.config.mts` ratchet: they sit a few points below the coverage when they were set, and CI fails if coverage drops below them. Raise them when you add tests.
+GitHub Actions (`.github/workflows/ci.yml`) runs lint, type-check and tests with coverage, with a Postgres service for the database tests (then runs those again on SQLite), on release branches (`release/1.12.0`), when one is pushed and on each push after that, and shows the coverage in the job summary. A newer push to the same branch cancels the run it replaces. Nothing else runs them: pull requests aren't checked, so run the checks yourself before you open one. The public repository has no release branches: `image.yml` runs the same jobs there after each merge or publish to `main`, before it builds the image. The coverage thresholds in `vitest.config.mts` ratchet: they sit a few points below the coverage when they were set, and CI fails if coverage drops below them. Raise them when you add tests.
 
 ### End-to-end tests
 
@@ -269,7 +298,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs lint, type-check and tests with
 docker/bin/yarn build && docker/bin/yarn test:e2e
 ```
 
-The run starts its own server on port 3100 with a separate `dossier_e2e` database (created and migrated on the way, reset to the demo data before the specs that change data), a fake OpenAI-compatible server on port 3999 (`e2e/fake-ai.mts`) that answers each AI task with plausible output, fake job sources on port 3998 (`e2e/fake-jobs.mts`), which the app reaches through `DOSSIER_JOBS_TEST_BASE_URL`, a variable for the tests only, and a fake Google on port 3997 (`e2e/fake-google.mts`) for sign-in, Gmail and Calendar (`DOSSIER_GOOGLE_TEST_BASE_URL`), which only comes into play once a spec enters an OAuth client in Settings → Google. The daily update check asks the same fake instead of GitHub (`DOSSIER_UPDATES_TEST_BASE_URL`), which says no release is out, so a spec can store the latest release itself, and so does Jev (`DOSSIER_TYPESAFE_TEST_BASE_URL`), with answers made from the questions. Your development server and data are never touched: the tests refuse any database whose name doesn't end in `_e2e`. CI runs them in a job of their own and keeps the report of a failed run as an artifact.
+The run starts its own server on port 3100 with a separate `dossier_e2e` database (created and migrated on the way, reset to the demo data before the specs that change data), a fake OpenAI-compatible server on port 3999 (`e2e/fake-ai.mts`) that answers each AI task with plausible output, fake job sources on port 3998 (`e2e/fake-jobs.mts`), which the app reaches through `DOSSIER_JOBS_TEST_BASE_URL`, a variable for the tests only, and a fake Google on port 3997 (`e2e/fake-google.mts`) for sign-in, Gmail and Calendar (`DOSSIER_GOOGLE_TEST_BASE_URL`), which only comes into play once a spec enters an OAuth client in Settings → Google. The daily update check asks the same fake instead of GitHub (`DOSSIER_UPDATES_TEST_BASE_URL`), which says no release is out, so a spec can store the latest release itself, and so does Jev (`DOSSIER_TYPESAFE_TEST_BASE_URL`), with answers made from the questions. The same fake answers for the project's backend (`DOSSIER_API_URL`), with no notices until a spec says otherwise. Your development server and data are never touched: the tests refuse any database whose name doesn't end in `_e2e`. CI runs them in a job of their own and keeps the report of a failed run as an artifact.
 
 ## The production image
 
@@ -280,7 +309,7 @@ docker build -t dossier:local .
 DOSSIER_IMAGE=dossier:local DOSSIER_PORT=3300 docker compose -f compose.production.yml -p dossier-local up -d
 ```
 
-CI pushes an image for every commit on `main` to `ghcr.io/<owner>/<repository>:<sha>` (lower case), once the checks and the end-to-end tests pass, on `main` or in the commit's pull request. A version tag (`v1.0.0`) then tags that commit's image with the version and `latest`.
+In the public repository, `image.yml` pushes an image for every commit on `main` to `ghcr.io/<owner>/<repository>:<sha>` (lower case), once the checks and the end-to-end tests pass. A version tag (`v1.0.0`) then tags that commit's image with the version and `latest`.
 
 ## The website
 

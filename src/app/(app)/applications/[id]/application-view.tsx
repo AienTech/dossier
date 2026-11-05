@@ -32,8 +32,10 @@ import type { JobView } from "@/lib/jobs/runner";
 import type { WriteEmailResult } from "@/lib/jobs/write-email";
 import type { FactItem, ProfileData } from "@/lib/profile";
 import type { RefineSuggestions } from "@/lib/refine-suggestions";
+import { resumeContent, sectionsWithContent } from "@/lib/resume-content";
+import { inSidebar, sectionName, type SectionLayout } from "@/lib/resume-sections";
 import { hasSidebar, type ThemeData } from "@/lib/themes";
-import { cleanUnitText, isPublicationUnit, unitName } from "@/lib/unit-text";
+import { cleanUnitText, isVerbatimUnit, unitName } from "@/lib/unit-text";
 
 import {
   addMatchSkill,
@@ -43,9 +45,14 @@ import {
   restoreVersion,
   saveUnit,
   sendMessage,
+  addApplicationSection,
+  followBaseSections,
+  setApplicationSections,
   setApplicationTheme,
   setFollowThemeLayout,
   setShowPhoto,
+  undoUpdateFromProfile,
+  updateFromProfile,
   startRegenerating,
   startWritingEmail,
   undoEmailRewrite,
@@ -62,6 +69,7 @@ import { NotesTab } from "./notes-tab";
 import { PostingTab, type PostingData } from "./posting-tab";
 import { RefinePanel, type ChatEntry } from "./refine-panel";
 import { StatusControl } from "./status-control";
+import { SectionsMenu } from "./sections-menu";
 import { ThemeMenu } from "./theme-menu";
 import { byPageLimit, TrimmedNotice } from "./trimmed-notice";
 
@@ -132,6 +140,16 @@ export type ApplicationViewProps = {
   /** Every theme, for the Theme menu (#226), and which is the base theme. */
   themes: ThemeData[];
   baseThemeId: string;
+  /** The resume's sections: their order and which are off (#297). */
+  sections: SectionLayout;
+  /** It has its own order, rather than following the base resume's. */
+  ownSections: boolean;
+  /** It was sent, so changes to the profile no longer reach it (#299). */
+  sent: boolean;
+  /** "Update from profile" would change what the resume shows (#301). */
+  canUpdate: boolean;
+  /** The sections the profile has content for, and their names, for the Sections menu. */
+  baseSections: { key: string; name: string }[];
   /** The email to send the application with (Email tab), once it's written. */
   email: Unit[] | null;
   /** The email being written, e.g. since before a reload. */
@@ -179,6 +197,11 @@ export function ApplicationView({
   letter,
   themes,
   baseThemeId,
+  sections,
+  ownSections,
+  sent,
+  canUpdate,
+  baseSections,
   email,
   writingEmail,
   attachments,
@@ -256,6 +279,37 @@ export function ApplicationView({
       showThemeChoice(themes.find((theme) => theme.id === themeId) ?? null);
       toastResult(await setApplicationTheme({ id: application.id, themeId }));
     });
+  const [sectionsChoice, showSections] = useOptimistic(sections);
+  const changeSections = (next: SectionLayout) =>
+    startTransition(async () => {
+      showSections(next);
+      toastResult(await setApplicationSections({ id: application.id, order: next.order, off: next.off, titles: next.titles }));
+    });
+  const addSection = (key: string) =>
+    startTransition(async () => {
+      toastResult(await addApplicationSection({ id: application.id, key }));
+    });
+  const updateProfile = () =>
+    startTransition(async () => {
+      const result = toastResult(await updateFromProfile({ id: application.id }));
+      if (!result.ok) return;
+      const previous = result.data;
+      if (!previous) return void toast("This resume already matches your profile.");
+      toast("Updated from your profile.", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            const undone = toastResult(await undoUpdateFromProfile({ id: application.id, ...previous }));
+            if (undone.ok) toast("Put the resume back as it was.");
+          },
+        },
+      });
+    });
+  const followBase = () =>
+    startTransition(async () => {
+      toastResult(await followBaseSections({ id: application.id }));
+    });
+
   const themeMenu = (current: ThemeData) => (
     <ThemeMenu themes={themes} baseThemeId={baseThemeId} current={current} onChange={changeTheme} />
   );
@@ -513,7 +567,7 @@ export function ApplicationView({
         kind === DocumentKind.EMAIL
           ? WRITTEN_EMAIL_UNITS.has(id)
           : kind === DocumentKind.RESUME
-            ? !isPublicationUnit(id)
+            ? !isVerbatimUnit(id)
             : !isFrameUnit(id) || WRITTEN_FRAME_UNITS.has(id);
       return (
         <UnitFrame
@@ -671,6 +725,23 @@ export function ApplicationView({
               label={
                 <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <span className="flex items-center gap-1">Tailored resume · {themeMenu(resumeTheme)}</span>
+                  {!viewed(DocumentKind.RESUME) && (
+                    <SectionsMenu
+                      sections={sectionsChoice}
+                      present={sectionsWithContent(resumeContent(profile, { units: resumeUnits, includeReferences }))}
+                      base={baseSections.map((section) => section.key)}
+                      nameOf={(key) => baseSections.find((section) => section.key === key)?.name ?? sectionName(key, profile.customSections)}
+                      isSidebar={(key) => inSidebar(key, profile.customSections)}
+                      sidebar={followLayout && hasSidebar(resumeTheme.layout)}
+                      own={ownSections}
+                      sent={sent}
+                      canUpdate={canUpdate}
+                      onUpdate={updateProfile}
+                      onChange={changeSections}
+                      onAdd={addSection}
+                      onFollowBase={followBase}
+                    />
+                  )}
                   {hasSidebar(resumeTheme.layout) && (
                     <PreviewSwitch label="Sidebar layout" checked={followLayout} onCheckedChange={changeLayout} />
                   )}
@@ -687,6 +758,7 @@ export function ApplicationView({
                 showPhoto={photoChoice}
                 language={application.language}
                 includeReferences={includeReferences}
+                sections={sectionsChoice}
                 renderUnit={viewed(DocumentKind.RESUME) ? plainUnit : unitsOf(DocumentKind.RESUME, resumeUnits)}
               />
             </DocumentPreview>

@@ -371,7 +371,7 @@ const SECRET_PLACEHOLDER: Record<GoogleClientView["secretState"], string> = {
  * leave its field. Saved here, they override the DOSSIER_GOOGLE_CLIENT_*
  * variables. A different client ID disconnects the account.
  */
-function ClientCard({ initial, connected }: { initial: GoogleClientView; connected: boolean }) {
+export function ClientCard({ initial, connected }: { initial: GoogleClientView; connected: boolean }) {
   const track = useTrackSave();
   const router = useRouter();
   const [view, setView] = useState(initial);

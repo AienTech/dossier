@@ -2,6 +2,8 @@ import "server-only";
 
 import type { ReasoningEffort } from "openai/resources/shared";
 
+import type { UsageSink } from "@/lib/usage";
+
 import { AiError, toAiError } from "../errors";
 import type { ChatAnswer, ChatCall } from "../provider";
 import { keyGuardedFetch } from "./guarded-fetch";
@@ -43,9 +45,10 @@ export class LmStudioProvider extends OpenAICompatibleProvider {
     private readonly apiKey: string | null,
     model: string | null,
     timeoutMs: number,
+    onUsage?: UsageSink,
   ) {
     const root = address.replace(/\/+$/, "").replace(/(\/api)?\/v1$/, "");
-    super("LMSTUDIO", `${root}/v1`, apiKey, model, timeoutMs);
+    super("LMSTUDIO", `${root}/v1`, apiKey, model, timeoutMs, onUsage);
     this.root = root;
     this.api = apiKey ? keyGuardedFetch() : fetch;
   }

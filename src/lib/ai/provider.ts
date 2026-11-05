@@ -3,6 +3,7 @@ import { prettifyError, toJSONSchema, type z } from "zod";
 import type { AiProvider as AiProviderKind, Creativity } from "@/generated/prisma/enums";
 
 import { logServerWarning } from "@/lib/log";
+import type { TokenCount, UsageSink, UsageTask } from "@/lib/usage";
 
 import { AiError, toAiError } from "./errors";
 
@@ -15,6 +16,8 @@ export type ChatMessage = { role: "user" | "assistant"; content: string };
 export type Effort = "low" | "medium" | "high";
 
 export type CompletionRequest = {
+  /** What's asking, for the Usage screen's tokens per task (#290). */
+  task: UsageTask;
   system: string;
   messages: ChatMessage[];
   /** SET-3. A temperature where the model accepts one; prompts word it for the rest. */
@@ -59,6 +62,11 @@ export type ChatCall = {
   json?: { schema: z.ZodType; name: string };
   maxTokens: number;
   signal: AbortSignal;
+  /**
+   * Takes the tokens of every answer the server sends, including ones asked
+   * again or ending in an error, since each used tokens (#290).
+   */
+  used: (tokens: TokenCount) => void;
 };
 
 /** What one chat call got back; `cutOff` when the model hit its token limit mid-answer. */
@@ -84,9 +92,11 @@ export abstract class BaseProvider implements AIProvider {
     readonly model: string | null,
     /** How long one call may take before it's abandoned. */
     protected readonly timeoutMs: number,
+    /** Where each answer's tokens go; nowhere without one. */
+    private readonly onUsage?: UsageSink,
   ) {}
 
-  /** Sends one chat call and returns the answer. */
+  /** Sends one chat call and returns the answer, passing each answer's tokens to `call.used`. */
   protected abstract chat(call: ChatCall): Promise<ChatAnswer>;
 
   protected abstract fetchModels(signal: AbortSignal): Promise<string[]>;
@@ -102,6 +112,7 @@ export abstract class BaseProvider implements AIProvider {
     const model = this.requireModel();
     const schema = "schema" in request ? request.schema : undefined;
     const schemaName = ("schemaName" in request && request.schemaName) || "result";
+    const used = (tokens: TokenCount) => this.onUsage?.({ task: request.task, provider: this.kind, model, ...tokens });
     const call = (messages: ChatMessage[]) =>
       this.guard(model, request.signal, (signal) =>
         this.chat({
@@ -113,6 +124,7 @@ export abstract class BaseProvider implements AIProvider {
           json: schema ? { schema, name: schemaName } : undefined,
           maxTokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
           signal,
+          used,
         }),
       );
 
@@ -149,6 +161,7 @@ export abstract class BaseProvider implements AIProvider {
     const model = this.requireModel();
     const started = performance.now();
     await this.complete({
+      task: "connection-check",
       system: "You are a connection check. Answer with the single word OK.",
       messages: [{ role: "user", content: "Are you there?" }],
       maxTokens: 16,

@@ -267,6 +267,35 @@ describe("importExport (E10-6)", () => {
     expect(await prisma().publication.count()).toBe(0);
   });
 
+  it("restores custom sections, an application's own order and what it was sent with, and reads files from before them as having none (#297, #298, #299)", async () => {
+    await prisma().customSection.create({ data: { id: "s1", title: "Awards", format: "LINES", items: { create: [{ id: "i1", title: "Best Paper", link: "example.org", sort: 0 }] } } });
+    const application = await prisma().application.findFirstOrThrow();
+    const frozen = { profile: { basics: { name: "As sent" } }, themes: { RESUME: null, COVER_LETTER: null }, paper: "A4", dateFormat: "NUMERIC", includeReferences: false, followedBase: false };
+    await prisma().application.update({ where: { id: application.id }, data: { sections: { order: ["skills"], off: ["custom:s1"] }, frozen } });
+    const file = await asFile();
+    const sections = await prisma().customSection.findMany({ include: { items: true } });
+    await importExport(prisma(), file);
+    expect(await prisma().customSection.findMany({ include: { items: true } })).toEqual(sections);
+    expect(await prisma().application.findUniqueOrThrow({ where: { id: application.id } })).toMatchObject({ sections: { order: ["skills"], off: ["custom:s1"] }, frozen });
+
+    const parsed = parseExport(JSON.stringify({ ...file, schemaVersion: 8, profile: { ...file.profile, customSections: undefined } }));
+    expect(parsed).toMatchObject({ ok: true, data: { schemaVersion: 8, profile: { customSections: [] } } });
+  });
+
+  it("restores certifications, and reads files from before them as having none (#293)", async () => {
+    await prisma().certification.updateMany({ data: { onResumes: false } });
+    const file = JSON.parse(JSON.stringify(await buildExport(prisma(), { now })));
+    const before = await prisma().certification.findMany();
+    await importExport(prisma(), exportSchema.parse(file));
+    expect(await prisma().certification.findMany()).toEqual(before);
+
+    const parsed = parseExport(JSON.stringify({ ...file, schemaVersion: 7, profile: { ...file.profile, certifications: undefined } }));
+    expect(parsed).toMatchObject({ ok: true, data: { schemaVersion: 7, profile: { certifications: [] } } });
+    if (!parsed.ok) return;
+    await importExport(prisma(), parsed.data);
+    expect(await prisma().certification.count()).toBe(0);
+  });
+
   it("restores the line about each role's company, and reads files from before it with none (#257)", async () => {
     const file = JSON.parse(JSON.stringify(await buildExport(prisma(), { now })));
     const lines = async () => (await prisma().experience.findMany({ orderBy: { sort: "asc" } })).map((entry) => entry.descriptor);
@@ -281,6 +310,23 @@ describe("importExport (E10-6)", () => {
     if (!parsed.ok) throw new Error(parsed.error);
     await importExport(prisma(), parsed.data);
     expect(await lines()).toEqual(before.map(() => ""));
+  });
+
+  it("restores which roles are volunteering, and reads files from before it with paid roles only (#294)", async () => {
+    const [first] = await prisma().experience.findMany({ orderBy: { sort: "asc" } });
+    await prisma().experience.update({ where: { id: first.id }, data: { volunteering: true } });
+    const file = JSON.parse(JSON.stringify(await buildExport(prisma(), { now })));
+    const marks = async () => (await prisma().experience.findMany({ orderBy: { sort: "asc" } })).map((entry) => entry.volunteering);
+    const before = await marks();
+    expect(before.filter(Boolean)).toHaveLength(1);
+    await importExport(prisma(), exportSchema.parse(file));
+    expect(await marks()).toEqual(before);
+
+    const experience = file.profile.experience.map((entry: object) => ({ ...entry, volunteering: undefined }));
+    const parsed = parseExport(JSON.stringify({ ...file, schemaVersion: 7, profile: { ...file.profile, experience } }));
+    if (!parsed.ok) throw new Error(parsed.error);
+    await importExport(prisma(), parsed.data);
+    expect(await marks()).toEqual(before.map(() => false));
   });
 
   it("restores the photo, the themes' photo options and each application's Photo switch, and reads older files with the defaults (#224)", async () => {
@@ -305,6 +351,18 @@ describe("importExport (E10-6)", () => {
     await importExport(prisma(), exportSchema.parse(older));
     expect(await prisma().theme.findUniqueOrThrow({ where: { id: "mine" } })).toMatchObject({ photoShape: "CIRCLE", photoPosition: "HEADER_END" });
     expect(await prisma().application.findFirstOrThrow({ where: { company: "Ledgerly" } })).toMatchObject({ showPhoto: null });
+  });
+
+  it("restores the board's order, and reads older files as newest first (public issue 60)", async () => {
+    await prisma().application.updateMany({ where: { company: "Ledgerly" }, data: { boardSort: 4 } });
+    const file = JSON.parse(JSON.stringify(await buildExport(prisma(), { now })));
+
+    await importExport(prisma(), exportSchema.parse(file));
+    expect(await prisma().application.findFirstOrThrow({ where: { company: "Ledgerly" } })).toMatchObject({ boardSort: 4 });
+
+    const older = { ...file, applications: file.applications.map((application: object) => ({ ...application, boardSort: undefined })) };
+    await importExport(prisma(), exportSchema.parse(older));
+    expect(await prisma().application.findFirstOrThrow({ where: { company: "Ledgerly" } })).toMatchObject({ boardSort: null });
   });
 
   it("reads files from before facts, with an application's note as its first fact (PRO-14, APP-15)", async () => {

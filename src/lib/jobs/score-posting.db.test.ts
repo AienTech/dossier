@@ -6,7 +6,7 @@ import { createTestClient, resetDatabase } from "@/test/db";
 
 import { MockProvider } from "../ai/providers/mock";
 
-import { scoreJobKey, scorePostingJob } from "./score-posting";
+import { scoreJobKey, scorePastedPostingJob, scorePostingJob } from "./score-posting";
 
 const db = vi.hoisted(() => ({ client: undefined as ReturnType<typeof createTestClient> | undefined }));
 vi.mock("@/lib/prisma", async () => {
@@ -87,5 +87,20 @@ describe("Score in Find jobs (#208)", () => {
 
   it("keys a posting's scoring, so a second click follows the first", () => {
     expect(scoreJobKey(posting)).toBe("posting-score:ADZUNA:az-1");
+  });
+});
+
+describe("scorePastedPostingJob (public issue 66)", () => {
+  it("scores a pasted posting with the details as read, and keeps nothing", async () => {
+    fake.sent = [];
+    const run = context();
+    const result = await scorePastedPostingJob.run(
+      { posting: "Harbour Freight is hiring a Product Designer in Rotterdam. Dutch required.", title: "Product Designer", company: "Harbour Freight", location: "Rotterdam", mode: "Hybrid, 2 days remote", salary: "" },
+      run,
+    );
+    expect(result).toEqual({ score: 78, reasons: ["Built a design system at Northwind."], redFlags: ["Dutch is required."] });
+    expect(fake.sent[0]).toContain("Harbour Freight is hiring a Product Designer");
+    expect(run.steps).toEqual(["Scoring it against your profile"]);
+    expect(await prisma().postingScore.count()).toBe(0);
   });
 });

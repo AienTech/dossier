@@ -1,6 +1,6 @@
 import type { Extracted, Unit } from "@/lib/application-data";
 import { citationText } from "@/lib/citation";
-import { experienceMonths, formatDateRange, languageLevelLabel, type ProfileData } from "@/lib/profile";
+import { experienceMonths, formatDateRange, formatMonthYear, languageLevelLabel, type ProfileData } from "@/lib/profile";
 
 // The fact guard (E6-6, PRD §7, §12 "zero invented facts"): after each
 // generation, the names, numbers, percentages, years and credentials in the
@@ -55,7 +55,7 @@ export function factSources(parts: string[]): FactSources {
   const text = parts.join("\n").toLowerCase();
   return {
     text,
-    words: new Set(text.match(/[\p{L}\p{N}][\p{L}\p{N}&'’.+#-]*/gu)?.map((word) => word.replace(/[.'’]+$/, "")) ?? []),
+    words: new Set(text.match(/[\p{L}\p{N}][\p{L}\p{N}&'’.+#-]*/gu)?.map((word) => trimEnd(word, ".'’")) ?? []),
     numbers: new Set(numbersIn(text).map((number) => number.value)),
   };
 }
@@ -70,8 +70,20 @@ export function sourcesFor(profile: ProfileData, extracted: Extracted | null, po
     ...profile.experience.flatMap((entry) => [entry.role, entry.company, entry.location, entry.descriptor, formatDateRange(entry), entry.bullets]),
     ...profile.projects.flatMap((entry) => [entry.name, entry.link, formatDateRange(entry), entry.bullets]),
     ...profile.education.flatMap((entry) => [entry.degree, entry.school, formatDateRange(entry), entry.notes]),
+    // So does what they're certified in, by whom and when (#293).
+    ...profile.certifications.flatMap((entry) => [
+      entry.name,
+      entry.issuer,
+      formatMonthYear(entry.year, entry.month),
+      formatMonthYear(entry.expiryYear, entry.expiryMonth),
+    ]),
     // The candidate's own citations back what's said about their work (#218).
     ...profile.publications.map((entry) => citationText(entry.citation)),
+    // So do the sections they made (#298).
+    ...profile.customSections.flatMap((section) => [
+      section.title,
+      ...section.items.flatMap((item) => [citationText(item.title), item.subtitle, formatDateRange(item), item.details]),
+    ]),
     ...profile.references.flatMap((reference) => [reference.name, reference.relation, reference.company]),
     // What the candidate says about themselves backs claims like the rest (PRO-14).
     ...profile.facts.map((fact) => fact.text),
@@ -80,6 +92,13 @@ export function sourcesFor(profile: ProfileData, extracted: Extracted | null, po
     experienceYears === undefined ? "" : String(experienceYears),
   ];
   return factSources(parts);
+}
+
+/** `word` without any of `marks` at its end: a loop, as a pattern would be slow on a long run of them inside a word. */
+function trimEnd(word: string, marks: string): string {
+  let end = word.length;
+  while (end > 0 && marks.includes(word[end - 1])) end--;
+  return word.slice(0, end);
 }
 
 /** Where sentences start: capitals there are grammar, not names. */
@@ -103,7 +122,7 @@ export function unverifiedFacts(text: string, sources: FactSources): string[] {
   // Names: capitalised words that don't start a sentence, and acronyms anywhere.
   const starts = sentenceStarts(text);
   for (const match of text.matchAll(/[\p{Lu}][\p{L}\p{N}&'’+#-]*/gu)) {
-    const word = match[0].replace(/['’]s$/, "").replace(/[-'’]+$/, "");
+    const word = trimEnd(match[0].replace(/['’]s$/, ""), "-'’");
     const lower = word.toLowerCase();
     // Two capitals or more (PhD, MBA, UX) mark an acronym or credential, even at a sentence's start.
     const acronym = (word.match(/\p{Lu}/gu)?.length ?? 0) >= 2;

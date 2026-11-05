@@ -204,4 +204,24 @@ describe("scoreWithJev", () => {
     expect(body.questions.line0Kind.instructions.line).toBe("Ledgerly makes accounting software.");
     expect(body.questions.line3Shown.instructions.line).toBe("Dutch is a plus");
   });
+
+  it("passes on the input tokens TypeSafe reports, the only ones it does (#290)", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      Response.json({
+        model: "jev-1.14.0",
+        answers: answersFor([
+          { kind: "other", shown: 0.9 },
+          { kind: "required", shown: 0.9 },
+          { kind: "required", shown: 0.9 },
+          { kind: "preferred", shown: 0.1 },
+        ]),
+        usage: { input_tokens: 2_400 },
+      }),
+    );
+    const onUsage = vi.fn();
+    await scoreWithJev(posting, profile, { key: "ts-key", fetchImpl, baseUrl: "https://typesafe.test", onUsage });
+    expect(onUsage).toHaveBeenCalledWith({ task: "score-posting-jev", provider: "JEV", model: "jev-1.14.0", input: 2_400, output: null });
+    // Nor does it get them, as TypeSafe's own options.
+    expect(JSON.parse(String(fetchImpl.mock.calls[0][1]?.body))).not.toHaveProperty("onUsage");
+  });
 });

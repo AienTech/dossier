@@ -1,8 +1,11 @@
 name: Release
 
-# A version tag (v1.0.0) releases the image CI built for that commit: it's
+# A version tag (v1.0.0) releases the image that image.yml built for that commit: it's
 # tagged with the version and "latest" on GHCR, and a GitHub release is made
-# with the tag's message as its notes.
+# with the tag's message as its notes. The desktop app's downloads for Linux
+# and Windows are built from the same commit and attached to it. The release
+# stays a draft until they are: the update notice reads the latest release,
+# which skips drafts, so it never points anyone at a release without them.
 
 on:
   push:
@@ -33,7 +36,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # CI builds it once the checks pass on main, which takes a while when
+      # image.yml builds it once the checks pass on main, which takes a while when
       # the tag is pushed together with its commit.
       - name: Wait for the commit's image
         run: |
@@ -41,13 +44,14 @@ jobs:
             if docker buildx imagetools inspect "$IMAGE:$GITHUB_SHA" > /dev/null 2>&1; then exit 0; fi
             sleep 60
           done
-          echo "::error::There's no image for $GITHUB_SHA on GHCR after 80 minutes. Check this commit's CI run, then re-run this workflow."
+          echo "::error::There's no image for $GITHUB_SHA on GHCR after 80 minutes. Check this commit's Image run, then re-run this workflow."
           exit 1
 
+      # Both platforms (amd64 and arm64): the commit's tag is one for both.
       - name: Tag it with the version
         run: docker buildx imagetools create --tag "$IMAGE:$GITHUB_REF_NAME" --tag "$IMAGE:latest" "$IMAGE:$GITHUB_SHA"
 
-      - name: Create the GitHub release
+      - name: Create the GitHub release, as a draft
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -55,4 +59,88 @@ jobs:
           object=$(gh api "repos/$GH_REPO/git/ref/tags/$GITHUB_REF_NAME" --jq 'select(.object.type == "tag") | .object.sha')
           notes=""
           if [ -n "$object" ]; then notes=$(gh api "repos/$GH_REPO/git/tags/$object" --jq .message); fi
-          gh release create "$GITHUB_REF_NAME" --verify-tag --title "Dossier ${GITHUB_REF_NAME#v}" --notes "${notes:-Dossier ${GITHUB_REF_NAME#v}}"
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "Dossier ${GITHUB_REF_NAME#v}" --notes "${notes:-Dossier ${GITHUB_REF_NAME#v}}"
+
+  desktop:
+    name: Desktop app
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      NEXT_TELEMETRY_DISABLED: "1"
+      BUILDER: electronuserland/builder:wine@sha256:f3a8d451994c881d0972e7b1846ee4d4fdc15eb41fc6b1f350b38cbf99ca90fe
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: corepack enable
+
+      - name: The app's version is the release's
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for file in package.json desktop/package.json; do
+            actual=$(node -p "require('./$file').version")
+            [ "$actual" = "$version" ] || { echo "::error file=$file::$file says $actual, not $version."; exit 1; }
+          done
+
+      # Dossier itself, built as for the image: what "On this computer" runs.
+      - run: yarn install --immutable
+      - run: yarn generate
+      - run: yarn build
+      - name: The database setup, as one file
+        run: |
+          node_modules/.bin/esbuild prisma/seed.ts --bundle --platform=node --format=esm --target=node24 \
+            --external:pg-native --external:better-sqlite3 --outfile=.next/desktop-seed.mjs \
+            --banner:js='import { createRequire } from "node:module"; const require = createRequire(import.meta.url);'
+      - name: Hand it to the desktop app
+        run: |
+          mkdir -p desktop/build-input
+          cp -R .next/standalone desktop/build-input/standalone
+          # Next.js copies .env files into its standalone folder.
+          rm -f desktop/build-input/standalone/.env*
+          cp -R .next/static desktop/build-input/static
+          cp .next/desktop-seed.mjs desktop/build-input/desktop-seed.mjs
+
+      - run: yarn install --immutable
+        working-directory: desktop
+      - run: yarn build
+        working-directory: desktop
+
+      # Both are packed in electron-builder's own image, pinned: the tools for the
+      # .deb, and Wine for the Windows installer, are in it.
+      - name: Linux (AppImage and .deb)
+        run: |
+          (cd desktop && yarn prepare-server --next build-input --seed build-input/desktop-seed.mjs --platform linux)
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp/home -v "$PWD:/repo" -w /repo/desktop "$BUILDER" \
+            sh -c 'mkdir -p /tmp/home && node node_modules/electron-builder/cli.js --linux --x64 --publish never'
+
+      - name: Windows (installer)
+        run: |
+          (cd desktop && yarn prepare-server --next build-input --seed build-input/desktop-seed.mjs --platform win32)
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp/home -v "$PWD:/repo" -w /repo/desktop "$BUILDER" \
+            sh -c 'mkdir -p /tmp/home && node node_modules/electron-builder/cli.js --win --x64 --publish never'
+
+      - name: Checksums
+        working-directory: desktop/release
+        run: |
+          ls -l Dossier-*
+          sha256sum Dossier-*.AppImage Dossier-*.deb Dossier-*.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Attach them, and publish the release
+        working-directory: desktop/release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" Dossier-*.AppImage Dossier-*.deb Dossier-*.exe SHA256SUMS.txt --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+
+      - name: Say what's left when it fails
+        if: failure()
+        run: echo "::error::The desktop app's downloads failed, so the release $GITHUB_REF_NAME is still a draft and the update notice doesn't offer it yet. The image is released. Fix the build and re-run this job, or publish the draft from the Releases page without downloads."

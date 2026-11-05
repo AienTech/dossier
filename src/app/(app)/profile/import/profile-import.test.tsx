@@ -44,6 +44,7 @@ const profile: ImportedProfile = {
       company: "Acme Payments",
       location: "Utrecht",
       descriptor: "Payouts for online marketplaces",
+      volunteering: false,
       bullets: "Led the redesign\nSet up the design system",
       skills: ["Figma"],
       startYear: 2021,
@@ -56,6 +57,7 @@ const profile: ImportedProfile = {
   ],
   projects: [],
   education: [],
+  certifications: [],
   publications: [],
   references: [],
 };

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
 
+import { FitDetails } from "@/components/fit-details";
 import { ScoreBadge } from "@/components/score-badge";
 import { linksAttribution, SourceAttribution } from "@/components/source-attribution";
 import { toast, toastResult } from "@/components/toast";
@@ -10,7 +11,7 @@ import { Button, buttonClassName } from "@/components/ui/button";
 import { useJob } from "@/hooks/use-job";
 import { openPendingTab, sendPendingTab } from "@/lib/claude-tab";
 import { cn } from "@/lib/cn";
-import { fitBand, type PostingFit } from "@/lib/fit";
+import type { PostingFit } from "@/lib/fit";
 import type { JobView } from "@/lib/jobs/runner";
 import { postedAgo, postingKey, type FoundPosting, type PostingState, type ShownPosting, type StoredSearch } from "@/lib/job-search/search";
 import { arbeitsagenturPage, SOURCE_INFO } from "@/lib/job-search/sources";
@@ -392,36 +393,6 @@ function StateBadges({ state }: { state: PostingState }) {
   );
 }
 
-/** A posting's score (#208): its band, why it fits, and what gives pause. */
-function Fit({ fit }: { fit: PostingFit }) {
-  return (
-    <div className="flex items-start gap-3.5 rounded-card border border-line-card bg-paper px-4 py-3.5">
-      <ScoreBadge score={fit.score} />
-      <div className="flex min-w-0 flex-col gap-1.5 text-sm">
-        <p className="font-medium">
-          {fitBand(fit.score)} · {fit.score} of 100
-        </p>
-        {fit.reasons.length > 0 && (
-          <ul aria-label="Why it fits" className="flex list-disc flex-col gap-0.5 pl-5 text-muted">
-            {fit.reasons.map((reason, index) => (
-              <li key={index}>{reason}</li>
-            ))}
-          </ul>
-        )}
-        {fit.redFlags.length > 0 && (
-          <div className="text-meta text-warning">
-            <p className="font-medium">Worth knowing</p>
-            <ul className="flex list-disc flex-col gap-0.5 pl-5">
-              {fit.redFlags.map((flag, index) => (
-                <li key={index}>{flag}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 type Text = { status: "ready"; text: string } | { status: "loading" } | { status: "partial"; text: string };
 
@@ -538,7 +509,7 @@ function PostingDetail({
           {scoring.step ?? "Starting…"}
         </p>
       ) : (
-        state.score && <Fit fit={state.score} />
+        state.score && <FitDetails fit={state.score} />
       )}
 
       {/* Only the text scrolls, so the title and actions stay in view; focusable, so it scrolls from the keyboard too. */}

@@ -108,6 +108,8 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
         tx.profileField.deleteMany(),
         tx.language.deleteMany(),
         tx.education.deleteMany(),
+        tx.certification.deleteMany(),
+        tx.customSection.deleteMany(),
         tx.publication.deleteMany(),
         tx.reference.deleteMany(),
         tx.fact.deleteMany(),
@@ -128,6 +130,9 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
         data: profile.projects.flatMap((entry) => [...new Set(entry.skillIds)].map((skillId) => ({ projectId: entry.id, skillId }))),
       });
       await tx.education.createMany({ data: profile.education });
+      await tx.certification.createMany({ data: profile.certifications });
+      await tx.customSection.createMany({ data: profile.customSections.map((section) => omit(section, "items")) });
+      await tx.customItem.createMany({ data: profile.customSections.flatMap((section) => section.items.map((item) => ({ ...item, sectionId: section.id }))) });
       await tx.publication.createMany({ data: profile.publications });
       await tx.reference.createMany({ data: profile.references });
       await tx.fact.createMany({ data: profile.facts });
@@ -141,6 +146,8 @@ export async function importExport(db: PrismaClient, data: DossierExport): Promi
           ...omit(application, "events", "documents", "messages", "notes", "facts", "userNote"),
           extracted: json(application.extracted),
           match: json(application.match),
+          sections: json(application.sections),
+          frozen: json(application.frozen),
         })),
       });
       await tx.statusEvent.createMany({

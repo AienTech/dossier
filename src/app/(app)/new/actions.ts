@@ -8,6 +8,7 @@ import { createApplicationFromDocuments } from "@/lib/application-create";
 import { matchSchema } from "@/lib/application-data";
 import { handOffPastedPosting } from "@/lib/connector/handoff";
 import { readPostingJob } from "@/lib/jobs/read-posting";
+import { scorePastedPostingJob } from "@/lib/jobs/score-posting";
 import { startJob } from "@/lib/jobs/runner";
 import { writeDocumentsJob } from "@/lib/jobs/write-documents";
 import { fetchPosting } from "@/lib/posting-fetch";
@@ -42,6 +43,12 @@ const detailsSchema = z.object({
   salary: z.string().trim().max(200),
   deadline: z.union([z.literal(""), z.iso.date()]),
 });
+
+/** "Score it" in the review (public issue 66): how well the posting fits, with reasons, in the background. */
+export const startScoringPosting = action(
+  z.object({ posting: z.string().trim().min(1).max(100_000), details: detailsSchema.pick({ title: true, company: true, location: true, mode: true, salary: true }) }),
+  ({ posting, details }) => startJob(scorePastedPostingJob, { posting, ...details }),
+);
 
 const STALE = "That reading of the posting is no longer available. Read the posting again.";
 

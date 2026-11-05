@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import { AiProvider, Creativity, DateFormat, PaperSize, Tone } from "@/generated/prisma/enums";
+import { announcementFeedSchema } from "@/lib/announcements/contract";
 import { EMPTY_QUERY, JOB_SOURCES, JSEARCH_HOSTS, searchQuerySchema } from "@/lib/job-search/search";
+import { DEFAULT_SECTION_LAYOUT, sectionLayoutSchema } from "@/lib/resume-sections";
+import { setupGuideSchema } from "@/lib/setup-guide";
 import { SCORERS } from "@/lib/scoring/scorers";
 import { startupsRefreshSchema } from "@/lib/startups/types";
 
@@ -140,9 +143,17 @@ export const settingsSchema = z.object({
   /** Days without news before "Worth a look" suggests a follow-up (E9-9). */
   quietDays: z.coerce.number().int().min(1).max(60).catch(7),
   /** Experience, projects and education: newest first by date, or the order set by hand (E4-9). */
+  /** Skills (public issue 62): the most relevant first on tailored resumes, until the user sets their own order, which is then kept. */
+  skillOrder: z.enum(["relevance", "manual"]).catch("relevance"),
   experienceOrder: z.enum(["date", "manual"]).catch("date"),
   projectOrder: z.enum(["date", "manual"]).catch("date"),
   educationOrder: z.enum(["date", "manual"]).catch("date"),
+  /** Where the setup guide was left (E21); null until it's first opened. */
+  setupGuide: json(setupGuideSchema).nullable().catch(null),
+  /** The base resume's sections: their order and which are off (#297). */
+  resumeSections: json(sectionLayoutSchema).catch(DEFAULT_SECTION_LAYOUT),
+  /** "Fit to one page" on the base resume (public issue 69): spacing, then type, tightened until it fits. */
+  fitBaseResume: flag(false),
   /** Why the last nightly backup failed; null once one works again (E10-7). */
   backupProblem: z.string().nullable().catch(null),
   // Job search (E14-4). Null means "not set in the app": DOSSIER_JOBS_SOURCE
@@ -191,6 +202,11 @@ export const settingsSchema = z.object({
   latestVersionUrl: z.string().nullable().catch(null),
   updateCheckDay: z.string().nullable().catch(null),
   updateDismissed: z.string().nullable().catch(null),
+  // The backend's notices (announcements/check.ts): its last answer, and the
+  // ones dismissed here. They belong to the install, not its data, so exports
+  // leave them out (INSTALL_SETTINGS).
+  announcementFeed: json(announcementFeedSchema).nullable().catch(null),
+  announcementsDismissed: stringList.catch([]),
   // Gmail and Calendar (E15). Off until the Google account is connected.
   // The OAuth client, entered in Settings → Google. Null means "not set in the
   // app": DOSSIER_GOOGLE_CLIENT_ID and DOSSIER_GOOGLE_CLIENT_SECRET decide.

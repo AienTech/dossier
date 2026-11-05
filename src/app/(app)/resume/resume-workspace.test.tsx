@@ -1,18 +1,20 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { toast } from "@/components/toast";
 import type { ActionResult } from "@/lib/action";
 import { demoProfile } from "@/lib/demo-profile";
+import { DEFAULT_SECTION_LAYOUT } from "@/lib/resume-sections";
 import { BUILT_IN_THEMES } from "@/lib/themes";
 
 import { themeFile } from "@/lib/theme-file";
 
-import { deleteTheme, duplicateTheme, importTheme, saveTheme, setBaseTheme } from "./actions";
+import { deleteTheme, duplicateTheme, importTheme, saveResumeSections, saveTheme, setBaseTheme, setFitBaseResume } from "./actions";
 import { ResumeWorkspace, type ResumeWorkspaceProps } from "./resume-workspace";
 
-vi.mock("./actions", () => ({ setBaseTheme: vi.fn(), saveTheme: vi.fn(), duplicateTheme: vi.fn(), deleteTheme: vi.fn(), importTheme: vi.fn() }));
+vi.mock("./actions", () => ({ setBaseTheme: vi.fn(), saveTheme: vi.fn(), duplicateTheme: vi.fn(), deleteTheme: vi.fn(), importTheme: vi.fn(), saveResumeSections: vi.fn(), setFitBaseResume: vi.fn() }));
+vi.mock("next/navigation", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/navigation")>()), useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/components/toast", () => {
   const toast = vi.fn();
   return {
@@ -34,6 +36,8 @@ const props: ResumeWorkspaceProps = {
   includeReferences: false,
   maxPages: 1,
   language: null,
+  sections: DEFAULT_SECTION_LAYOUT,
+  fitToPage: false,
 };
 
 /** The theme name above the preview, next to "A4 · 1 page". */
@@ -42,7 +46,42 @@ const previewLabel = () => screen.getByText(/ · \d+ pages?$/).previousElementSi
 describe("ResumeWorkspace", () => {
   beforeEach(() => {
     vi.mocked(setBaseTheme).mockReset().mockResolvedValue({ ok: true, data: null });
+    vi.mocked(saveResumeSections).mockReset().mockResolvedValue({ ok: true, data: null });
     vi.mocked(toast).mockReset();
+  });
+
+  describe("the Sections tab (#297)", () => {
+    const single = { ...props, baseThemeId: "editorial" };
+    const titles = () => within(screen.getByRole("article", { name: "Resume" })).getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
+
+    it("moves a section, shows it in the preview and saves it", async () => {
+      render(<ResumeWorkspace {...single} initialPanel="sections" />);
+      await userEvent.click(screen.getByRole("button", { name: "Move “Projects” up" }));
+      expect(titles().indexOf("Projects")).toBeLessThan(titles().indexOf("Experience"));
+      expect(saveResumeSections).toHaveBeenCalledWith(expect.objectContaining({ off: [] }));
+    });
+
+    it("removes a section, keeps it listed and puts it back", async () => {
+      render(<ResumeWorkspace {...single} initialPanel="sections" />);
+      await userEvent.click(screen.getByRole("button", { name: "Remove Projects" }));
+      expect(titles()).not.toContain("Projects");
+      await userEvent.click(screen.getByRole("button", { name: "Put back Projects" }));
+      expect(titles()).toContain("Projects");
+    });
+
+    it("goes back to what was saved when saving fails", async () => {
+      vi.mocked(saveResumeSections).mockResolvedValue({ ok: false, error: "No." });
+      render(<ResumeWorkspace {...single} initialPanel="sections" />);
+      await userEvent.click(screen.getByRole("button", { name: "Remove Projects" }));
+      expect(await screen.findByRole("button", { name: "Remove Projects" })).toBeInTheDocument();
+      expect(toast).toHaveBeenCalledWith("No.");
+    });
+
+    it("lists a sidebar's sections apart in a sidebar theme", () => {
+      render(<ResumeWorkspace {...props} initialPanel="sections" />);
+      expect(screen.getByText("Sidebar")).toBeInTheDocument();
+      expect(screen.getByText("Main column")).toBeInTheDocument();
+    });
   });
 
   it("has the header, its actions and the preview in the base theme (RES-1)", () => {
@@ -205,3 +244,24 @@ describe("managing themes (E5-7)", () => {
   });
 });
 
+describe("Fit to one page (public issue 69)", () => {
+  it("saves the choice at once, and says what it does", async () => {
+    const user = userEvent.setup();
+    vi.mocked(setFitBaseResume).mockResolvedValue({ ok: true, data: null });
+    render(<ResumeWorkspace {...props} />);
+    const toggle = screen.getByRole("switch", { name: "Fit to one page" });
+    expect(toggle).toHaveAccessibleDescription("Off. The resume takes the pages it needs.");
+    await user.click(toggle);
+    expect(setFitBaseResume).toHaveBeenCalledWith({ fit: true });
+    // jsdom lays nothing out, so the preview counts one page and nothing is squeezed.
+    expect(toggle).toHaveAccessibleDescription("On. It fits as it is.");
+  });
+
+  it("switches back when the choice isn't saved", async () => {
+    const user = userEvent.setup();
+    vi.mocked(setFitBaseResume).mockResolvedValue({ ok: false, error: "Something went wrong on the server. Please try again." });
+    render(<ResumeWorkspace {...props} />);
+    await user.click(screen.getByRole("switch", { name: "Fit to one page" }));
+    await waitFor(() => expect(screen.getByRole("switch", { name: "Fit to one page" })).toHaveAttribute("aria-checked", "false"));
+  });
+});

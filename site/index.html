@@ -445,6 +445,7 @@
           <p class="eyebrow">Install</p>
           <h2 class="display" id="install-title">Running in three steps.</h2>
           <p class="section__lede">All you need is <a href="https://docs.docker.com/desktop/">Docker Desktop</a> on macOS or Windows, or Docker Engine with its Compose plugin on Linux, and about 2 GB of free memory.</p>
+          <p class="section__lede">Or skip all that: <a href="https://github.com/AienTech/dossier/releases/latest">download the desktop app</a> for Windows or Linux, which runs Dossier on your computer with nothing else to install (<a href="https://github.com/AienTech/dossier/wiki/Desktop-app">how it works</a>).</p>
         </header>
 
         <div class="install reveal" data-tabs>
@@ -464,12 +465,11 @@
 <span class="c-mute">$</span> echo "DOSSIER_SECRET=$(openssl rand -base64 32)" &gt;&gt; .env</code></pre>
                   <button class="copy" type="button" data-copy><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
                 </div>
-                <p class="note">On an Apple Silicon Mac, also run <code>printf 'services:\n  app:\n    platform: linux/amd64\n' &gt; compose.override.yml</code>: the image is built for Intel and AMD processors, and Docker Desktop runs it under emulation.</p>
               </li>
               <li>
                 <h3>Choose your password.</h3>
                 <div class="code" data-code>
-                  <pre><code><span class="c-mute">$</span> docker run --rm -it --platform linux/amd64 ghcr.io/aientech/dossier hash-password</code></pre>
+                  <pre><code><span class="c-mute">$</span> docker run --rm -it ghcr.io/aientech/dossier hash-password</code></pre>
                   <button class="copy" type="button" data-copy><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy</span></button>
                 </div>
                 <p class="note">It asks for the password twice and prints a line that starts with <code>argon2id:</code>. Add it to <code>.env</code> as <code>DOSSIER_PASSWORD=argon2id:…</code>. Dossier only keeps the hash, never the password.</p>

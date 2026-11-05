@@ -24,6 +24,12 @@ function problems(source: Record<string, string | undefined>): string[] {
 }
 
 describe("parseEnv", () => {
+  it("reads DOSSIER_API_URL without its trailing slash, and only an http or https address", () => {
+    expect(parseEnv(valid).DOSSIER_API_URL).toBeUndefined();
+    expect(parseEnv({ ...valid, DOSSIER_API_URL: "http://api.localhost:3000/v1/" }).DOSSIER_API_URL).toBe("http://api.localhost:3000/v1");
+    expect(problems({ ...valid, DOSSIER_API_URL: "ftp://example.com" })).toEqual(["DOSSIER_API_URL must be an http:// or https:// URL."]);
+  });
+
   it("accepts the required variables and fills in defaults", () => {
     expect(parseEnv(valid)).toEqual({
       ...valid,

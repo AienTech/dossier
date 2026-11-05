@@ -157,6 +157,7 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
         company: "Acme Payments",
         location: "Utrecht",
         descriptor: "Payouts for online marketplaces, 60 people",
+        volunteering: false,
         startYear: 2021,
         startMonth: 3,
         endYear: null,
@@ -168,6 +169,7 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
     ],
     projects: [],
     education: [],
+    certifications: [],
     publications: [],
     references: [],
   }),
@@ -179,6 +181,7 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
     summary: "Invites you to a 45-minute call next week and asks about your notice period.",
     questions: ["Which times would work for you?", "What is your notice period?"],
     confirmedTime: null,
+    unrelated: false,
   }),
 
   reply_draft: (messages) => {
@@ -230,7 +233,8 @@ createServer((request, response) => {
           created: Math.floor(Date.now() / 1000),
           model: "fake-model",
           choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(answer(body.messages)) }, finish_reason: "stop" }],
-          usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+          // The same for every answer, for the Usage screen to add up (#290).
+          usage: { prompt_tokens: 1200, completion_tokens: 300, total_tokens: 1500 },
         });
       } catch (error) {
         send(500, { error: { message: String(error) } });

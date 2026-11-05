@@ -7,8 +7,12 @@ import { Prisma } from "@/generated/prisma/client";
 import { ChatRole, DocumentKind, VersionCause } from "@/generated/prisma/enums";
 import { action, ActionError } from "@/lib/action";
 import { isAiConfigured } from "@/lib/ai/config";
+import { profileUnits } from "@/lib/ai/tasks/tailor-resume";
 import { editsSchema, extractedSchema, matchSchema, trimmedSchema, unitsSchema, withSkillAdded } from "@/lib/application-data";
+import { loadDocuments, readJson } from "@/lib/application-documents";
 import { WRITTEN_EMAIL_UNITS } from "@/lib/application-email";
+import { documentLabels } from "@/lib/document-labels";
+import { frozenCopySchema, frozenProfile, readFrozenCopy, withSectionFromProfile } from "@/lib/frozen-copy";
 import { updateDocuments } from "@/lib/document-units";
 import { DOCUMENT_LABELS } from "@/lib/file-name";
 import { syncInterviewToCalendar } from "@/lib/google/availability";
@@ -20,8 +24,13 @@ import { regenerateUnitJob, unitJobKey } from "@/lib/jobs/regenerate-unit";
 import { findUnfinishedJobs, startJob } from "@/lib/jobs/runner";
 import { emailJobKey, writeEmailJob } from "@/lib/jobs/write-email";
 import { prisma } from "@/lib/prisma";
+import { loadProfile } from "@/lib/profile-data";
 import { findOrCreateSkill } from "@/lib/profile-entries";
-import { cleanUnitText, isPublicationUnit, unitName } from "@/lib/unit-text";
+import { profileUpdate } from "@/lib/profile-update";
+import { sectionLayoutSchema, sectionOfUnit } from "@/lib/resume-sections";
+import { loadSettings } from "@/lib/settings-data";
+import { THEME_FIELDS } from "@/lib/theme-data";
+import { cleanUnitText, isPublicationUnit, isVerbatimUnit, unitName } from "@/lib/unit-text";
 
 const GONE = "That application no longer exists.";
 const PART_GONE = "That part of the document no longer exists. Reload the page to see what's there now.";
@@ -47,6 +56,119 @@ export const setShowPhoto = action(z.object({ id: z.string().min(1), show: z.boo
   return null;
 });
 
+/** The Sections menu (#297): this resume's own order and which sections are on it. */
+export const setApplicationSections = action(z.object({ id: z.string().min(1), order: sectionLayoutSchema.shape.order, off: sectionLayoutSchema.shape.off, titles: sectionLayoutSchema.shape.titles }), async ({ id, order, off, titles }) => {
+  const application = await prisma.application.findUnique({ where: { id }, select: { sections: true } });
+  if (!application) throw new ActionError(GONE);
+  const withReferences = readJson(sectionLayoutSchema, application.sections)?.withReferences;
+  await prisma.application.update({ where: { id }, data: { sections: { order, off, ...(titles ? { titles } : {}), ...(withReferences ? { withReferences } : {}) } } });
+  refresh(id);
+  return null;
+});
+
+/** "Use the base resume's order": a draft follows the base resume again; one that was sent takes its order as it is now, once. */
+export const followBaseSections = action(z.object({ id: z.string().min(1) }), async ({ id }) => {
+  const application = await prisma.application.findUnique({ where: { id }, select: { frozen: true } });
+  if (!application) throw new ActionError(GONE);
+  const sections = application.frozen === null ? Prisma.DbNull : (await loadSettings()).resumeSections;
+  await prisma.application.update({ where: { id }, data: { sections } });
+  refresh(id);
+  return null;
+});
+
+/**
+ * "Add" on the Sections menu (#297): puts a section from the profile on this
+ * resume, in the profile's own words. Nothing else ever does: a resume only
+ * holds what it was written with and what's added here.
+ */
+export const addApplicationSection = action(z.object({ id: z.string().min(1), key: z.string().min(1) }), async ({ id, key }) => {
+  const [application, profile, settings] = await Promise.all([
+    prisma.application.findUnique({ where: { id }, select: { sections: true, language: true, frozen: true } }),
+    loadProfile(),
+    loadSettings(),
+  ]);
+  if (!application) throw new ActionError(GONE);
+
+  const fresh = profileUnits(profile, documentLabels(application.language)).filter((unit) => sectionOfUnit(unit.id, profile) === key);
+  const added = new Set(fresh.map((unit) => unit.id));
+  const copy = readFrozenCopy(application.frozen);
+  await updateDocuments(id, async (documents, tx) => {
+    const units = documents[DocumentKind.RESUME];
+    if (!units) throw new ActionError(PART_GONE);
+    // A sent resume is drawn from its copy, so the section has to reach that too (#299). Taking one back on that it still holds changes nothing.
+    const holdsIt = copy !== null && units.some((unit) => unit.text.trim() && sectionOfUnit(unit.id, frozenProfile(copy, profile)) === key);
+    if (copy && !holdsIt) {
+      await tx.application.update({ where: { id }, data: { frozen: withSectionFromProfile(copy, profile, key) as unknown as Prisma.InputJsonValue } });
+    }
+    for (const unit of fresh) {
+      const index = units.findIndex((entry) => entry.id === unit.id);
+      if (index < 0) units.push(unit);
+      else if (!units[index].text.trim()) units[index] = unit;
+    }
+  });
+  // Back through here, so they're no longer listed as left out. Written after the document itself: updateDocuments checks it wasn't changed meanwhile.
+  const row = await prisma.document.findUniqueOrThrow({ where: { applicationId_kind: { applicationId: id, kind: DocumentKind.RESUME } }, select: { id: true, trimmed: true } });
+  const trimmed = readJson(trimmedSchema, row.trimmed);
+  const rest = trimmed?.filter((cut) => !(cut.kind === "unit" ? added.has(cut.unit.id) : added.has(cut.unitId)));
+  if (trimmed && rest && rest.length !== trimmed.length) {
+    await prisma.document.update({ where: { id: row.id }, data: { trimmed: rest.length > 0 ? rest : Prisma.DbNull } });
+  }
+
+  const own = readJson(sectionLayoutSchema, application.sections);
+  const layout = own ?? settings.resumeSections;
+  if (layout.off.includes(key) || key === "references") {
+    await prisma.application.update({
+      where: { id },
+      data: {
+        sections: {
+          ...layout,
+          off: layout.off.filter((entry) => entry !== key),
+          ...(key === "references" ? { withReferences: true } : {}),
+        },
+      },
+    });
+  }
+  refresh(id);
+  return null;
+});
+
+/**
+ * "Update from profile" (#301): titles, dates, contact details and links as
+ * the profile has them now, with what's new in the sections this resume holds.
+ * Returns what to put back for Undo, or null when there was nothing to update.
+ */
+export const updateFromProfile = action(z.object({ id: z.string().min(1) }), async ({ id }) => {
+  if (!(await prisma.application.count({ where: { id } }))) throw new ActionError(GONE);
+  const { application, liveProfile, resume, includeReferences } = await loadDocuments(id);
+  if (!resume) throw new ActionError(PART_GONE);
+  const copy = readFrozenCopy(application.frozen);
+  const update = profileUpdate({ copy: copy?.profile ?? null, live: liveProfile, units: resume.units, trimmed: resume.trimmed ?? null, language: application.language, includeReferences });
+  if (!update.changed) return null;
+
+  await updateDocuments(id, async (documents, tx) => {
+    documents[DocumentKind.RESUME] = update.units;
+    if (copy && update.copy) await tx.application.update({ where: { id }, data: { frozen: { ...copy, profile: update.copy } as unknown as Prisma.InputJsonValue } });
+  });
+  refresh(id);
+  return { profile: copy?.profile ?? null, units: resume.units };
+});
+
+/** Undo after "Update from profile". */
+export const undoUpdateFromProfile = action(
+  z.object({ id: z.string().min(1), profile: frozenCopySchema.shape.profile.nullable(), units: unitsSchema }),
+  async ({ id, profile, units }) => {
+    const application = await prisma.application.findUnique({ where: { id }, select: { frozen: true } });
+    if (!application) throw new ActionError(GONE);
+    const copy = readFrozenCopy(application.frozen);
+    await updateDocuments(id, async (documents, tx) => {
+      documents[DocumentKind.RESUME] = units;
+      if (copy && profile) await tx.application.update({ where: { id }, data: { frozen: { ...copy, profile } as unknown as Prisma.InputJsonValue } });
+    });
+    refresh(id);
+    return null;
+  },
+);
+
 /**
  * The Theme menu on the Resume and Cover letter tabs (#226, public issue 10):
  * gives the application's resume and cover letter another theme, together.
@@ -56,11 +178,18 @@ export const setApplicationTheme = action(z.object({ id: z.string().min(1), them
   if (!(await prisma.theme.count({ where: { id: themeId } }))) {
     throw new ActionError("That theme doesn't exist anymore. Reload the page to see your themes.");
   }
-  if (!(await prisma.application.count({ where: { id } }))) throw new ActionError(GONE);
+  const application = await prisma.application.findUnique({ where: { id }, select: { frozen: true } });
+  if (!application) throw new ActionError(GONE);
   await prisma.document.updateMany({
     where: { applicationId: id, kind: { in: [DocumentKind.RESUME, DocumentKind.COVER_LETTER] } },
     data: { themeId },
   });
+  // A sent resume is drawn in the theme it was sent with, until it's given another here (#299).
+  const copy = readFrozenCopy(application.frozen);
+  if (copy) {
+    const theme = await prisma.theme.findUniqueOrThrow({ where: { id: themeId }, select: THEME_FIELDS });
+    await prisma.application.update({ where: { id }, data: { frozen: { ...copy, themes: { RESUME: theme, COVER_LETTER: theme } } as unknown as Prisma.InputJsonValue } });
+  }
   refresh(id);
   return null;
 });
@@ -148,9 +277,9 @@ export const startRegenerating = action(
     if ((frame && !WRITTEN_FRAME_UNITS.has(unitId)) || (document === DocumentKind.EMAIL && !WRITTEN_EMAIL_UNITS.has(unitId))) {
       throw new ActionError("This part isn't written by the AI. Edit it instead.");
     }
-    // A publication is the user's own citation (#218).
-    if (document === DocumentKind.RESUME && isPublicationUnit(unitId)) {
-      throw new ActionError("A publication stays as you wrote it. Edit it instead.");
+    // A certification or publication is the user's own (#293, #218).
+    if (document === DocumentKind.RESUME && isVerbatimUnit(unitId)) {
+      throw new ActionError(`A ${isPublicationUnit(unitId) ? "publication" : "certification"} stays as you wrote it. Edit it instead.`);
     }
     if (frame && shown) {
       await updateDocuments(id, async (documents) => {

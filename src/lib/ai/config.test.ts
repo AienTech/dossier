@@ -34,7 +34,7 @@ describe("resolveAiConfig", () => {
     expect(config).toMatchObject({
       provider: "ANTHROPIC",
       baseUrl: "https://api.anthropic.com",
-      model: "claude-sonnet-5",
+      model: "claude-sonnet-5-5",
       apiKey: "sk-env",
       timeoutMs: 90_000,
     });
@@ -44,7 +44,7 @@ describe("resolveAiConfig", () => {
     expect(resolveAiConfig(nothingSaved, { DOSSIER_AI_PROVIDER: "mistral", DOSSIER_AI_KEY: "mk-env" })).toMatchObject({
       provider: "MISTRAL",
       baseUrl: "https://api.mistral.ai/v1",
-      model: "mistral-medium-latest",
+      model: "mistral-small-2603",
       apiKey: "mk-env",
       timeoutMs: 120_000,
     });

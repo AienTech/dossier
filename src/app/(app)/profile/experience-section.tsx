@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 
+import { toast, toastResult } from "@/components/toast";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +18,7 @@ import {
   restoreExperience,
   saveExperience,
   setExperienceSkill,
+  setRoleVolunteering,
   sortEntriesByDate,
 } from "./actions";
 import { EntryList } from "./entry-list";
@@ -55,8 +58,8 @@ function ExperienceForm({
         autoFocus={autoFocus}
       />
       <Input
-        label="Company"
-        placeholder="Acme Inc."
+        label={entry.volunteering ? "Organisation" : "Company"}
+        placeholder={entry.volunteering ? "Food Bank Springfield" : "Acme Inc."}
         value={entry.company}
         onChange={(event) => set({ company: event.target.value })}
       />
@@ -88,7 +91,7 @@ function ExperienceForm({
           disabled={entry.current}
         />
         <Checkbox
-          label="I still work here"
+          label={entry.volunteering ? "I still volunteer here" : "I still work here"}
           checked={entry.current}
           onChange={(event) => set({ current: event.target.checked })}
         />
@@ -107,19 +110,48 @@ function ExperienceForm({
 
 const roleTitle = (entry: ExperienceItem) => entry.role.trim() || "New role";
 
-/** Work experience (PRO-5): one card open at a time, autosaved, with Undo on Remove. */
-export function ExperienceSection({ profile, update, order }: { profile: ProfileData; update: UpdateProfile; order: EntryOrder }) {
+/**
+ * Work experience (PRO-5) or Volunteering (#294), which resumes print under
+ * their own headings: one card open at a time, autosaved, with Undo on Remove.
+ * Both are roles in one table, so the order saved keeps the other list's roles.
+ */
+export function ExperienceSection({
+  profile,
+  update,
+  order,
+  volunteering = false,
+}: {
+  profile: ProfileData;
+  update: UpdateProfile;
+  order: EntryOrder;
+  volunteering?: boolean;
+}) {
+  const track = useTrackSave();
+  const items = profile.experience.filter((entry) => entry.volunteering === volunteering);
+  const others = profile.experience.filter((entry) => entry.volunteering !== volunteering);
   const skillNames = (entry: ExperienceItem) =>
     profile.skills.filter((skill) => entry.skillIds.includes(skill.id)).map((skill) => skill.name);
 
+  const moveAcross = async (entry: ExperienceItem) => {
+    const result = toastResult(await track(setRoleVolunteering({ id: entry.id, volunteering: !volunteering })));
+    if (!result.ok) return;
+    update((current) => ({ ...current, experience: current.experience.map((item) => (item.id === entry.id ? { ...item, volunteering: !volunteering } : item)) }));
+    toast(`Moved “${roleTitle(entry)}” to ${volunteering ? "Experience" : "Volunteering"}.`);
+  };
+
   return (
     <EntryList
-      items={profile.experience}
-      setItems={(change) => update((current) => ({ ...current, experience: change(current.experience) }))}
-      addLabel="Add a role"
+      items={items}
+      setItems={(change) =>
+        update((current) => {
+          const isHere = (entry: ExperienceItem) => entry.volunteering === volunteering;
+          return { ...current, experience: [...change(current.experience.filter(isHere)), ...current.experience.filter((entry) => !isHere(entry))] };
+        })
+      }
+      addLabel={volunteering ? "Add volunteering" : "Add a role"}
       ordering={{
         mode: order,
-        save: (ids) => reorderEntries({ section: "experience", ids }),
+        save: (ids) => reorderEntries({ section: "experience", ids: [...ids, ...others.map((entry) => entry.id)] }),
         sortByDate: () => sortEntriesByDate({ section: "experience" }),
       }}
       summary={(entry) => ({
@@ -128,7 +160,7 @@ export function ExperienceSection({ profile, update, order }: { profile: Profile
         meta: formatDateRange(entry),
         footnote: skillNames(entry).join(" · ") || undefined,
       })}
-      create={() => createExperience({})}
+      create={() => createExperience({ volunteering })}
       remove={(entry) => removeExperience({ id: entry.id })}
       restore={(entry) => restoreExperience(entry)}
       renderForm={(entry, { onChange, autoFocus }) => (
@@ -148,6 +180,9 @@ export function ExperienceSection({ profile, update, order }: { profile: Profile
             attach={(skillId, attached) => setExperienceSkill({ experienceId: entry.id, skillId, attached })}
             attachNew={(name) => attachNewSkill({ experienceId: entry.id, name })}
           />
+          <Button variant="text" size="sm" className="self-start" onClick={() => void moveAcross(entry)}>
+            Move to {volunteering ? "Experience" : "Volunteering"}
+          </Button>
         </>
       )}
     />

@@ -211,10 +211,10 @@ function SearchForm({
       aria-label="Search postings"
       noValidate
       onSubmit={submit}
-      className="mx-10 mb-7 grid grid-cols-1 items-start gap-x-4 gap-y-4 rounded-panel border border-line-card bg-card p-6 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1.3fr_1fr_1fr]"
+      className="mx-10 mb-7 grid grid-cols-1 items-start gap-x-4 gap-y-4 rounded-panel border border-line-card bg-card p-6 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1.3fr_1fr_1fr_1fr]"
     >
       <SearchFields value={form} onChange={set} source={source} countries={countries} errors={errors} />
-      <div className="flex flex-wrap items-center justify-between gap-4 sm:col-span-2 lg:col-span-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 sm:col-span-2 lg:col-span-6">
         <RemoteOnlyField value={form} onChange={set} source={source} />
         <Button type="submit" aria-disabled={pending || undefined}>
           {pending ? "Searching…" : "Search"}

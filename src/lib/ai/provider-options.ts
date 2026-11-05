@@ -69,7 +69,7 @@ export const PROVIDER_OPTIONS: readonly {
     local: false,
     defaultUrl: "https://api.anthropic.com",
     urlPlaceholder: "https://api.anthropic.com",
-    defaultModel: "claude-sonnet-5",
+    defaultModel: "claude-sonnet-5-5",
     apiKey: { label: "API key" },
   },
   {
@@ -77,11 +77,11 @@ export const PROVIDER_OPTIONS: readonly {
     name: "Mistral",
     vendor: "Mistral",
     description: "Mistral's models through your own API key.",
-    tag: "Hosted · free tier to start",
+    tag: "Hosted · pay per use",
     local: false,
     defaultUrl: "https://api.mistral.ai/v1",
     urlPlaceholder: "https://api.mistral.ai/v1",
-    defaultModel: "mistral-medium-latest",
+    defaultModel: "mistral-small-2603",
     apiKey: { label: "API key" },
   },
 ];

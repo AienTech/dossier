@@ -40,6 +40,13 @@ describe("Settings → Job agent (E16-7)", () => {
     expect(toggle).toHaveAccessibleDescription(/^On\. It runs once a day after 07:00 your time \(Europe\/Berlin\)/);
   });
 
+  it("says on this computer that it only runs while Dossier is open (#325)", () => {
+    open({ initial: { ...initial, enabled: true }, onlyWhileOpen: true });
+    expect(screen.getByRole("switch", { name: "Run the job agent" })).toHaveAccessibleDescription(
+      /On this computer, only while Dossier is open: when it's closed at that hour, the run starts once you open it, the same day\.$/,
+    );
+  });
+
   it("needs keywords and a country to turn on", async () => {
     const user = userEvent.setup();
     open({ initial: { ...initial, query: { ...initial.query, keywords: "", country: "" } } });

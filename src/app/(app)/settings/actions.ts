@@ -286,6 +286,8 @@ export const deleteEverything = action(z.object({ confirm: z.literal("DELETE") }
 
   await prisma.$transaction(async (tx) => {
     await tx.job.deleteMany();
+    // The tokens each AI request used (#290).
+    await tx.aiUsage.deleteMany();
     // Find jobs' postings and past searches (E14-9, E14-10).
     await tx.posting.deleteMany();
     await tx.postingSearch.deleteMany();
@@ -306,8 +308,10 @@ export const deleteEverything = action(z.object({ confirm: z.literal("DELETE") }
     await tx.skill.deleteMany();
     await tx.language.deleteMany();
     await tx.education.deleteMany();
+    await tx.certification.deleteMany();
     await tx.publication.deleteMany();
     await tx.reference.deleteMany();
+    await tx.customSection.deleteMany();
     await tx.fact.deleteMany();
     await tx.profileField.deleteMany();
     await tx.theme.deleteMany({ where: { builtIn: false } });
