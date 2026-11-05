@@ -113,17 +113,27 @@
         <p class="lede">
           One profile, a tailored resume and cover letter for every job, written only from facts in your profile, and every application tracked from draft to offer. With the AI model you choose, and your data in your own database.
         </p>
-        <div class="actions">
-          <a class="button button--primary" href="#install">
-            Install Dossier
-            <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
+        <div class="choices">
+          <a class="choice choice--primary" href="https://github.com/AienTech/dossier/releases/latest" data-download>
+            <span class="choice__icon" aria-hidden="true"><svg class="icon"><use href="#i-download"/></svg></span>
+            <span class="choice__body">
+              <b data-download-label>Download the desktop app</b>
+              <span data-download-detail>For Windows and Linux. Install it like any app: no server, no Docker, nothing to set up.</span>
+            </span>
           </a>
-          <a class="button button--secondary" href="https://youtu.be/kygD5cApjqA" data-video-play>
-            <svg class="icon icon--play" aria-hidden="true"><use href="#i-play"/></svg>
-            Watch the tour
-            <span class="button__meta">3:25</span>
+          <a class="choice" href="#install" data-show-tab="tab-server">
+            <span class="choice__icon" aria-hidden="true"><svg class="icon"><use href="#i-server"/></svg></span>
+            <span class="choice__body">
+              <b>Self-host it</b>
+              <span>On your own server, for every device you use: Docker, Coolify, Dokploy or CapRover.</span>
+            </span>
           </a>
         </div>
+        <a class="tour-link" href="https://youtu.be/kygD5cApjqA" data-video-play>
+          <svg class="icon icon--play" aria-hidden="true"><use href="#i-play"/></svg>
+          Watch the tour
+          <span class="tour-link__meta">3:25</span>
+        </a>
       </div>
 
       <div class="wrap hero__stage">
@@ -444,17 +454,43 @@
         <header class="section__head reveal">
           <p class="eyebrow">Install</p>
           <h2 class="display" id="install-title">Running in three steps.</h2>
-          <p class="section__lede">All you need is <a href="https://docs.docker.com/desktop/">Docker Desktop</a> on macOS or Windows, or Docker Engine with its Compose plugin on Linux, and about 2 GB of free memory.</p>
-          <p class="section__lede">Or skip all that: <a href="https://github.com/AienTech/dossier/releases/latest">download the desktop app</a> for Windows or Linux, which runs Dossier on your computer with nothing else to install (<a href="https://github.com/AienTech/dossier/wiki/Desktop-app">how it works</a>).</p>
+          <p class="section__lede">The desktop app installs like any other. With Docker or on a server, the guides take you through each step.</p>
         </header>
 
         <div class="install reveal" data-tabs>
           <div class="segmented" role="tablist" aria-label="Where to run it">
-            <button type="button" role="tab" id="tab-local" aria-controls="panel-local" aria-selected="true">On your computer</button>
+            <button type="button" role="tab" id="tab-desktop" aria-controls="panel-desktop" aria-selected="true">Desktop app</button>
+            <button type="button" role="tab" id="tab-local" aria-controls="panel-local" aria-selected="false" tabindex="-1">With Docker</button>
             <button type="button" role="tab" id="tab-server" aria-controls="panel-server" aria-selected="false" tabindex="-1">On a server</button>
           </div>
 
-          <div role="tabpanel" id="panel-local" aria-labelledby="tab-local" class="install__steps">
+          <div role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop" class="install__steps">
+            <ol class="timeline">
+              <li>
+                <h3>Download it.</h3>
+                <div class="downloads">
+                  <a class="button button--primary" href="https://github.com/AienTech/dossier/releases/latest" data-download-asset="windows">
+                    <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+                    Windows
+                  </a>
+                  <a class="button button--secondary" href="https://github.com/AienTech/dossier/releases/latest" data-download-asset="deb">Linux <span class="button__meta">.deb</span></a>
+                  <a class="button button--secondary" href="https://github.com/AienTech/dossier/releases/latest" data-download-asset="appimage">Linux <span class="button__meta">AppImage</span></a>
+                </div>
+                <p class="note">For 64-bit Intel and AMD processors; there's no version for macOS yet. The app isn't signed yet, so Windows may ask before it opens: choose <b>More info</b>, then <b>Run anyway</b>.</p>
+              </li>
+              <li>
+                <h3>Open it, and choose On this computer.</h3>
+                <p class="note">Dossier runs inside the app, with your data in one file on your computer: no server, no password, nothing to configure. <b>On my server</b> opens a Dossier you host instead.</p>
+              </li>
+              <li>
+                <h3>Follow the setup guide.</h3>
+                <p class="note">It helps you choose an AI model, where jobs come from and how they're scored, one step at a time, and starts your profile from your resume. <a href="https://github.com/AienTech/dossier/wiki/Desktop-app">The desktop app in the wiki</a></p>
+              </li>
+            </ol>
+          </div>
+
+          <div role="tabpanel" id="panel-local" aria-labelledby="tab-local" class="install__steps" hidden>
+            <p class="install__intro">All you need is <a href="https://docs.docker.com/desktop/">Docker Desktop</a> on macOS or Windows, or Docker Engine with its Compose plugin on Linux, and about 2 GB of free memory.</p>
             <ol class="timeline">
               <li>
                 <h3>Fetch the Compose file, and make the secrets Dossier needs.</h3>
@@ -512,7 +548,7 @@
         <div class="limits reveal">
           <h3>Good to know</h3>
           <ul>
-            <li><svg class="icon" aria-hidden="true"><use href="#i-monitor"/></svg><span><b>Desktop only.</b> Made for a laptop or desktop browser, not for phones.</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-monitor"/></svg><span><b>Big screens.</b> Made for a laptop or desktop screen, not for phones.</span></li>
             <li><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg><span><b>Single user.</b> One password and one profile; there are no accounts.</span></li>
             <li><svg class="icon" aria-hidden="true"><use href="#i-languages"/></svg><span><b>English interface.</b> The documents it writes can be in other languages.</span></li>
             <li><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span><b>One instance.</b> Run a single copy of the app per database.</span></li>
@@ -566,6 +602,7 @@
         <h2>Documentation</h2>
         <ul>
           <li><a href="https://github.com/AienTech/dossier/wiki">Installation guide</a></li>
+          <li><a href="https://github.com/AienTech/dossier/wiki/Desktop-app">Desktop app</a></li>
           <li><a href="https://github.com/AienTech/dossier/wiki/Choosing-an-AI-provider">Choosing an AI provider</a></li>
           <li><a href="https://github.com/AienTech/dossier/wiki/Upgrading">Upgrading</a></li>
           <li><a href="https://github.com/AienTech/dossier/wiki/Troubleshooting">Troubleshooting</a></li>

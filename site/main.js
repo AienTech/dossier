@@ -52,6 +52,11 @@ for (const group of document.querySelectorAll("[data-tabs]")) {
   }
 }
 
+// "Self-host it" in the hero opens the install section on its server tab.
+for (const link of document.querySelectorAll("[data-show-tab]")) {
+  link.addEventListener("click", () => document.getElementById(link.dataset.showTab)?.click());
+}
+
 // Copy buttons copy the commands without their "$" prompts.
 for (const button of document.querySelectorAll("[data-copy]")) {
   const label = button.querySelector("span");
@@ -185,9 +190,46 @@ getJson(repo)
   })
   .catch(() => {});
 
+// The desktop app's files in a release, by the names release.yml gives them.
+const DESKTOP_FILES = { windows: /-win-x64\.exe$/, deb: /-linux-amd64\.deb$/, appimage: /-linux-x86_64\.AppImage$/ };
+
+/** "windows" or "linux" when the visitor is on one, as far as the browser says. */
+function desktopSystem() {
+  const said = `${navigator.userAgentData?.platform ?? ""} ${navigator.platform ?? ""} ${navigator.userAgent}`;
+  if (/android|iphone|ipad|mobile/i.test(said)) return null;
+  if (/win/i.test(said)) return "windows";
+  if (/mac/i.test(said)) return null;
+  if (/linux|x11/i.test(said)) return "linux";
+  return null;
+}
+
+/**
+ * Each download link gets its file from the latest release, and the hero's
+ * says which system it's for. Until a release has the file (or without
+ * scripts), they all lead to the release page.
+ */
+function offerDownloads(release) {
+  const fileFor = (kind) => release.assets?.find((asset) => DESKTOP_FILES[kind].test(asset.name))?.browser_download_url;
+  for (const link of document.querySelectorAll("[data-download-asset]")) {
+    const file = fileFor(link.dataset.downloadAsset);
+    if (file) link.href = file;
+  }
+  const system = desktopSystem();
+  const file = system && fileFor(system === "windows" ? "windows" : "deb");
+  const hero = document.querySelector("[data-download]");
+  if (!file || !hero) return;
+  hero.href = file;
+  hero.querySelector("[data-download-label]").textContent = system === "windows" ? "Download for Windows" : "Download for Linux";
+  hero.querySelector("[data-download-detail]").textContent =
+    system === "windows"
+      ? "One installer, no admin rights. No server, no Docker, nothing to set up."
+      : "A .deb for Ubuntu and Debian. No server, no Docker, nothing to set up.";
+}
+
 getJson(`${repo}/releases/latest`)
   .then((data) => {
     if (!data || typeof data.tag_name !== "string") return;
     document.querySelector("[data-release-text]").textContent = `Version ${data.tag_name.replace(/^v/, "")} is out`;
+    offerDownloads(data);
   })
   .catch(() => {});
