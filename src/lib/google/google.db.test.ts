@@ -160,6 +160,13 @@ describe("the inbox check (E15-3)", () => {
     expect(await prisma().googleAccount.findUniqueOrThrow({ where: { id: "google" } })).toMatchObject({ historyId: "300", syncProblem: null });
   });
 
+  it("leaves out drafts, even in a known thread", async () => {
+    await sendApplicationEmail("nw");
+    mailbox = [{ id: "d1", threadId: "thread-new", from: "Jane Doe <jane@gmail.com>", subject: "Re: Application", text: "Hi Anna,", labels: ["DRAFT"] }];
+    expect(await syncInbox()).toEqual({ fetched: 1, kept: 0, read: 0 });
+    expect(await prisma().emailMessage.findFirst({ where: { gmailId: "d1" } })).toBeNull();
+  });
+
   it("keeps unmatched inbox mail for a look when set to read everything", async () => {
     await prisma().setting.create({ data: { key: "gmailScope", value: "all" } });
     mailbox = [{ id: "m5", threadId: "t5", from: "Recruiter <talent@acme-hr.example>", subject: "Senior Designer role", text: "Interested?" }];
