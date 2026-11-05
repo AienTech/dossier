@@ -45,7 +45,11 @@ function runClaude({ model, system, messages, jsonSchema }) {
     "--system-prompt",
     system || "You are a helpful assistant.",
   ];
-  if (jsonSchema) args.push("--json-schema", JSON.stringify(jsonSchema));
+  if (jsonSchema) {
+    // Claude Code can't resolve the draft 2020-12 meta-schema zod adds.
+    const { $schema: _ignored, ...schema } = jsonSchema;
+    args.push("--json-schema", JSON.stringify(schema));
+  }
   args.push(formatPrompt(messages));
 
   return new Promise((resolve, reject) => {

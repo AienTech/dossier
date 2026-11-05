@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
-import { formatPrompt, isClaudeCliBridgeUrl, parseCliOutput } from "./claude-cli";
+import { cliJsonSchema, formatPrompt, isClaudeCliBridgeUrl, parseCliOutput } from "./claude-cli";
 
 describe("Claude CLI helpers", () => {
+  it("drops zod's $schema so Claude Code accepts --json-schema", () => {
+    const schema = cliJsonSchema(z.object({ score: z.number() }));
+    expect(schema).not.toHaveProperty("$schema");
+    expect(schema).toMatchObject({ type: "object" });
+  });
+
   it("treats http addresses as the Docker bridge", () => {
     expect(isClaudeCliBridgeUrl("http://host.docker.internal:3460")).toBe(true);
     expect(isClaudeCliBridgeUrl("https://example/bridge")).toBe(true);

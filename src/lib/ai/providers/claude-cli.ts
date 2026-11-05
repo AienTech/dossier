@@ -20,6 +20,15 @@ export const CLAUDE_CLI_FALLBACK_MODELS = [
 const BRIDGE_UNREACHABLE =
   "Couldn't reach the Claude CLI bridge. On this computer run `node scripts/claude-cli-bridge.mjs`, then try again. In Docker the address is usually http://host.docker.internal:3460.";
 
+/**
+ * zod's JSON Schema with the `$schema` (draft 2020-12) key dropped: Claude
+ * Code's `--json-schema` validator can't resolve that meta-schema and rejects it.
+ */
+export function cliJsonSchema(schema: Parameters<typeof toJSONSchema>[0]): Record<string, unknown> {
+  const { $schema: _ignored, ...rest } = toJSONSchema(schema) as Record<string, unknown>;
+  return rest;
+}
+
 type CliResult = {
   result?: string;
   structured_output?: unknown;
@@ -86,7 +95,7 @@ export class ClaudeCliProvider extends BaseProvider {
           system: call.json ? withJsonSchema(call.system, call.json.schema) : call.system,
           messages: call.messages,
           maxTokens: call.maxTokens,
-          jsonSchema: call.json ? toJSONSchema(call.json.schema) : undefined,
+          jsonSchema: call.json ? cliJsonSchema(call.json.schema) : undefined,
         }),
         signal: call.signal,
       });
@@ -95,6 +104,14 @@ export class ClaudeCliProvider extends BaseProvider {
       throw new AiError("unreachable", BRIDGE_UNREACHABLE, error instanceof Error ? error.message : undefined);
     }
     if (!response.ok) {
+      const bridgeError = await response
+        .json()
+        .then((body: { error?: unknown }) => (typeof body.error === "string" ? body.error : undefined))
+        .catch(() => undefined);
+      // The bridge answered but Claude Code failed: show Claude's own message.
+      if (response.status === 500 && bridgeError) {
+        throw new AiError("provider", `Claude CLI error: ${bridgeError}`, bridgeError);
+      }
       const detail = `${response.status}`;
       if (response.status === 404 || response.status >= 500) {
         throw new AiError("unreachable", BRIDGE_UNREACHABLE, detail);
@@ -122,7 +139,7 @@ export class ClaudeCliProvider extends BaseProvider {
       call.json ? withJsonSchema(call.system, call.json.schema) : call.system,
     ];
     if (call.json) {
-      args.push("--json-schema", JSON.stringify(toJSONSchema(call.json.schema)));
+      args.push("--json-schema", JSON.stringify(cliJsonSchema(call.json.schema)));
     }
     args.push(formatPrompt(call.messages));
 
