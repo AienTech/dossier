@@ -2839,6 +2839,432 @@ exports[`ResumeDocument > renders the demo profile in Folio 1`] = `
 </article>
 `;
 
+exports[`ResumeDocument > renders the demo profile in LaTeX Classic 1`] = `
+<article
+  aria-label="Resume"
+  class="_page_fa1ef7 _centered_fa1ef7 _page_19dfda"
+  dir="ltr"
+  style="--page-height: 905; --paper-width: 210; --paper-height: 297; --pad-y: 38; --pad-x: 42; --gap: 14; --item-gap: 7; --font-size: 9.5; --line-height: 1.42; --head-font: var(--script-fonts), var(--typeface-greek-serif), var(--typeface-source-serif); --body-font: var(--script-fonts), var(--typeface-greek-serif), var(--typeface-source-serif); --accent: #1d1c1a; --name-size: 30; --name-weight: 500; --heading-size: 12; --heading-weight: 600; --heading-transform: none; --heading-tracking: 0; --heading-rule: 1; --heading-padding: 3; --sidebar-width: 150; --sidebar-gap: 28;"
+>
+  <header
+    class="_header_19dfda"
+  >
+    <h1
+      class="_name_19dfda"
+    >
+      Jane Doe
+    </h1>
+    <p>
+      <bdi
+        dir="ltr"
+      >
+        Rotterdam, Netherlands
+      </bdi>
+       | 
+      <bdi
+        dir="ltr"
+      >
+        jane.doe@example.com
+      </bdi>
+       | 
+      <bdi
+        dir="ltr"
+      >
+        +31 6 1234 5678
+      </bdi>
+    </p>
+    <p>
+      <a
+        class="_link_19dfda"
+        href="https://example.com/"
+        rel="noreferrer"
+        target="_blank"
+      >
+        <bdi
+          dir="ltr"
+        >
+          example.com
+        </bdi>
+      </a>
+       | 
+      <a
+        class="_link_19dfda"
+        href="https://linkedin.com/in/janedoe-example"
+        rel="noreferrer"
+        target="_blank"
+      >
+        <bdi
+          dir="ltr"
+        >
+          linkedin.com/in/janedoe-example
+        </bdi>
+      </a>
+    </p>
+  </header>
+  <div
+    class="_columns_fa1ef7 _body_19dfda"
+  >
+    <div
+      class="_column_fa1ef7"
+    >
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Profile
+        </h2>
+        <div
+          data-unit="summary"
+        >
+          <p
+            class="_justified_19dfda"
+          >
+            Product designer with nine years of experience turning complicated operational tools into calm, usable software. I like working close to engineering and closer to the people who use what we build.
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Experience
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="experience:e1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <strong>
+              Northwind Logistics
+            </strong>
+            <span
+              class="_edge_19dfda"
+            >
+              Rotterdam
+            </span>
+          </div>
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <em>
+              Senior Product Designer
+            </em>
+            <span
+              class="_edge_19dfda"
+            >
+              Mar 2021 – Present
+            </span>
+          </div>
+          <ul
+            class="_bullets_fa1ef7"
+          >
+            <li>
+              Led the redesign of the carrier portal used daily by 4,000+ dispatchers
+            </li>
+            <li>
+              Built and maintained the design system across six product teams
+            </li>
+            <li>
+              Mentored three junior designers through their first year
+            </li>
+          </ul>
+        </div>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="experience:e2"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <strong>
+              Fieldnote
+            </strong>
+            <span
+              class="_edge_19dfda"
+            >
+              Amsterdam
+            </span>
+          </div>
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <em>
+              Product Designer
+            </em>
+            <span
+              class="_edge_19dfda"
+            >
+              Jun 2018 – Feb 2021
+            </span>
+          </div>
+          <ul
+            class="_bullets_fa1ef7"
+          >
+            <li>
+              Designed the mobile note-taking app from first prototype to 120k users
+            </li>
+            <li>
+              Ran monthly research sessions with field researchers
+            </li>
+          </ul>
+        </div>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="experience:e3"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <strong>
+              Studio Brik
+            </strong>
+            <span
+              class="_edge_19dfda"
+            >
+              Rotterdam
+            </span>
+          </div>
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <em>
+              UX Designer
+            </em>
+            <span
+              class="_edge_19dfda"
+            >
+              Sep 2015 – May 2018
+            </span>
+          </div>
+          <ul
+            class="_bullets_fa1ef7"
+          >
+            <li>
+              Delivered web projects for cultural institutions and municipalities
+            </li>
+          </ul>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Projects
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="project:p1"
+        >
+          <p
+            class="_projectHead_19dfda"
+          >
+            <strong>
+              Tidewater design tokens
+            </strong>
+             | 
+            <a
+              class="_link_19dfda"
+              href="https://github.com/janedoe/tidewater"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                github.com/janedoe/tidewater
+              </bdi>
+            </a>
+          </p>
+          <p
+            class="_justified_19dfda"
+          >
+            Built an open-source Figma plugin that turns design tokens into CSS variables. Maintain it with two contributors; used by design teams at several logistics startups.
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Skills
+        </h2>
+        <div
+          data-unit="skills"
+        >
+          <p>
+            Interaction design, Design systems, Prototyping, User research, Figma, HTML & CSS, Workshop facilitation
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Education
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="education:d1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <strong>
+                MSc Design for Interaction
+              </strong>
+              , TU Delft
+            </p>
+            <span
+              class="_edge_19dfda"
+            >
+              2013 – 2015
+            </span>
+          </div>
+        </div>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="education:d2"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <strong>
+                BA Communication Design
+              </strong>
+              , Willem de Kooning Academy
+            </p>
+            <span
+              class="_edge_19dfda"
+            >
+              2010 – 2013
+            </span>
+          </div>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Publications
+        </h2>
+        <div
+          class="_bullet_19dfda"
+          data-unit="publication:u1"
+        >
+          <p>
+            <strong>
+              Doe, J.
+            </strong>
+            , & Vermeer, K. (2016). Trust in automated scheduling: A field study with dispatch planners. 
+            <em>
+              Proceedings of the Delft Design Conference
+            </em>
+            , 4, 112–121.
+             
+            <a
+              class="_link_19dfda"
+              href="https://doi.org/10.5555/12345678"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                doi.org/10.5555/12345678
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Certifications
+        </h2>
+        <div
+          class="_entry_fa1ef7"
+          data-unit="certification:c1"
+        >
+          <div
+            class="_entryHead_fa1ef7"
+          >
+            <p>
+              <span
+                class="_entryTitle_fa1ef7"
+              >
+                Certified Accessibility Specialist
+              </span>
+              , 
+              Inclusive Design Institute
+            </p>
+            <span
+              class="_dates_fa1ef7"
+            >
+              Jun 2022
+            </span>
+          </div>
+          <p
+            class="_muted_fa1ef7"
+          >
+            Valid until Jun 2028
+             · 
+            Credential ID IDI-20481
+             · 
+            <a
+              class="_link_fa1ef7"
+              href="https://verify.example.org/IDI-20481"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <bdi
+                dir="ltr"
+              >
+                verify.example.org/IDI-20481
+              </bdi>
+            </a>
+          </p>
+        </div>
+      </section>
+      <section
+        class="_section_fa1ef7"
+      >
+        <h2
+          class="_sectionTitle_fa1ef7"
+        >
+          Languages
+        </h2>
+        <div
+          data-unit="languages"
+        >
+          <p>
+            Dutch: Native · English: Fluent (C2) · German: Intermediate (B1)
+          </p>
+        </div>
+      </section>
+    </div>
+  </div>
+</article>
+`;
+
 exports[`ResumeDocument > renders the demo profile in Ledger 1`] = `
 <article
   aria-label="Resume"

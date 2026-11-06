@@ -13,6 +13,7 @@ import { PHOTO_SHAPES, resolveTheme, type ThemeData } from "@/lib/themes";
 
 import { Contact, ContactLine, DocumentPage, DocumentSection, plainUnit, type UnitRenderer } from "./document-page";
 import styles from "./document.module.css";
+import { LatexClassicResume } from "./latex-classic-resume";
 
 type ResumeDocumentProps = ResumeOptions & {
   theme: ThemeData;
@@ -250,6 +251,23 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
   }
 
   const order = shownSections(sections, Object.keys(drawn).filter((key) => drawn[key]));
+  if (theme.id === "latex-classic") {
+    return (
+      <LatexClassicResume
+        theme={resolved}
+        content={content}
+        labels={labels}
+        profile={profile}
+        paper={paper}
+        sections={sections}
+        lang={lang}
+        dir={dir}
+        renderUnit={renderUnit}
+        order={order}
+        drawn={drawn}
+      />
+    );
+  }
   const isSidebar = (key: string) => inSidebar(key, profile.customSections);
   const sidebar = [...sidebarTop, ...order.filter(isSidebar).map((key) => drawn[key])];
   const main = order.filter((key) => !isSidebar(key)).map((key) => drawn[key]);

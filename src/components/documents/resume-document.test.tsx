@@ -458,3 +458,63 @@ describe("ResumeDocument's custom sections (#298)", () => {
     expect(lines.indexOf("Awards")).toBeGreaterThan(lines.indexOf("Profile"));
   });
 });
+
+describe("ResumeDocument in LaTeX Classic", () => {
+  const latex = theme("latex-classic");
+  const draw = (withProfile = profile, language?: string) =>
+    render(<ResumeDocument theme={latex} profile={withProfile} paper="A4" today={today} language={language} />);
+
+  it("draws its six sections in its own order, then the others, with their units", () => {
+    const { container } = draw();
+    expect(sectionTitles()).toEqual(["Profile", "Experience", "Projects", "Skills", "Education", "Publications", "Certifications", "Languages"]);
+    for (const id of ["summary", "experience:e3", "project:p1", "skills"]) {
+      expect(container.querySelector(`[data-unit='${id}']`)).not.toBeNull();
+    }
+  });
+
+  it("writes its headings in the document's language", () => {
+    draw(profile, "German");
+    expect(sectionTitles()).toEqual(["Profil", "Berufserfahrung", "Projekte", "Kenntnisse", "Ausbildung", "Publikationen", "Zertifizierungen", "Sprachen"]);
+  });
+
+  it("puts contact details on one line and the links on another, the links clickable", () => {
+    draw();
+    const lines = [...screen.getByRole("heading", { level: 1 }).parentElement!.querySelectorAll("p")].map((line) => line.textContent);
+    expect(lines).toEqual(["Rotterdam, Netherlands | jane.doe@example.com | +31 6 1234 5678", "example.com | linkedin.com/in/janedoe-example"]);
+    expect(screen.getByRole("link", { name: "example.com" })).toHaveAttribute("href", "https://example.com/");
+  });
+
+  it("shows a company once for roles that follow each other there", () => {
+    const [first] = profile.experience;
+    draw({ ...profile, experience: [first, { ...first, id: "e1b", role: "Design Lead" }] });
+    expect(screen.getAllByText(first.company)).toHaveLength(1);
+    expect(screen.getByText("Design Lead").closest("[data-unit]")).toHaveAttribute("data-unit", "experience:e1b");
+  });
+
+  it("heads a project with its link, or with its skills when it has none", () => {
+    const { unmount } = draw();
+    expect(screen.getByText("Tidewater design tokens").parentElement).toHaveTextContent("Tidewater design tokens | github.com/janedoe/tidewater");
+    unmount();
+    draw({ ...profile, projects: [{ ...profile.projects[0], link: "" }] });
+    expect(screen.getByText("Tidewater design tokens").parentElement).toHaveTextContent("Tidewater design tokens | Design systems, Figma, HTML & CSS");
+  });
+
+  it("runs a project's points together as one paragraph, each ending in a full stop", () => {
+    const { container } = draw();
+    expect(container.querySelector("[data-unit='project:p1']")).toHaveTextContent(
+      "Built an open-source Figma plugin that turns design tokens into CSS variables. Maintain it with two contributors; used by design teams at several logistics startups.",
+    );
+  });
+
+  it("leaves out the sections a resume has nothing for", () => {
+    draw({ ...profile, projects: [], publications: [] });
+    expect(sectionTitles()).toEqual(["Profile", "Experience", "Skills", "Education", "Certifications", "Languages"]);
+  });
+
+  it("writes a skill group as a line led by its name, the skills separated by commas", () => {
+    const { container } = draw({ ...profile, skills: profile.skills.map((skill) => ({ ...skill, group: "Tools" })) });
+    const skills = container.querySelector("[data-unit='skills']")!;
+    expect(skills).toHaveTextContent(/^Tools: [^·]+, [^·]+$/);
+    expect(skills.querySelector("strong")).toHaveTextContent("Tools:");
+  });
+});

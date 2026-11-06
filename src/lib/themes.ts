@@ -63,6 +63,7 @@ export const BUILT_IN_THEMES: ThemeData[] = (
     { id: "folio", name: "Folio", headFont: "PLAYFAIR", bodyFont: "LORA", accent: "#1d1c1a", layout: "SIDE_HEADINGS", align: "LEFT", headingStyle: "PLAIN", density: "AIRY", photoShape: "ROUNDED", photoPosition: "HEADER_START" },
     { id: "console", name: "Console", headFont: "JETBRAINS_MONO", bodyFont: "WORK_SANS", accent: "#4a5563", layout: "SPLIT", align: "LEFT", headingStyle: "BAND", density: "COMPACT", sidebarStyle: "TINTED", photoShape: "SQUARE", photoPosition: "SIDEBAR" },
     { id: "atlas", name: "Atlas", headFont: "LIBRE_CASLON", bodyFont: "INTER", accent: "#a14a1f", layout: "SINGLE", align: "CENTER", headingStyle: "CAPS", density: "REGULAR", headerStyle: "BANNER", dateStyle: "TIMELINE", photoPosition: "ABOVE_NAME" },
+    { id: "latex-classic", name: "LaTeX Classic", headFont: "SOURCE_SERIF", bodyFont: "SOURCE_SERIF", accent: "#1d1c1a", layout: "SINGLE", align: "CENTER", headingStyle: "RULE", density: "COMPACT" },
   ] satisfies (Omit<ThemeData, "builtIn" | StyleField> & Partial<Pick<ThemeData, StyleField>>)[]
 ).map((theme) => ({ ...THEME_STYLE_DEFAULTS, ...theme, builtIn: true }));
 

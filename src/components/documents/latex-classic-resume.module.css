@@ -1,0 +1,63 @@
+/*
+ * The "LaTeX Classic" resume (latex-classic-resume.tsx). Its sizes are ratios
+ * of the density the theme resolved (COMPACT: type 9.5, line height 1.42,
+ * item gap 7), so Fit to one page, which tightens that density, still works.
+ */
+
+/* document.module.css sets the same properties on .page: the doubled selector wins. */
+.page.page {
+  font-size: calc(var(--u) * var(--font-size) * 1.115);
+  line-height: calc(var(--line-height) * 0.817);
+}
+
+.header {
+  margin-bottom: calc(var(--u) * var(--item-gap));
+  text-align: center;
+}
+
+.name {
+  font-family: var(--head-font);
+  font-size: calc(var(--u) * 20);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--doc-ink);
+}
+
+/* Sections sit an item gap apart, and a section's own gap is tighter. */
+.body {
+  --gap: var(--item-gap);
+}
+
+.body section {
+  gap: calc(var(--u) * var(--item-gap) * 0.57);
+}
+
+/* The right edge of a row: a company's place, a role's or degree's dates. */
+.edge {
+  flex: none;
+  white-space: nowrap;
+}
+
+.justified {
+  text-align: justify;
+  hyphens: auto;
+}
+
+.projectHead {
+  break-after: avoid;
+}
+
+/* A publication: a bullet around a unit, which is a block and can't sit in a list. */
+.bullet {
+  display: list-item;
+  margin-inline-start: 1.1em;
+  list-style: disc;
+  break-inside: avoid;
+}
+
+.link,
+.link:hover {
+  color: #0000ee;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
