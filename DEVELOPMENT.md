@@ -313,7 +313,9 @@ In the public repository, `image.yml` pushes an image for every commit on `main`
 
 ## The website
 
-`site/` is the project's website, plain HTML, CSS and a little JavaScript. `site/build.sh` puts it together in `_site/` with the README's screenshots (`.github/images/`), the app's icons and three of its fonts, so there's one copy of each. To look at it, serve `_site/` with any static server, for example `docker run --rm -p 8080:80 -v "$PWD/_site:/usr/share/nginx/html:ro" nginx:alpine`, then open http://localhost:8080. The public repository's Pages workflow publishes it when any of those change on `main`. When the README's screenshots change, the site's change with them.
+`site/` is the project's website, plain HTML, CSS and a little JavaScript. `site/build.sh` puts it together in `_site/` with the README's screenshots (`.github/images/`), the app's icons and three of its fonts, so there's one copy of each. To look at it, serve `_site/` with any static server, for example `docker run --rm -p 8080:80 -v "$PWD/_site:/usr/share/nginx/html:ro" nginx:alpine`, then open http://localhost:8080. The public repository's Pages workflow publishes it when any of those change on `main`, and once a day. When the README's screenshots change, the site's change with them.
+
+The number above the hero's buttons is the Docker image's download count. GitHub's API has no download counts for `ghcr.io`, so `build.sh` reads it from the package page (the `title` of the number under "Total downloads") and writes it into `_site/index.html`, rounded down. The daily run keeps it current. If the page can't be read (you're offline, or GitHub changed its markup), the build prints a warning and keeps the floor written in `site/index.html`. Raise that floor now and then, and update the `sed` in `build.sh` if the warning keeps coming.
 
 ## Reset
 

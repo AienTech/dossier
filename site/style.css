@@ -442,6 +442,23 @@ h3 {
   justify-content: center;
   gap: 12px;
 }
+/* How many times the server image has been downloaded, above the buttons. */
+.pulls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14.5px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.pulls:hover { color: var(--ink); }
+.pulls .icon { width: 16px; height: 16px; }
+.pulls b {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 .button--large {
   height: 54px;
   padding: 0 26px;
