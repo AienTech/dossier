@@ -34,6 +34,9 @@
   text-align: start;
   overflow-wrap: break-word;
   print-color-adjust: exact;
+  /* A printed "fi" or "fl" ligature is one glyph, which job portals' parsers
+     read as "ﬁ" (U+FB01), so "workflow" stops matching a search for it. */
+  font-variant-ligatures: no-common-ligatures;
 }
 
 .page:lang(ja) {
