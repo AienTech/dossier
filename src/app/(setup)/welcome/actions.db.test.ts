@@ -49,6 +49,30 @@ describe("the setup guide's AI step (E21-2)", () => {
     expect(ai.configs.at(-1)).toMatchObject({ apiKey: "sk-test", model: "gpt-6.1-terra" });
   });
 
+  it("connects with openai-compatible choice, setting baseUrl, endpoint and model", async () => {
+    const result = await connectAi({
+      choice: "openai-compatible",
+      baseUrl: "https://my-llm.example/v1",
+      endpoint: "/responses",
+      model: "custom-model",
+      key: "sk-my-key",
+    });
+    expect(result).toMatchObject({ ok: true, data: { connected: true, model: "custom-model" } });
+    const saved = await loadSettings();
+    expect(saved).toMatchObject({
+      provider: "OPENAI",
+      baseUrl: "https://my-llm.example/v1",
+      model: "custom-model",
+      aiEndpoint: "/responses",
+    });
+    expect(decryptApiKey(saved.apiKeyEnc!, "a".repeat(32))).toBe("sk-my-key");
+    expect(ai.configs.at(-1)).toMatchObject({
+      baseUrl: "https://my-llm.example/v1",
+      model: "custom-model",
+      endpoint: "/responses",
+    });
+  });
+
   it("checks again with the saved key, and keeps a key waiting for credit", async () => {
     ai.make = () => {
       throw AiError.of("rate-limited", "429");

@@ -18,6 +18,7 @@ export type AiConfig = {
   /** Why the saved key can't be used, e.g. DOSSIER_SECRET changed. */
   apiKeyProblem: string | null;
   timeoutMs: number;
+  endpoint?: "chat/completions" | "/responses";
 };
 
 export const PROVIDER_DEFAULTS: Record<AiProvider, { baseUrl: string; model: string | null; timeoutSeconds: number }> = {
@@ -43,11 +44,12 @@ type SavedSettings = {
   baseUrl: string | null;
   model: string | null;
   apiKeyEnc: string | null;
+  aiEndpoint?: "chat/completions" | "/responses" | null;
 };
 
 type AiEnv = Pick<
   Env,
-  "DOSSIER_AI_PROVIDER" | "DOSSIER_AI_URL" | "DOSSIER_AI_MODEL" | "DOSSIER_AI_KEY" | "DOSSIER_AI_TIMEOUT_SECONDS"
+  "DOSSIER_AI_PROVIDER" | "DOSSIER_AI_URL" | "DOSSIER_AI_MODEL" | "DOSSIER_AI_KEY" | "DOSSIER_AI_TIMEOUT_SECONDS" | "DOSSIER_AI_ENDPOINT"
 >;
 
 /**
@@ -74,6 +76,8 @@ export function resolveAiConfig(saved: SavedSettings | null, source: AiEnv, secr
     apiKey = source.DOSSIER_AI_KEY ?? null;
   }
 
+  const endpoint = (useSaved ? saved!.aiEndpoint : (source.DOSSIER_AI_ENDPOINT as "chat/completions" | "/responses" | undefined)) ?? "chat/completions";
+
   return {
     provider,
     baseUrl: (useSaved ? saved!.baseUrl : source.DOSSIER_AI_URL) || defaults.baseUrl,
@@ -81,6 +85,7 @@ export function resolveAiConfig(saved: SavedSettings | null, source: AiEnv, secr
     apiKey,
     apiKeyProblem,
     timeoutMs: (source.DOSSIER_AI_TIMEOUT_SECONDS ?? defaults.timeoutSeconds) * 1000,
+    endpoint,
   };
 }
 
@@ -101,6 +106,7 @@ export async function loadAiSettingsView(): Promise<AiSettingsView> {
     baseUrl: config.baseUrl,
     model: config.model ?? "",
     keyState: keyStateOf(saved, config),
+    endpoint: config.endpoint ?? "chat/completions",
   };
 }
 

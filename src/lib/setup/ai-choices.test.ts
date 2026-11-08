@@ -40,7 +40,7 @@ describe("the setup guide's AI choices (E21-2)", () => {
     expect(choiceOf(AiProvider.OPENAI, "https://openrouter.ai/api/v1")).toBe("openrouter");
     expect(choiceOf(AiProvider.OPENAI, "https://generativelanguage.googleapis.com/v1beta/openai")).toBe("gemini");
     expect(choiceOf(AiProvider.OPENAI, "https://api.openai.com/v1")).toBe("openai");
-    expect(choiceOf(AiProvider.OPENAI, "http://my-server:8000/v1")).toBeNull();
+    expect(choiceOf(AiProvider.OPENAI, "http://my-server:8000/v1")).toBe("openai-compatible");
     expect(choiceOf(AiProvider.LMSTUDIO, "http://localhost:1234")).toBe("lmstudio");
   });
 });

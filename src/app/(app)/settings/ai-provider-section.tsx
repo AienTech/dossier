@@ -45,6 +45,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   const [provider, setProvider] = useState(initial.provider);
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl);
   const [model, setModel] = useState(initial.model);
+  const [endpoint, setEndpoint] = useState<"chat/completions" | "/responses">(initial.endpoint ?? "chat/completions");
   const [keyState, setKeyState] = useState(initial.keyState);
   const [keyInput, setKeyInput] = useState("");
   const [otherModel, setOtherModel] = useState(false);
@@ -72,7 +73,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   // SET-2: any change to the provider fields means the last test no longer counts.
   const changed = () => setConnection({ status: "untested" });
 
-  const fields = useMemo(() => ({ provider, baseUrl, model }), [provider, baseUrl, model]);
+  const fields = useMemo(() => ({ provider, baseUrl, model, endpoint }), [provider, baseUrl, model, endpoint]);
   const savedServer = useRef(`${initial.provider} ${initial.baseUrl}`);
   const { flush } = useAutosave(fields, async (value) => {
     const result = await track(saveAiProvider(value));
@@ -237,6 +238,25 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
             />
           )}
         </div>
+
+        {provider === "OPENAI" && (
+          <div className="flex flex-col gap-2.5">
+            <Select
+              label="Endpoint"
+              value={endpoint}
+              onChange={(event) => {
+                const next = event.target.value as "chat/completions" | "/responses";
+                setEndpoint(next);
+                changed();
+                setSaveNow((count) => count + 1);
+              }}
+              hint="Use chat/completions for standard chat models, or /responses for OpenAI Responses API."
+            >
+              <option value="chat/completions">chat/completions</option>
+              <option value="/responses">/responses</option>
+            </Select>
+          </div>
+        )}
 
         {option.apiKey ? (
           <div className="flex flex-col gap-2.5">

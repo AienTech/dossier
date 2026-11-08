@@ -22,7 +22,7 @@ export const AI_PRIORITIES: readonly { value: AiPriority; name: string; descript
   { value: "other", name: "Something else", description: "OpenRouter, which reaches many companies' models with one key, or an AI server you already have." },
 ];
 
-export type AiChoiceId = "lmstudio" | "ollama" | "openai" | "anthropic" | "gemini" | "mistral" | "openrouter";
+export type AiChoiceId = "lmstudio" | "ollama" | "openai" | "anthropic" | "gemini" | "mistral" | "openrouter" | "openai-compatible";
 
 export type AiChoice = {
   id: AiChoiceId;
@@ -194,6 +194,26 @@ export const AI_CHOICES: readonly AiChoice[] = [
     key: { label: "OpenRouter key", startsWith: "sk-or-" },
     help: `${WIKI}/Choosing-an-AI-provider#openai-compatible-servers`,
   },
+  {
+    id: "openai-compatible",
+    priority: "other",
+    name: "OpenAI-compatible",
+    about: "Any server that speaks the OpenAI API, hosted or on your network.",
+    provider: AiProvider.OPENAI,
+    baseUrl: "https://api.openai.com/v1",
+    models: [],
+    cost: "Depends on your server or API provider.",
+    data: "Sent to the server address you specify.",
+    steps: [
+      { text: "Enter your server address (default: https://api.openai.com/v1)." },
+      { text: "Choose your endpoint: chat/completions or /responses." },
+      { text: "Enter the model name you want to use." },
+      { text: "Paste an API key if your server requires authentication." },
+      { text: "Press Check it to verify and connect." },
+    ],
+    key: { label: "API key" },
+    help: `${WIKI}/Choosing-an-AI-provider#openai-compatible-servers`,
+  },
 ];
 
 export function aiChoice(id: AiChoiceId): AiChoice {
@@ -217,6 +237,11 @@ export function pickModel(wanted: readonly string[], served: readonly string[]):
 export function choiceOf(provider: AiProvider, baseUrl: string): AiChoiceId | null {
   if (provider === AiProvider.LMSTUDIO) return "lmstudio";
   if (provider === AiProvider.LOCAL) return "ollama";
+  if (provider === AiProvider.ANTHROPIC) return "anthropic";
+  if (provider === AiProvider.MISTRAL) return "mistral";
   const host = URL.canParse(baseUrl) ? new URL(baseUrl).hostname : "";
-  return AI_CHOICES.find((choice) => choice.provider === provider && choice.baseUrl && new URL(choice.baseUrl).hostname === host)?.id ?? null;
+  const matched = AI_CHOICES.find((choice) => choice.provider === provider && choice.baseUrl && new URL(choice.baseUrl).hostname === host && choice.id !== "openai-compatible");
+  if (matched) return matched.id;
+  if (provider === AiProvider.OPENAI) return "openai-compatible";
+  return null;
 }

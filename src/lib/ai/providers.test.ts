@@ -96,6 +96,53 @@ describe("OllamaProvider", () => {
 });
 
 describe("OpenAICompatibleProvider", () => {
+  it("chats through /responses when the endpoint is /responses", async () => {
+    const requests = stubFetch(() =>
+      json({
+        id: "resp_1",
+        object: "response",
+        created_at: 0,
+        output_text: "Hello from responses!",
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+      }),
+    );
+    const provider = new OpenAICompatibleProvider("OPENAI", "https://api.example.com/v1", "sk-test", "gpt-4o", 60_000, undefined, "/responses");
+    expect(await provider.complete({ ...ask, creativity: "EXPRESSIVE" })).toBe("Hello from responses!");
+    expect(requests[0].url.href).toBe("https://api.example.com/v1/responses");
+    expect(requests[0].headers.get("authorization")).toBe("Bearer sk-test");
+    expect(requests[0].body).toMatchObject({
+      model: "gpt-4o",
+      instructions: "Be brief.",
+      input: [{ role: "user", content: "Hi" }],
+      temperature: 0.9,
+      max_output_tokens: 4096,
+    });
+  });
+
+  it("handles structured output with json_schema in /responses", async () => {
+    const requests = stubFetch(() =>
+      json({
+        id: "resp_2",
+        object: "response",
+        created_at: 0,
+        output_text: '{"name":"Jane","years":9}',
+        usage: { input_tokens: 12, output_tokens: 8, total_tokens: 20 },
+      }),
+    );
+    const provider = new OpenAICompatibleProvider("OPENAI", "https://api.example.com/v1", "sk-test", "gpt-4o", 60_000, undefined, "/responses");
+    expect(await provider.complete({ ...ask, schema: Person, schemaName: "person" })).toEqual({ name: "Jane", years: 9 });
+    expect(requests[0].url.href).toBe("https://api.example.com/v1/responses");
+    expect(requests[0].body).toMatchObject({
+      text: {
+        format: {
+          type: "json_schema",
+          name: "person",
+          strict: true,
+        },
+      },
+    });
+  });
+
   it("chats through /chat/completions with a key and temperature", async () => {
     const requests = stubFetch(() => openaiChat("Hello!"));
     const provider = new OpenAICompatibleProvider("OPENAI", "https://api.example.com/v1", "sk-test", "gpt-x", 60_000);

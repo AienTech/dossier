@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { AiProvider } from "@/generated/prisma/enums";
 import { action, ActionError } from "@/lib/action";
 import { AiError, createProvider } from "@/lib/ai";
 import { applyApiKeyChange } from "@/lib/ai/api-key";
@@ -26,36 +27,98 @@ const choiceIds = AI_CHOICES.map((choice) => choice.id) as [AiChoiceId, ...AiCho
  * Saved either way, so a key waiting for credit doesn't have to be pasted
  * again.
  */
-export const connectAi = action(z.object({ choice: z.enum(choiceIds), key: z.string().trim().max(1000).optional() }), async ({ choice: id, key }) => {
-  const choice = aiChoice(id);
-  if (!choice.key) throw new ActionError(`${choice.name} runs on your computer, so there's no key to check.`);
-  const saved = await loadSettings();
-  const same = saved.provider === choice.provider && saved.baseUrl === choice.baseUrl;
-  const apiKeyEnc = key ? applyApiKeyChange(null, { action: "set", value: key }) : same ? saved.apiKeyEnc : null;
-  if (!apiKeyEnc) return { connected: false as const, kind: "auth" as const, message: `Paste your ${choice.key.label} first.` };
-  await saveSettings({ provider: choice.provider, baseUrl: choice.baseUrl, model: choice.models[0], apiKeyEnc });
+export const connectAi = action(
+  z.object({
+    choice: z.enum(choiceIds),
+    key: z.string().trim().max(1000).optional(),
+    baseUrl: z.string().trim().max(500).optional(),
+    endpoint: z.enum(["chat/completions", "/responses"]).optional(),
+    model: z.string().trim().max(200).optional(),
+  }),
+  async ({ choice: id, key, baseUrl: customUrl, endpoint: customEndpoint, model: customModel }) => {
+    const choice = aiChoice(id);
+    if (!choice.key) throw new ActionError(`${choice.name} runs on your computer, so there's no key to check.`);
+    const saved = await loadSettings();
 
-  const config = { ...(await loadAiConfig()), timeoutMs: CHECK_TIMEOUT_MS };
-  try {
-    let served: string[] = [];
+    const isOpenAiCompatible = id === "openai-compatible";
+    const baseUrl = isOpenAiCompatible ? (customUrl || "https://api.openai.com/v1") : choice.baseUrl;
+    const endpoint = isOpenAiCompatible ? (customEndpoint || "chat/completions") : undefined;
+
+    const same = saved.provider === choice.provider && saved.baseUrl === baseUrl;
+    const apiKeyEnc = key ? applyApiKeyChange(null, { action: "set", value: key }) : same ? saved.apiKeyEnc : null;
+    if (!isOpenAiCompatible && !apiKeyEnc) return { connected: false as const, kind: "auth" as const, message: `Paste your ${choice.key.label} first.` };
+
+    const initialModel = isOpenAiCompatible ? (customModel || null) : choice.models[0];
+    await saveSettings({
+      provider: choice.provider,
+      baseUrl,
+      model: initialModel,
+      apiKeyEnc,
+      ...(endpoint ? { aiEndpoint: endpoint } : {}),
+    });
+
+    const config = { ...(await loadAiConfig()), timeoutMs: CHECK_TIMEOUT_MS };
     try {
-      served = await createProvider(config).listModels(AbortSignal.timeout(15_000));
+      let served: string[] = [];
+      try {
+        served = await createProvider(config).listModels(AbortSignal.timeout(15_000));
+      } catch (error) {
+        // A server without a model list still answers; a wrong key or no connection is the answer already.
+        if (!(error instanceof AiError) || error.kind === "auth" || error.kind === "unreachable" || error.kind === "config") throw error;
+      }
+      let model = initialModel;
+      if (!model) {
+        if (choice.models.length > 0) {
+          model = pickModel(choice.models, served);
+        } else if (served.length > 0) {
+          model = served[0];
+        }
+      }
+      if (!model) {
+        return {
+          connected: false as const,
+          kind: "model" as const,
+          message: isOpenAiCompatible
+            ? "Enter a model name to use with this server."
+            : `Your ${choice.name} account doesn't offer the models Dossier uses: ${choice.models.join(" or ")}.`,
+          availableModels: served,
+        };
+      }
+      await saveSettings({ model });
+      const { latencyMs } = await createProvider({ ...config, model }).test(AbortSignal.timeout(CHECK_TIMEOUT_MS));
+      return { connected: true as const, model, seconds: Math.round(latencyMs / 100) / 10, availableModels: served };
     } catch (error) {
-      // A server without a model list still answers; a wrong key or no connection is the answer already.
-      if (!(error instanceof AiError) || error.kind === "auth" || error.kind === "unreachable" || error.kind === "config") throw error;
+      if (error instanceof AiError) return { connected: false as const, kind: error.kind, message: error.message };
+      throw error;
     }
-    const model = pickModel(choice.models, served);
-    if (!model) {
-      return { connected: false as const, kind: "model" as const, message: `Your ${choice.name} account doesn't offer the models Dossier uses: ${choice.models.join(" or ")}.` };
+  },
+);
+
+export const fetchChoiceModels = action(
+  z.object({
+    baseUrl: z.string().trim().max(500),
+    key: z.string().trim().max(1000).optional(),
+    endpoint: z.enum(["chat/completions", "/responses"]).optional(),
+  }),
+  async ({ baseUrl, key, endpoint }) => {
+    const config = {
+      provider: AiProvider.OPENAI,
+      baseUrl: baseUrl || "https://api.openai.com/v1",
+      model: null,
+      apiKey: key || null,
+      apiKeyProblem: null,
+      timeoutMs: 15_000,
+      endpoint: endpoint || "chat/completions",
+    };
+    try {
+      const models = await createProvider(config).listModels(AbortSignal.timeout(15_000));
+      return { models };
+    } catch (error) {
+      if (error instanceof AiError) return { models: [], error: error.message };
+      throw error;
     }
-    await saveSettings({ model });
-    const { latencyMs } = await createProvider({ ...config, model }).test(AbortSignal.timeout(CHECK_TIMEOUT_MS));
-    return { connected: true as const, model, seconds: Math.round(latencyMs / 100) / 10 };
-  } catch (error) {
-    if (error instanceof AiError) return { connected: false as const, kind: error.kind, message: error.message };
-    throw error;
-  }
-});
+  },
+);
 
 /**
  * The AI step's Find (E21-2): looks for LM Studio or Ollama where they

@@ -15,7 +15,7 @@ vi.mock("./actions", () => ({
 }));
 vi.mock("@/components/toast", () => ({ toast: vi.fn(), toastResult: (result: unknown) => result }));
 
-const local: AiSettingsView = { provider: "LOCAL", baseUrl: "http://ollama:11434", model: "qwen2.5:3b", keyState: "none" };
+const local: AiSettingsView = { provider: "LOCAL", baseUrl: "http://ollama:11434", model: "qwen2.5:3b", keyState: "none", endpoint: "chat/completions" };
 
 beforeEach(() => {
   vi.mocked(saveAiProvider).mockReset().mockResolvedValue({ ok: true, data: { keyState: "none" } });
@@ -51,7 +51,7 @@ describe("AiProviderSection", () => {
     expect(screen.getByRole("note")).toHaveTextContent(/depend on your account with Anthropic\.$/);
     expect(screen.getByLabelText("API key")).toHaveAttribute("placeholder", "Stored encrypted on your server");
     await waitFor(() =>
-      expect(saveAiProvider).toHaveBeenCalledWith({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5-5" }),
+      expect(saveAiProvider).toHaveBeenCalledWith({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5-5", endpoint: "chat/completions" }),
     );
   });
 
@@ -62,7 +62,7 @@ describe("AiProviderSection", () => {
     expect(screen.getByRole("note")).toHaveTextContent(/^Mistral receives what each task needs: .* depend on your account with Mistral\.$/);
     expect(screen.getByLabelText("API key")).toBeInTheDocument();
     await waitFor(() =>
-      expect(saveAiProvider).toHaveBeenCalledWith({ provider: "MISTRAL", baseUrl: "https://api.mistral.ai/v1", model: "mistral-small-2603" }),
+      expect(saveAiProvider).toHaveBeenCalledWith({ provider: "MISTRAL", baseUrl: "https://api.mistral.ai/v1", model: "mistral-small-2603", endpoint: "chat/completions" }),
     );
   });
 
@@ -74,7 +74,7 @@ describe("AiProviderSection", () => {
     expect(screen.getByLabelText("API token")).toBeInTheDocument();
     expect(screen.getByText("Only needed if you've turned on authentication in LM Studio's server settings.")).toBeInTheDocument();
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
-    await waitFor(() => expect(saveAiProvider).toHaveBeenCalledWith({ provider: "LMSTUDIO", baseUrl: "http://host.docker.internal:1234", model: "" }));
+    await waitFor(() => expect(saveAiProvider).toHaveBeenCalledWith({ provider: "LMSTUDIO", baseUrl: "http://host.docker.internal:1234", model: "", endpoint: "chat/completions" }));
   });
 
   it("saves a key when you leave the field, then forgets it in the browser (E6-2)", async () => {
@@ -91,6 +91,16 @@ describe("AiProviderSection", () => {
   it("says when a saved key can't be read", () => {
     render(<AiProviderSection initial={{ ...local, provider: "OPENAI", keyState: "unreadable" }} />);
     expect(screen.getByText("Your saved API key can't be read. Please enter it again.")).toBeInTheDocument();
+  });
+
+  it("shows endpoint selector for OpenAI and saves the selected endpoint", async () => {
+    render(<AiProviderSection initial={{ ...local, provider: "OPENAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o" }} />);
+    expect(screen.getByLabelText("Endpoint")).toBeInTheDocument();
+    expect(screen.getByLabelText("Endpoint")).toHaveValue("chat/completions");
+    await userEvent.selectOptions(screen.getByLabelText("Endpoint"), "/responses");
+    await waitFor(() =>
+      expect(saveAiProvider).toHaveBeenCalledWith({ provider: "OPENAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o", endpoint: "/responses" }),
+    );
   });
 
   it("tests the connection and reports the latency (SET-2)", async () => {

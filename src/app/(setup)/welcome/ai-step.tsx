@@ -118,8 +118,12 @@ export function AiStep({ current }: { current: AiStepView }) {
 
 function ChoicePanel({ choice, onConnected }: { choice: AiChoice; onConnected: () => void }) {
   const [key, setKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState(choice.baseUrl || "https://api.openai.com/v1");
+  const [endpoint, setEndpoint] = useState<"chat/completions" | "/responses">("chat/completions");
+  const [model, setModel] = useState("");
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const local = choice.key === null;
+  const isOpenAiCompatible = choice.id === "openai-compatible";
 
   const check = async () => {
     setStatus({ state: "checking" });
@@ -128,6 +132,28 @@ function ChoicePanel({ choice, onConnected }: { choice: AiChoice; onConnected: (
       if (!result.ok) return setStatus({ state: "idle" });
       setStatus(result.data.found ? { state: "found", ...result.data } : { state: "missing" });
       if (result.data.found && result.data.model) onConnected();
+      return;
+    }
+    if (isOpenAiCompatible) {
+      const result = toastResult(
+        await connectAi({
+          choice: "openai-compatible",
+          baseUrl: baseUrl.trim() || "https://api.openai.com/v1",
+          endpoint,
+          model: model.trim() || undefined,
+          key: key.trim() || undefined,
+        }),
+      );
+      if (!result.ok) return setStatus({ state: "idle" });
+      if (result.data.connected) {
+        setKey("");
+        setStatus({ state: "connected", model: result.data.model, seconds: result.data.seconds });
+        onConnected();
+      } else if (result.data.availableModels && result.data.availableModels.length > 0) {
+        setStatus({ state: "found", baseUrl: baseUrl.trim() || "https://api.openai.com/v1", models: result.data.availableModels, model: null });
+      } else {
+        setStatus({ state: "failed", kind: result.data.kind, message: result.data.message });
+      }
       return;
     }
     const result = toastResult(await connectAi({ choice: choice.id, key: key.trim() || undefined }));
@@ -141,10 +167,10 @@ function ChoicePanel({ choice, onConnected }: { choice: AiChoice; onConnected: (
     }
   };
 
-  const chooseModel = async (model: string) => {
+  const chooseModel = async (selectedModel: string) => {
     if (status.state !== "found") return;
-    setStatus({ ...status, model });
-    if (toastResult(await saveAiProvider({ provider: choice.provider, baseUrl: status.baseUrl, model })).ok) onConnected();
+    setStatus({ ...status, model: selectedModel });
+    if (toastResult(await saveAiProvider({ provider: choice.provider, baseUrl: status.baseUrl, model: selectedModel, endpoint: isOpenAiCompatible ? endpoint : undefined })).ok) onConnected();
   };
 
   return (
@@ -174,12 +200,50 @@ function ChoicePanel({ choice, onConnected }: { choice: AiChoice; onConnected: (
           if (status.state !== "checking") void check();
         }}
       >
+        {isOpenAiCompatible && (
+          <>
+            <Input
+              label="Server address"
+              inputClassName="font-mono text-[13.5px]"
+              value={baseUrl}
+              placeholder="https://api.openai.com/v1"
+              spellCheck={false}
+              autoComplete="off"
+              onChange={(event) => setBaseUrl(event.target.value)}
+              hint="Start with http:// or https://. The /chat/completions or /responses path is handled automatically."
+            />
+            <Select
+              label="API endpoint"
+              value={endpoint}
+              onChange={(event) => setEndpoint(event.target.value as "chat/completions" | "/responses")}
+              hint="Choose chat/completions for standard chat models, or /responses for OpenAI Responses API."
+            >
+              <option value="chat/completions">chat/completions (Standard Chat API)</option>
+              <option value="/responses">/responses (OpenAI Responses API)</option>
+            </Select>
+            <Input
+              label="Model name"
+              value={model}
+              placeholder="e.g. gpt-4o, llama-3.3-70b-versatile"
+              spellCheck={false}
+              autoComplete="off"
+              onChange={(event) => setModel(event.target.value)}
+              hint="Enter your model name, or leave empty to fetch available models from the server."
+            />
+          </>
+        )}
         {choice.key && (
           <Input
             label={choice.key.label}
             type="password"
             autoComplete="off"
-            placeholder={choice.key.startsWith ? `Starts with ${choice.key.startsWith}` : "Paste it here"}
+            placeholder={
+              isOpenAiCompatible
+                ? "Paste it here (leave blank if your server needs no key)"
+                : choice.key.startsWith
+                  ? `Starts with ${choice.key.startsWith}`
+                  : "Paste it here"
+            }
             hint="Stored encrypted on your server, and never shown again."
             value={key}
             onChange={(event) => setKey(event.target.value)}

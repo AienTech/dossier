@@ -22,6 +22,7 @@ describe("resolveAiConfig", () => {
       apiKey: null,
       apiKeyProblem: null,
       timeoutMs: 300_000,
+      endpoint: "chat/completions",
     });
   });
 

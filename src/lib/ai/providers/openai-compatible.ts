@@ -3,6 +3,7 @@ import "server-only";
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import type { ReasoningEffort } from "openai/resources/shared";
+import { toJSONSchema } from "zod";
 
 import type { UsageSink } from "@/lib/usage";
 
@@ -37,7 +38,7 @@ const JSON_REFUSED = /response_format|json_schema|json_object|structured|invalid
 
 // An answer that didn't fit. OpenAI's newer models, such as gpt-6-luna,
 // refuse it with a 400 instead of sending it cut off (public PR 51).
-const NO_ROOM = /could not finish the message because max_tokens/i;
+const NO_ROOM = /could not finish the message because max_tokens|max_output_tokens/i;
 
 /**
  * The answer's text. Some servers, Mistral's among them, send a model that
@@ -87,9 +88,11 @@ export class OpenAICompatibleProvider extends BaseProvider {
     model: string | null,
     timeoutMs: number,
     onUsage?: UsageSink,
+    readonly endpoint: "chat/completions" | "/responses" = "chat/completions",
   ) {
     super(model, timeoutMs, onUsage);
-    this.baseURL = apiAddress(baseURL);
+    const cleanURL = baseURL.replace(/\/(chat\/completions|responses)\/?$/, "");
+    this.baseURL = apiAddress(cleanURL);
     this.server = serverAt(this.baseURL);
     // Local servers often need no key, but the SDK insists on one. It isn't
     // sent, as some servers refuse a made-up one even for a public model list.
@@ -142,7 +145,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
         const jsonRefused = call.json !== undefined && JSON_REFUSED.test(message);
         const adapted: Quirks = {
           noTemperature: known.noTemperature || (call.temperature !== undefined && /temperature/i.test(message)),
-          maxCompletionTokens: known.maxCompletionTokens || /max_tokens/.test(message),
+          maxCompletionTokens: known.maxCompletionTokens || /max_tokens|max_output_tokens/.test(message),
           noEffort: known.noEffort || (this.reasoningEffort(call) !== undefined && /reasoning_effort/i.test(message)),
           thinks: known.thinks,
           json: jsonRefused ? (JSON_MODES[JSON_MODES.indexOf(known.json) + 1] ?? known.json) : known.json,
@@ -180,6 +183,50 @@ export class OpenAICompatibleProvider extends BaseProvider {
     const maxTokens = call.maxTokens + (thinks ? this.thinkingRoom() : 0);
     // Without schema support, the schema goes into the instructions instead.
     const system = call.json && json !== "schema" ? withJsonSchema(call.system, call.json.schema) : call.system;
+
+    if (this.endpoint === "/responses") {
+      const textFormat = !call.json
+        ? undefined
+        : json === "schema"
+          ? {
+              type: "json_schema" as const,
+              name: call.json.name,
+              schema: toJSONSchema(call.json.schema) as Record<string, unknown>,
+              strict: true,
+            }
+          : json === "object"
+            ? { type: "json_object" as const }
+            : undefined;
+
+      const response = await this.client.responses.create(
+        {
+          model: call.model,
+          instructions: system,
+          input: call.messages.map((m) => ({ role: m.role, content: m.content })),
+          ...(noTemperature || call.temperature === undefined ? {} : { temperature: call.temperature }),
+          max_output_tokens: maxTokens,
+          ...(textFormat ? { text: { format: textFormat } } : {}),
+        },
+        { signal: call.signal },
+      );
+
+      if (response.error) {
+        throw new OpenAI.APIError(400, response.error, response.error.message || "Responses API error", new Headers());
+      }
+
+      call.used({
+        input: response.usage?.input_tokens ?? null,
+        output: response.usage?.output_tokens ?? null,
+      });
+
+      const cutOff = response.incomplete_details?.reason === "max_output_tokens";
+      const reasoned = (response.usage?.output_tokens_details?.reasoning_tokens ?? 0) > 0;
+      return {
+        answer: { text: response.output_text ?? "", cutOff },
+        reasoned,
+      };
+    }
+
     const responseFormat = !call.json
       ? {}
       : json === "schema"

@@ -102,4 +102,5 @@ export type AiSettingsView = {
   baseUrl: string;
   model: string;
   keyState: KeyState;
+  endpoint: "chat/completions" | "/responses";
 };
