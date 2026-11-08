@@ -2,12 +2,13 @@ import { z } from "zod";
 
 import { LanguageLevel } from "@/generated/prisma/enums";
 import { citationExcerpt, escapeMarks, publicationLink } from "@/lib/citation";
-import { BASICS_FIELDS, sameName } from "@/lib/profile";
-import { importedProfileSchema, type ImportedProfile } from "@/lib/profile-import";
+import { isCountryName } from "@/lib/country-names";
+import { BASICS_FIELDS, sameName, type BasicsField } from "@/lib/profile";
+import { BASICS_LABELS, importedProfileSchema, type ImportedProfile } from "@/lib/profile-import";
 
 import { system, type Task } from "./prompt-parts";
 
-export const EXTRACT_PROFILE_VERSION = "extract-profile@5";
+export const EXTRACT_PROFILE_VERSION = "extract-profile@6";
 
 // What the model returns; code checks every part of it (E4-10).
 const text = z.string().nullable();
@@ -95,18 +96,36 @@ export const extractProfile: Task<{ resume: string; today?: Date }, ImportedProf
   return { data: checkedProfile(answer, resume, today), promptVersion: EXTRACT_PROFILE_VERSION };
 };
 
-/** The answer as a profile, trusting nothing: dates in range, known levels, and every name looked up in the resume. */
+/** Basics that must be in the file as they're given (#371); a headline, summary or date of birth may be worded or formatted anew. */
+const LITERAL_BASICS: ReadonlySet<BasicsField> = new Set(["name", "email", "phone", "website", "address", "city", "country", "linkedin"]);
+
+/**
+ * The answer as a profile, trusting nothing: dates in range and in the file,
+ * known levels, every name looked up in the resume, and basics that the file
+ * says. What's dropped is listed in `leftOut` (#371).
+ */
 export function checkedProfile(answer: z.infer<typeof answerSchema>, resume: string, today: Date): ImportedProfile {
   const haystack = normalized(resume);
   const inResume = (value: string) => !value.trim() || haystack.includes(normalized(value));
   const missing = (...values: string[]) => values.filter((value) => !inResume(value));
   const clean = (value: string | null | undefined) => (value ?? "").trim();
+  const leftOut: string[] = [];
 
+  // A year must be in the file: "2021", or "'21" (#371). A model adds a start year to "…, 2021" otherwise.
+  const yearInResume = (value: number) =>
+    new RegExp(`(?<!\\d)${value}(?!\\d)|['’‘]${String(value % 100).padStart(2, "0")}(?!\\d)`).test(resume);
   const year = (value: number | null) => (value !== null && value >= 1940 && value <= today.getFullYear() + 1 ? value : null);
   const month = (value: number | null) => (value !== null && value >= 1 && value <= 12 ? value : null);
-  const span = (entry: DatedAnswer) => {
-    const startYear = year(entry.startYear);
-    const endYear = entry.current ? null : year(entry.endYear);
+  /** A year in range and in the file; one that isn't in the file is noted in leftOut. */
+  const keptYear = (value: number | null, what: string) => {
+    const inRange = year(value);
+    if (inRange === null || yearInResume(inRange)) return inRange;
+    leftOut.push(`${what}: ${inRange}, not in the file`);
+    return null;
+  };
+  const span = (entry: DatedAnswer, what: string) => {
+    const startYear = keptYear(entry.startYear, what);
+    const endYear = entry.current ? null : keptYear(entry.endYear, what);
     return {
       startYear,
       startMonth: startYear === null ? null : month(entry.startMonth),
@@ -121,6 +140,20 @@ export function checkedProfile(answer: z.infer<typeof answerSchema>, resume: str
     const value = clean(answer.basics[field]);
     if (!value) continue;
     if (field === "dob" && !(/^\d{4}-\d{2}-\d{2}$/.test(value) && z.iso.date().safeParse(value).success)) continue;
+    const label = `${BASICS_LABELS[field]} “${value.split("\n")[0]}”`;
+    if (LITERAL_BASICS.has(field) && !inResume(value)) {
+      leftOut.push(`${label}: not in the file`);
+      continue;
+    }
+    // A street address has a number; "Portland, Oregon" is a place, not a street.
+    if (field === "address" && !/\d/.test(value)) {
+      leftOut.push(`${label}: no street or number in it`);
+      continue;
+    }
+    if (field === "country" && !isCountryName(value)) {
+      leftOut.push(`${label}: not a country`);
+      continue;
+    }
     basics[field] = value;
   }
 
@@ -143,7 +176,7 @@ export function checkedProfile(answer: z.infer<typeof answerSchema>, resume: str
       volunteering: entry.volunteering,
       bullets: entry.bullets.map((line) => line.replace(/^[-•*·▪]\s*/, "").trim()).filter(Boolean).join("\n"),
       skills: [...new Set(entry.skills.flatMap((name) => addSkill(name) ?? []))],
-      ...span(entry),
+      ...span(entry, `Role “${clean(entry.role) || clean(entry.company)}”`),
       unverified: missing(clean(entry.role), clean(entry.company)),
     }));
 
@@ -154,7 +187,7 @@ export function checkedProfile(answer: z.infer<typeof answerSchema>, resume: str
       link: clean(entry.link),
       bullets: entry.bullets.map((line) => line.replace(/^[-•*·▪]\s*/, "").trim()).filter(Boolean).join("\n"),
       skills: [...new Set(entry.skills.flatMap((name) => addSkill(name) ?? []))],
-      ...span(entry),
+      ...span(entry, `Project “${clean(entry.name)}”`),
       unverified: missing(clean(entry.name)),
     }));
 
@@ -173,13 +206,13 @@ export function checkedProfile(answer: z.infer<typeof answerSchema>, resume: str
         degree: clean(entry.degree),
         school: clean(entry.school),
         notes: clean(entry.notes),
-        ...span(entry),
+        ...span(entry, `Education “${clean(entry.degree) || clean(entry.school)}”`),
         unverified: missing(clean(entry.degree), clean(entry.school)),
       })),
     certifications: answer.certifications
       .filter((entry) => clean(entry.name))
       .map((entry) => {
-        const obtained = year(entry.year);
+        const obtained = keptYear(entry.year, `Certification “${clean(entry.name)}”`);
         // It may run out years from now.
         const expires = entry.expiryYear !== null && entry.expiryYear >= 1940 && entry.expiryYear <= 2100 ? entry.expiryYear : null;
         return {
@@ -215,6 +248,7 @@ export function checkedProfile(answer: z.infer<typeof answerSchema>, resume: str
         phone: clean(entry.phone),
         unverified: missing(clean(entry.name)),
       })),
+    leftOut: [...new Set(leftOut)],
   });
 }
 

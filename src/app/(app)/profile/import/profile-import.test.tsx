@@ -32,6 +32,7 @@ vi.mock("@/components/toast", () => {
 });
 
 const profile: ImportedProfile = {
+  leftOut: [],
   basics: { name: "John Doe", city: "Utrecht" },
   skills: [
     { name: "Figma", found: true },

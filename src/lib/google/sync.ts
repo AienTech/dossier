@@ -235,7 +235,8 @@ const globalForSync = globalThis as unknown as { inboxTimer?: ReturnType<typeof 
 async function scheduledCheck(): Promise<void> {
   if (globalForSync.inboxRunning) return;
   const [connection, settings] = await Promise.all([googleConnection(), loadSettings()]);
-  if (connection.status !== "connected") return;
+  // Not while Google refuses the saved access: each check would only fail again (#136).
+  if (connection.status !== "connected" || connection.signInProblem) return;
   globalForSync.inboxRunning = true;
   try {
     // Interviews moved or deleted in Google Calendar, whether or not mail is read.

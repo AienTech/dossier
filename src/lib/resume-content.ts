@@ -1,7 +1,7 @@
 import type { CustomSectionFormat } from "@/generated/prisma/enums";
 import type { Unit } from "@/lib/application-data";
 import { ageLabel, ENGLISH_LABELS, languagesLine, type DocumentLabels } from "@/lib/document-labels";
-import { publicationHref, publicationLink } from "@/lib/citation";
+import { keepBold, publicationHref, publicationLink } from "@/lib/citation";
 import { ageOn, formatDateRange, formatMonthYear, paidRoles, resumeCertifications, resumeCustomSections, resumePublications, type Basics, type CustomItem, type ProfileData } from "@/lib/profile";
 import { BUILT_IN_SECTIONS, customKey, type BuiltInSection } from "@/lib/resume-sections";
 import { inEditorOrder, skillsText } from "@/lib/skill-groups";
@@ -28,6 +28,8 @@ export type ResumeContent = {
     name: string;
     /** "github.com/jane/tidewater", without "https://". */
     link: string;
+    /** What the link opens, or null when it isn't a web address (#369). */
+    href: string | null;
     dates: string;
     bullets: string[];
     skills: string[];
@@ -115,8 +117,8 @@ export function contactItems(basics: Basics, today = new Date(), labels = ENGLIS
     basics.email,
     basics.phone,
     [basics.city, basics.country].map((part) => part.trim()).filter(Boolean).join(", "),
-    basics.website,
-    basics.linkedin,
+    displayLink(basics.website),
+    displayLink(basics.linkedin),
     age === null ? "" : ageLabel(age, labels),
   ]
     .map((item) => item.trim())
@@ -170,15 +172,17 @@ export function resumeContent(
     company: entry.company.trim(),
     descriptor: entry.descriptor.trim(),
     dates: formatDateRange(entry, dates),
-    bullets: lines(bullets),
+    // A tailored text gets the profile's bold back where it keeps the words (#368).
+    bullets: lines(keepBold(bullets, entry.bullets)),
     skills: entry.skillIds.flatMap((id) => skillNames.get(id) ?? []),
   });
   const project = (entry: ProfileData["projects"][number], bullets: string) => ({
     id: entry.id,
     name: entry.name.trim(),
     link: displayLink(entry.link),
+    href: webHref(entry.link),
     dates: formatDateRange(entry, dates),
-    bullets: lines(bullets),
+    bullets: lines(keepBold(bullets, entry.bullets)),
     skills: entry.skillIds.flatMap((id) => skillNames.get(id) ?? []),
   });
   const publication = (entry: ProfileData["publications"][number], citation: string) => ({

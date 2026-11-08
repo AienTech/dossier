@@ -26,6 +26,7 @@ vi.mock("@/components/toast", () => ({
 
 const row = (id: string, extra: Partial<ApplicationRow> = {}): ApplicationRow => ({
   id,
+  score: null,
   company: "Ledgerly",
   role: "Senior Product Designer",
   location: "Amsterdam",

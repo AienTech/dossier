@@ -19,6 +19,7 @@ afterAll(() => prisma().$disconnect());
 
 const noDates = { startYear: null, startMonth: null, endYear: null, endMonth: null, current: false };
 const imported: ImportedProfile = {
+  leftOut: [],
   basics: { name: "John Doe", city: "Utrecht" },
   skills: [
     { name: "figma", found: true },

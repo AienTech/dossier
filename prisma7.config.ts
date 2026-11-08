@@ -3,6 +3,11 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// Prisma's CLI checks in with checkpoint.prisma.io on each run, unless this
+// is set. Every Prisma command loads this file first, so it covers the image's
+// start, the dev stack, Prisma Studio and the Node.js way alike (#363).
+process.env["CHECKPOINT_DISABLE"] ??= "1";
+
 // DATABASE_URL picks the database: a PostgreSQL server, or an SQLite file
 // ("file:/data/dossier.db"), whose schema and migrations are in prisma/sqlite.
 const sqlite = process.env["DATABASE_URL"]?.startsWith("file:");

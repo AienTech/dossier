@@ -15,6 +15,7 @@ vi.mock("@/components/change-status", () => ({ changeStatus: vi.fn(async () => t
 
 const row = (id: string, extra: Partial<ApplicationRow> = {}): ApplicationRow => ({
   id,
+  score: null,
   company: "Ledgerly",
   role: "Senior Product Designer",
   location: "Amsterdam",
@@ -46,6 +47,7 @@ describe("the table (E9-3)", () => {
       "Role",
       "Status",
       "Match",
+      "Score",
       "Location",
       "Sent",
       "Updated ↓",
@@ -64,12 +66,13 @@ describe("the table (E9-3)", () => {
       "Product Designer, MobileKestrel Maps",
       expect.stringContaining("Sent"),
       "Not matched",
+      "Not scored",
       "Amsterdam",
       "20 Sep",
       "2 days ago",
       "⋯",
     ]);
-    expect(within(draft).getAllByRole("cell").slice(2, 5).map((cell) => cell.textContent)).toEqual(["5/7", "Not given", "Not sent"]);
+    expect(within(draft).getAllByRole("cell").slice(2, 6).map((cell) => cell.textContent)).toEqual(["5/7", "Not scored", "Not given", "Not sent"]);
   });
 
   it("sorts by a column, and reverses on a second click", async () => {

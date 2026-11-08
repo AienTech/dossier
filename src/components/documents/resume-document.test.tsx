@@ -22,9 +22,14 @@ describe("ResumeDocument", () => {
 
   it("puts contact details in the header of single-column layouts", () => {
     render(<ResumeDocument theme={theme("editorial")} profile={profile} paper="A4" today={today} />);
-    expect(screen.getByText("jane.doe@example.com").parentElement?.textContent).toBe(
+    expect(screen.getByText("jane.doe@example.com").closest("p")?.textContent).toBe(
       "jane.doe@example.com  ·  +31 6 1234 5678  ·  Rotterdam, Netherlands  ·  example.com  ·  linkedin.com/in/janedoe-example",
     );
+    // Email and web addresses open, with the address as the text; the phone and the place stay text (#369).
+    expect(screen.getByRole("link", { name: "jane.doe@example.com" })).toHaveAttribute("href", "mailto:jane.doe@example.com");
+    expect(screen.getByRole("link", { name: "example.com" })).toHaveAttribute("href", "https://example.com/");
+    expect(screen.getByRole("link", { name: "linkedin.com/in/janedoe-example" })).toHaveAttribute("href", "https://linkedin.com/in/janedoe-example");
+    expect(screen.queryByRole("link", { name: /Rotterdam|\+31/ })).toBeNull();
     expect(sectionTitles()).toEqual(["Profile", "Experience", "Projects", "Education", "Certifications", "Publications", "Skills", "Languages"]);
   });
 
@@ -174,9 +179,18 @@ describe("ResumeDocument", () => {
     const project = screen.getByText("Tidewater design tokens").closest("[data-unit]")!;
     expect(project).toHaveAttribute("data-unit", "project:p1");
     expect(project).toHaveTextContent("Tidewater design tokens, github.com/janedoe/tidewater");
+    expect(screen.getByRole("link", { name: "github.com/janedoe/tidewater" })).toHaveAttribute("href", "https://github.com/janedoe/tidewater");
     expect(project).toHaveTextContent("Jan 2023 – Present");
     expect(project).toHaveTextContent("Built an open-source Figma plugin that turns design tokens into CSS variables");
     expect(project).toHaveTextContent("Skills · Design systems, Figma, HTML & CSS");
+  });
+
+  it("sets marked words of a bullet in bold, without the asterisks (#368)", () => {
+    const bold = { ...profile, experience: profile.experience.map((entry, index) => (index === 0 ? { ...entry, bullets: "Scaled the system by **40%**" } : entry)) };
+    render(<ResumeDocument theme={theme("editorial")} profile={bold} paper="A4" today={today} />);
+    const strong = screen.getByText("40%");
+    expect(strong.tagName).toBe("STRONG");
+    expect(strong.closest("li")).toHaveTextContent(/^Scaled the system by 40%$/);
   });
 
   it("shows publications with their bold, italics and a link that opens (#218)", () => {

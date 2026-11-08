@@ -12,7 +12,6 @@ import { jobRetentionLabel } from "@/lib/settings";
 import { loadScoringConfig, scoringView } from "@/lib/scoring/config";
 import { providerOption } from "@/lib/ai/provider-options";
 import { env } from "@/lib/env";
-import { isDesktopApp } from "@/lib/desktop";
 import { redirectUri } from "@/lib/google/oauth";
 import { loadSettings } from "@/lib/settings-data";
 import { googleClientView, googleView, requestOrigin } from "@/lib/settings-views";
@@ -160,20 +159,6 @@ export default async function WelcomePage({ searchParams }: PageProps<"/welcome"
         lead="Score in Find jobs and the job agent say how well a posting fits your profile, so you can see the good ones first. Your resumes and letters are always written by your AI."
       >
         <ScoringStep initial={view} />
-      </SetupFrame>
-    );
-  }
-
-  if (step === "google" && isDesktopApp()) {
-    // Google doesn't come back to the desktop app's own server yet (#327).
-    return (
-      <SetupFrame
-        step="google"
-        title="Gmail and Calendar"
-        complete={false}
-        lead="Connecting a Google account doesn't work yet when Dossier runs on this computer. It does with Dossier on a server, which this app opens too, with On my server. Skip this step for now: everything else works without it."
-      >
-        {null}
       </SetupFrame>
     );
   }

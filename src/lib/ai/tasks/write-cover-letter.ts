@@ -23,7 +23,7 @@ import {
   type Task,
 } from "./prompt-parts";
 
-export const WRITE_COVER_LETTER_VERSION = "write-cover-letter@5";
+export const WRITE_COVER_LETTER_VERSION = "write-cover-letter@6";
 
 const answerSchema = z.object({
   recipient: z.string(),
@@ -96,7 +96,7 @@ export const writeCoverLetter: Task<CoverLetterInput, Unit[]> = async (provider,
   const signOff = /^english$/i.test(language) || !answer.signOff.trim() ? TONES[tone].signOff : answer.signOff.trim();
   const units = unitsSchema.parse([
     // Left out when empty: the English ones fill in (src/lib/letter-frame.ts).
-    ...(answer.recipient.trim() ? [{ id: "recipient", label: FRAME_LABELS.recipient, text: tidyLines(answer.recipient) }] : []),
+    ...(answer.recipient.trim() ? [{ id: "recipient", label: FRAME_LABELS.recipient, text: recipientFromJob(answer.recipient, extracted, posting) }] : []),
     ...(answer.greeting.trim() ? [{ id: "greeting", label: FRAME_LABELS.greeting, text: answer.greeting.trim() }] : []),
     ...withoutFrame(answer.paragraphs, signOff)
       .filter((paragraph) => paragraph.text.trim())
@@ -109,6 +109,23 @@ export const writeCoverLetter: Task<CoverLetterInput, Unit[]> = async (provider,
     promptVersion: WRITE_COVER_LETTER_VERSION,
   };
 };
+
+const normalized = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+/**
+ * The recipient as the model wrote it, but its place only from the job
+ * (#371): who it's for stays, and a line after it stays only when the posting
+ * says it. Otherwise the place is the posting's location as read, or left out
+ * for a remote job. A model once gave the company the candidate's own city.
+ */
+export function recipientFromJob(text: string, extracted: Pick<Extracted, "location" | "company">, posting: string): string {
+  const [who = "", ...rest] = tidyLines(text).split("\n");
+  const job = normalized(`${posting}\n${extracted.location ?? ""}\n${extracted.company}`);
+  const said = rest.filter((line) => job.includes(normalized(line)));
+  const location = extracted.location?.trim() ?? "";
+  const place = said.length > 0 ? said : location && !/\bremote\b/i.test(location) ? [location] : [];
+  return [who, ...place].join("\n");
+}
 
 /** An address block's lines, trimmed, without empty ones. */
 const tidyLines = (text: string) =>

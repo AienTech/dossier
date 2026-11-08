@@ -24,6 +24,7 @@ vi.mock("@/lib/time-zone", () => ({ userTimeZone: async () => "Europe/Berlin", l
 
 import { encryptSecret, GOOGLE_TOKEN } from "@/lib/secrets";
 
+import { googleConnection, saveGoogleAccount } from "./account";
 import { sendApplicationEmail, sendReply } from "./send";
 import { syncInbox } from "./sync";
 
@@ -85,6 +86,9 @@ function fakeGoogle(url: string, init?: RequestInit): Response {
   if (mail && !mail.deleted) return json(gmailMessage(mail));
   return new Response("not found", { status: 404 });
 }
+
+/** Earlier tests leave an hour-long access token in memory; without it, the refresh token is asked for. */
+const forgetAccessTokens = () => (globalThis as { googleTokens?: Map<string, unknown> }).googleTokens?.clear();
 
 const scopes = "openid email https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly";
 
@@ -194,6 +198,35 @@ describe("the inbox check (E15-3)", () => {
     mailbox.push({ id: "m9", threadId: "thread-new", from: "Anna Keller <a.keller@northwind.example>", subject: "Re: Application", text: "Hi", history: 350, forbid: true });
     await expect(syncInbox()).rejects.toThrow("Google refused that. Check the permissions in Settings → Google.");
     expect(await prisma().googleAccount.findUniqueOrThrow({ where: { id: "google" } })).toMatchObject({ syncProblem: "Google refused that. Check the permissions in Settings → Google." });
+  });
+
+  it("stops asking Google once it refuses the saved access, until the account is connected again (#136)", async () => {
+    forgetAccessTokens();
+    let tokenCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string | URL, init?: RequestInit) => {
+        if (!String(url).startsWith("https://oauth2.googleapis.com/token")) return fakeGoogle(String(url), init);
+        tokenCalls += 1;
+        return new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 });
+      }),
+    );
+    await expect(syncInbox()).rejects.toThrow("Google no longer accepts Dossier's access.");
+    expect(await googleConnection()).toMatchObject({ status: "connected", signInProblem: expect.stringContaining("Connect your Google account again") });
+    await expect(syncInbox()).rejects.toThrow("Google no longer accepts Dossier's access.");
+    expect(tokenCalls).toBe(1);
+
+    await saveGoogleAccount({ email: "jane@gmail.com", refreshToken: "new-refresh", scopes });
+    expect(await googleConnection()).toMatchObject({ signInProblem: null, syncProblem: null });
+  });
+
+  it("pauses, but keeps, saved access it can't read, since the old DOSSIER_SECRET reads it again (#136)", async () => {
+    forgetAccessTokens();
+    const other = encryptSecret(GOOGLE_TOKEN, "refresh", "o".repeat(40));
+    await prisma().googleAccount.update({ where: { id: "google" }, data: { refreshTokenEnc: other } });
+    expect(await googleConnection()).toMatchObject({ signInProblem: expect.stringContaining("DOSSIER_SECRET changed") });
+    await expect(syncInbox()).rejects.toThrow("can't be read");
+    expect(await prisma().googleAccount.findUniqueOrThrow({ where: { id: "google" } })).toMatchObject({ refreshTokenEnc: other });
   });
 
   it("unlinks a mail matched by the company's name or domain that the AI finds unrelated, and keeps a thread's reply linked (public issue 65)", async () => {

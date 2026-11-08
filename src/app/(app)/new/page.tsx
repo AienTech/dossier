@@ -30,6 +30,7 @@ export default async function NewApplicationPage({ searchParams }: PageProps<"/n
       aiReady={aiReady}
       writeInClaude={writeInClaude}
       defaultTone={settings.defaultTone}
+      defaultWrite={settings.documentsToWrite}
       fresh={fresh !== undefined}
       fromPosting={
         fromFindJobs

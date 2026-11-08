@@ -18,6 +18,7 @@ import { applyStatusChange } from "@/lib/status-changes";
 import { disconnectGoogle, googleConnection } from "./account";
 import { proposeSlots, scheduleInterview } from "./availability";
 import { GoogleError } from "./errors";
+import { worthSuggesting } from "./matching";
 import { loadGoogleClientConfig } from "./oauth";
 import { sendApplicationEmail, sendReply } from "./send";
 import { formatSlot } from "./slots";
@@ -229,10 +230,16 @@ export const rereadEmail = action(z.object({ emailId: z.string().min(1) }), asyn
 
 /** Takes up a reply's suggested status (or turns it down), through the status module. */
 export const applySuggestedStatus = action(z.object({ emailId: z.string().min(1), accept: z.boolean() }), async ({ emailId, accept }, { toast }) => {
-  const email = await prisma.emailMessage.findUnique({ where: { id: emailId }, select: { applicationId: true, suggestedStatus: true } });
+  const email = await prisma.emailMessage.findUnique({
+    where: { id: emailId },
+    select: { applicationId: true, suggestedStatus: true, application: { select: { status: true } } },
+  });
   if (!email) throw new ActionError("That email is no longer in Dossier.");
   await prisma.emailMessage.update({ where: { id: emailId }, data: { suggestedStatus: null } });
-  if (!accept || !email.applicationId || !email.suggestedStatus) return { eventId: null };
+  // Checked again against where the application is now, so a suggestion made
+  // before it moved on never takes it backwards (#141).
+  if (!accept || !email.applicationId || !email.suggestedStatus || !email.application) return { eventId: null };
+  if (!worthSuggesting(email.application.status, email.suggestedStatus)) return { eventId: null };
   const result = await applyStatusChange(prisma, email.applicationId, email.suggestedStatus);
   refreshEverything();
   if (result.outcome !== "changed") return { eventId: null };

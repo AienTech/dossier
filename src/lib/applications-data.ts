@@ -2,6 +2,7 @@ import "server-only";
 
 import type { ApplicationStatus } from "@/generated/prisma/enums";
 import { matchSchema, matchScore } from "@/lib/application-data";
+import { resumeFitSchema } from "@/lib/resume-fit";
 import { sortRows, updatedAgo, type Sort } from "@/lib/applications-list";
 import { formatCalendarDate, formatShortDate } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +20,8 @@ export type ApplicationRow = {
   /** "Apply by" on draft cards, e.g. "3 Oct 2026". */
   deadline: string | null;
   match: { hit: number; total: number } | null;
+  /** The tailored resume's score (#370), or null when it hasn't been scored. */
+  score: number | null;
   /** When it was sent, e.g. "18 Aug"; null while never sent. */
   sent: string | null;
   /** "Today", "3 days ago"… */
@@ -44,6 +47,7 @@ export async function loadApplicationRows({ archived, sort }: { archived: boolea
       archivedAt: true,
       deadline: true,
       match: true,
+      resumeFit: true,
       sentAt: true,
       updatedAt: true,
       boardSort: true,
@@ -51,6 +55,7 @@ export async function loadApplicationRows({ archived, sort }: { archived: boolea
   });
   const rows = applications.map((application) => {
     const match = matchSchema.safeParse(application.match);
+    const fit = resumeFitSchema.safeParse(application.resumeFit);
     return {
       id: application.id,
       company: application.company.trim(),
@@ -61,6 +66,7 @@ export async function loadApplicationRows({ archived, sort }: { archived: boolea
       archived: application.archivedAt !== null,
       deadline: application.deadline ? formatCalendarDate(application.deadline) : null,
       match: match.success && match.data.items.length > 0 ? matchScore(match.data) : null,
+      score: fit.success ? fit.data.score : null,
       sentAt: application.sentAt,
       updatedAt: application.updatedAt,
       boardSort: application.boardSort,

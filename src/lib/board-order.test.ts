@@ -5,6 +5,7 @@ import { boardOrder, orderedColumn, withShownOrder } from "./board-order";
 
 const row = (id: string, extra: Partial<ApplicationRow> = {}): ApplicationRow => ({
   id,
+  score: null,
   company: "Acme",
   role: "Engineer",
   location: "",

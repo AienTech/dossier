@@ -16,7 +16,6 @@ import type { PaperSize } from "@/generated/prisma/enums";
 import type { ProfileData } from "@/lib/profile";
 import { saveFile } from "@/lib/save-file";
 import type { SectionLayout } from "@/lib/resume-sections";
-import { pagesInWords } from "@/lib/settings";
 import { parseThemeFile, themeFile, themeFileName } from "@/lib/theme-file";
 import { FIT_LEVELS, hasSidebar, PAPER_SIZES, type ThemeData } from "@/lib/themes";
 
@@ -33,8 +32,6 @@ export type ResumeWorkspaceProps = {
   baseThemeId: string;
   paper: PaperSize;
   includeReferences: boolean;
-  /** Settings → "Resume length" (SET-9): the most pages a tailored resume may have, or null for no limit. */
-  maxPages: number | null;
   /** Settings → "Base resume language", for its headings and dates; null for English. */
   language: string | null;
   /** The sections' order and which are off (#297). */
@@ -60,7 +57,6 @@ export function ResumeWorkspace({
   baseThemeId,
   paper,
   includeReferences,
-  maxPages,
   language,
   sections: initialSections,
   fitToPage: initialFit,
@@ -226,7 +222,7 @@ export function ResumeWorkspace({
           label={theme.name}
           meta={(pages) => `${PAPER_SIZES[paper].label} · ${pages} ${pages === 1 ? "page" : "pages"}${fit > 0 ? " · squeezed to fit" : ""}`}
           onPages={onPages}
-          notice={(pages) =>
+          notice={() =>
             empty ? (
               // E11-4: an empty page needs a way forward.
               <p role="note" className="rounded-card bg-card px-4 py-2.5 text-meta text-muted">
@@ -235,17 +231,7 @@ export function ResumeWorkspace({
                   Go to your profile
                 </Link>
               </p>
-            ) : (
-              maxPages !== null &&
-              pages > maxPages && (
-                <p role="note" className="rounded-card bg-warning-surface px-4 py-2.5 text-meta text-warning">
-                  Your base resume runs over {pagesInWords(maxPages)}. Tailored resumes are trimmed to fit, oldest roles first.{" "}
-                  <Link href="/settings?section=documents" className="font-medium text-warning underline underline-offset-2">
-                    Change the resume length
-                  </Link>
-                </p>
-              )
-            )
+            ) : null
           }
         >
           <ResumeDocument theme={theme} profile={profile} paper={paper} includeReferences={includeReferences} language={language} sections={sections} fit={fitToPage ? fit : 0} />

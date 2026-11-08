@@ -64,6 +64,7 @@ const answers: Record<string, (messages: Message[]) => unknown> = {
         requirement: requirement.number,
         skill: candidateSkills.find((name) => name.toLowerCase() === requirement.skill?.toLowerCase()) ?? null,
         language: candidateLanguages.find((name) => requirement.text.includes(name)) ?? null,
+        certification: null,
       })),
     };
   },

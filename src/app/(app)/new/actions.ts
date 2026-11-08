@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { JobStatus, Tone } from "@/generated/prisma/enums";
+import { DOCUMENTS_TO_WRITE } from "@/lib/settings";
 import { action, ActionError } from "@/lib/action";
 import { createApplicationFromDocuments } from "@/lib/application-create";
 import { matchSchema } from "@/lib/application-data";
@@ -70,8 +71,9 @@ export const startWritingDocuments = action(
     match: matchSchema,
     tone: z.enum(Tone),
     note: z.string().trim().max(2000),
+    write: z.enum(DOCUMENTS_TO_WRITE).default("both"),
   }),
-  async ({ readJobId, details, match, tone, note }) => {
+  async ({ readJobId, details, match, tone, note, write }) => {
     const reading = await finishedReading(readJobId);
     const orNull = (value: string) => value || null;
     const extracted = {
@@ -84,7 +86,7 @@ export const startWritingDocuments = action(
       salary: orNull(details.salary),
       deadline: orNull(details.deadline),
     };
-    return startJob(writeDocumentsJob, { readJobId, posting: reading.input.posting, extracted, match, tone, note });
+    return startJob(writeDocumentsJob, { readJobId, posting: reading.input.posting, extracted, match, tone, note, write });
   },
 );
 

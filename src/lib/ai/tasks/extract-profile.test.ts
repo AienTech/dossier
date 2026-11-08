@@ -117,10 +117,36 @@ describe("extractProfile (E4-10)", () => {
     expect(call.effort).toBe("low");
   });
 
+  it("leaves out a year, a street or a country the file doesn't say, and says so (#371)", async () => {
+    const resume = "Morgan Ellis\nData Analyst\nPortland, Oregon\n\nEducation\nB.S. in Statistics, Oregon State University, 2021\n\nCertifications\nGoogle Data Analytics, Google, '23";
+    const added = {
+      ...answer,
+      basics: { ...answer.basics, name: "Morgan Ellis", headline: "Data Analyst", email: null, phone: null, dob: null, website: null, linkedin: null, summary: null, address: "Portland, Oregon", city: "Portland", country: "Oregon" },
+      skills: [],
+      languages: [],
+      experience: [],
+      projects: [],
+      education: [{ degree: "B.S. in Statistics", school: "Oregon State University", startYear: 2017, startMonth: null, endYear: 2021, endMonth: null, current: false, notes: null }],
+      certifications: [{ name: "Google Data Analytics", issuer: "Google", year: 2023, month: null, expiryYear: null, expiryMonth: null, credentialId: null, link: null }],
+      publications: [],
+      references: [],
+    };
+    const { data } = await extractProfile(new MockProvider({ reply: () => added }), { resume, today: new Date("2026-11-08") }, options);
+    expect(data.basics).toEqual({ name: "Morgan Ellis", headline: "Data Analyst", city: "Portland" });
+    expect(data.education[0]).toMatchObject({ startYear: null, endYear: 2021 });
+    // "'23" is 2023.
+    expect(data.certifications[0]).toMatchObject({ year: 2023 });
+    expect(data.leftOut).toEqual([
+      "Street address “Portland, Oregon”: no street or number in it",
+      "Country “Oregon”: not a country",
+      "Education “B.S. in Statistics”: 2017, not in the file",
+    ]);
+  });
+
   it("checks the answer: dates in range, levels, one of each skill, and names looked up in the resume", async () => {
     const provider = new MockProvider({ reply: () => answer });
     const { data, promptVersion } = await extractProfile(provider, { resume: RESUME, today: new Date("2026-09-29") }, options);
-    expect(promptVersion).toBe("extract-profile@5");
+    expect(promptVersion).toBe("extract-profile@6");
     expect(data.basics).toEqual({
       name: "John Doe",
       headline: "Senior Product Designer",

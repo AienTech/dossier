@@ -161,6 +161,15 @@ describe("the reply's suggestions (E15-4)", () => {
     expect(await applySuggestedStatus({ emailId: "e1", accept: true })).toMatchObject({ ok: true, data: { eventId: null } });
   });
 
+  it("never takes an application backwards with a suggestion from before it moved on (#141)", async () => {
+    await prisma().emailMessage.update({ where: { id: "e1" }, data: { suggestedStatus: "SCREENING" } });
+    await prisma().application.update({ where: { id: "nw" }, data: { status: "INTERVIEW", furthestStage: "INTERVIEW" } });
+    expect((await loadConversation("nw")).find((email) => email.id === "e1")).toMatchObject({ suggestedStatus: null });
+    expect(await applySuggestedStatus({ emailId: "e1", accept: true })).toMatchObject({ ok: true, data: { eventId: null } });
+    expect(await prisma().application.findUniqueOrThrow({ where: { id: "nw" } })).toMatchObject({ status: "INTERVIEW" });
+    expect(await prisma().emailMessage.findUniqueOrThrow({ where: { id: "e1" } })).toMatchObject({ suggestedStatus: null });
+  });
+
   it("starts and saves drafts", async () => {
     expect(await startDraftingReply({ emailId: "e1" })).toEqual({ ok: true, data: "job-1" });
     expect(await startDraftingReply({ emailId: "nope" })).toMatchObject({ ok: false });

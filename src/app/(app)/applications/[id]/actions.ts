@@ -23,6 +23,9 @@ import { refineJob, refineJobKey } from "@/lib/jobs/refine";
 import { regenerateUnitJob, unitJobKey } from "@/lib/jobs/regenerate-unit";
 import { findUnfinishedJobs, startJob } from "@/lib/jobs/runner";
 import { emailJobKey, writeEmailJob } from "@/lib/jobs/write-email";
+import { writeDocumentJob, writeDocumentJobKey } from "@/lib/jobs/write-document";
+import { scoreResumeJob, scoreResumeJobKey } from "@/lib/jobs/score-resume";
+import { scoringProblem } from "@/lib/scoring";
 import { prisma } from "@/lib/prisma";
 import { loadProfile } from "@/lib/profile-data";
 import { findOrCreateSkill } from "@/lib/profile-entries";
@@ -608,6 +611,39 @@ export const restoreVersion = action(z.object({ id: z.string().min(1), versionId
   toast(`Restored the ${DOCUMENT_LABELS[kind].toLowerCase()} as it was then. The version you had is in the history too.`);
   refresh(id);
   return null;
+});
+
+// ─── A document it was created without (#367) ──────────────────────────────
+
+/**
+ * "Write the cover letter" (or resume) on an application created without
+ * it: writes it in the background and returns the job's id. Asking again
+ * while it's being written follows the same job.
+ */
+export const startWritingDocument = action(
+  z.object({ id: z.string().min(1), kind: z.enum([DocumentKind.RESUME, DocumentKind.COVER_LETTER]) }),
+  async ({ id, kind }) => {
+    const application = await prisma.application.findUnique({ where: { id }, select: { documents: { select: { kind: true } } } });
+    if (!application) throw new ActionError(GONE);
+    if (application.documents.some((document) => document.kind === kind)) throw new ActionError("It's been written already. Reload the page to see it.");
+    if (!(await isAiConfigured())) throw new ActionError("That needs an AI provider. Choose one in Settings → AI provider.");
+    const key = writeDocumentJobKey(id, kind);
+    const [running] = await findUnfinishedJobs(key);
+    return running?.id ?? startJob(writeDocumentJob, { applicationId: id, kind }, { key, applicationId: id });
+  },
+);
+
+// ─── The resume's score (#370) ───────────────────────────────────────────────
+
+/** "Score" and "Score again" on the Resume tab: scores the tailored resume in the background and returns the job's id. */
+export const startScoringResume = action(z.object({ id: z.string().min(1) }), async ({ id }) => {
+  const resume = await prisma.document.findUnique({ where: { applicationId_kind: { applicationId: id, kind: DocumentKind.RESUME } }, select: { id: true } });
+  if (!resume) throw new ActionError((await prisma.application.count({ where: { id } })) ? "Write the tailored resume first." : GONE);
+  const problem = await scoringProblem();
+  if (problem) throw new ActionError(problem);
+  const key = scoreResumeJobKey(id);
+  const [running] = await findUnfinishedJobs(key);
+  return running?.id ?? startJob(scoreResumeJob, { applicationId: id }, { key, applicationId: id });
 });
 
 // ─── The email (Email tab) ───────────────────────────────────────────────────

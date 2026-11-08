@@ -1,14 +1,14 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme, session, shell, WebContentsView, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, session, shell, WebContentsView, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from "electron";
 
 import { checkServer, parseAddress } from "./address";
 import { barColors, fallbackColors, READ_PAGE_COLORS, type BarColors } from "./bar-colors";
 import { localBundle, LocalServerError, startLocalServer, type LocalProblem, type RunningServer } from "./local-server";
 import { readPreferences, writePreferences, type Preferences } from "./preferences";
 import { startPrintService, type PrintService } from "./print-service";
-import { mayOpenExternally, navigationFor, permissionAllowed, redirectAllowed } from "./window-rules";
+import { googleConnectPath, mayOpenExternally, navigationFor, permissionAllowed, redirectAllowed } from "./window-rules";
 
 // The desktop app: one window with the app's own top bar, and below it either
 // its start screen or Dossier, from the user's server or from a server the app
@@ -135,6 +135,14 @@ function showServer(origin: string, signInToken?: string) {
     return { action: "deny" };
   });
   contents.on("will-navigate", (event) => {
+    // Google refuses its sign-in inside an app: Connect Google goes to the browser,
+    // signed in by the app on this computer, as it is on a server (#327).
+    const connect = googleConnectPath(event.url, origin);
+    if (connect !== null) {
+      event.preventDefault();
+      void (signInToken ? openSignedIn(origin, signInToken, connect) : shell.openExternal(event.url));
+      return;
+    }
     const navigation = navigationFor(event.url, { server: origin, current: contents.getURL() });
     if (navigation === "stay") return;
     event.preventDefault();
@@ -165,6 +173,27 @@ function showServer(origin: string, signInToken?: string) {
 }
 
 const logFile = () => path.join(app.getPath("userData"), "logs", "server.log");
+
+/**
+ * Opens `next` on the server on this computer in the system browser, signed
+ * in (#365, #327): the server gives the app a one-time link for its token,
+ * which signs the browser in for its session. For Connect Google, and for an
+ * MCP app's approval page, which wait in the browser.
+ */
+async function openSignedIn(origin: string, token: string, next: string) {
+  try {
+    const response = await fetch(`${origin}/api/desktop/browser-link`, {
+      method: "POST",
+      headers: { [DESKTOP_TOKEN_HEADER]: token, "content-type": "application/json" },
+      body: JSON.stringify({ next }),
+    });
+    if (!response.ok) throw new Error(`The server answered ${response.status}.`);
+    const { path: link } = (await response.json()) as { path: string };
+    await shell.openExternal(new URL(link, origin).href);
+  } catch (error) {
+    dialog.showErrorBox("Couldn't open your browser", error instanceof Error ? error.message : String(error));
+  }
+}
 
 /** Starts the server on this computer if it isn't running, and shows it. */
 async function openLocal() {
@@ -313,6 +342,10 @@ function buildMenu() {
     {
       label: "Help",
       submenu: [
+        // For an MCP app's approval page, which opens in the browser (#365).
+        ...(preferences.mode === "local"
+          ? [{ label: "Sign in my browser", click: () => void (local ? openSignedIn(local.origin, local.token, "/") : undefined) }, { type: "separator" as const }]
+          : []),
         { label: "Download the latest version", click: () => void shell.openExternal(RELEASES_URL) },
         { label: "Dossier on GitHub", click: () => void shell.openExternal(REPOSITORY_URL) },
         { type: "separator" },

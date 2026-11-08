@@ -33,6 +33,17 @@ export function navigationFor(target: string, { server, current }: { server: str
   return url.protocol === "mailto:" ? "external" : "refuse";
 }
 
+/**
+ * Connect Google on the server (#327): Google refuses its sign-in inside an
+ * app, so it opens in the system browser instead. The path with its query, or
+ * null for any other link.
+ */
+export function googleConnectPath(target: string, server: string): string | null {
+  const url = parse(target);
+  if (!url || url.origin !== server || url.pathname !== "/api/google/connect") return null;
+  return `${url.pathname}${url.search}`;
+}
+
 /** A redirect from the server stays in the window, as a sign-in page in front of it needs, but only to a web address. */
 export function redirectAllowed(target: string): boolean {
   const url = parse(target);

@@ -66,6 +66,7 @@ RUN node_modules/.bin/esbuild scripts/hash-password.ts --bundle --platform=node 
 FROM base AS production
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
+    CHECKPOINT_DISABLE=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     DOSSIER_DATA_DIR=/data

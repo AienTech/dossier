@@ -116,6 +116,7 @@ describe("resumeContent", () => {
         id: "p1",
         name: "Tidewater design tokens",
         link: "github.com/janedoe/tidewater",
+        href: "https://github.com/janedoe/tidewater",
         dates: "Jan 2023 – Present",
         bullets: profile.projects[0].bullets.split("\n"),
         skills: ["Design systems", "Figma", "HTML & CSS"],
@@ -126,6 +127,10 @@ describe("resumeContent", () => {
     // A tailored resume takes a project's bullets from its unit, and leaves out one without a unit.
     const tailored = resumeContent(profile, { units: [{ id: "project:p1", label: "Tidewater project", text: "Shipped a token pipeline" }] });
     expect(tailored.projects.map((project) => project.bullets)).toEqual([["Shipped a token pipeline"]]);
+    // The profile's bold comes back on the words a tailored text keeps (#368).
+    const bold = { ...profile, projects: [{ ...profile.projects[0], bullets: "Shipped a **token pipeline** for three teams" }] };
+    const kept = resumeContent(bold, { units: [{ id: "project:p1", label: "Tidewater project", text: "Shipped a token pipeline" }] });
+    expect(kept.projects[0].bullets).toEqual(["Shipped a **token pipeline**"]);
     expect(resumeContent(profile, { units: [] }).projects).toEqual([]);
   });
 

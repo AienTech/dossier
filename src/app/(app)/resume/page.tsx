@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { loadProfile } from "@/lib/profile-data";
-import { maxPages } from "@/lib/settings";
 import { loadSettings } from "@/lib/settings-data";
 import { loadThemes, loadThemeUsage } from "@/lib/theme-data";
 
@@ -21,7 +20,6 @@ export default async function BaseResumePage({ searchParams }: PageProps<"/resum
       paper={settings.paper}
       includeReferences={settings.includeRefs}
       language={settings.resumeLanguage}
-      maxPages={maxPages(settings.pageLimit)}
       sections={settings.resumeSections}
       fitToPage={settings.fitBaseResume}
       initialPanel={panel === "sections" ? "sections" : "themes"}

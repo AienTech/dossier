@@ -6,7 +6,6 @@ import { toast, toastResult } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useAutosave } from "@/hooks/use-autosave";
 import { formatDateRange, type EntryOrder, type ExperienceItem, type ProfileData } from "@/lib/profile";
 
@@ -21,6 +20,7 @@ import {
   setRoleVolunteering,
   sortEntriesByDate,
 } from "./actions";
+import { BulletsField } from "./bullets-field";
 import { EntryList } from "./entry-list";
 import { MonthYearField } from "./month-year-field";
 import { useTrackSave } from "@/components/save-tracker";
@@ -96,14 +96,7 @@ function ExperienceForm({
           onChange={(event) => set({ current: event.target.checked })}
         />
       </div>
-      <Textarea
-        className="col-span-2"
-        label="What you did"
-        placeholder="One point per line. Rough is fine."
-        rows={4}
-        value={entry.bullets}
-        onChange={(event) => set({ bullets: event.target.value })}
-      />
+      <BulletsField placeholder="One point per line. Rough is fine." value={entry.bullets} onChange={(bullets) => set({ bullets })} />
     </div>
   );
 }

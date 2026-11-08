@@ -17,24 +17,11 @@ import type { ImportProfileResult } from "@/lib/jobs/import-profile";
 import { messages } from "@/lib/messages";
 import { citationText } from "@/lib/citation";
 import { BASICS_FIELDS, formatDateRange, formatMonthYear, languageLevelLabel, type BasicsField } from "@/lib/profile";
-import { IMPORT_PROFILE_STEPS, importCounts, type ImportedProfile, type ImportMode } from "@/lib/profile-import";
+import { BASICS_LABELS, IMPORT_PROFILE_STEPS, importCounts, type ImportedProfile, type ImportMode } from "@/lib/profile-import";
 
 import { JobProgress, jobStep } from "../../new/job-progress";
 import { applyProfileImport, discardProfileImport } from "../actions";
 
-const BASICS_LABELS: Record<BasicsField, string> = {
-  name: "Full name",
-  headline: "Headline",
-  email: "Email",
-  phone: "Phone",
-  dob: "Date of birth",
-  website: "Website",
-  address: "Street address",
-  city: "City",
-  country: "Country",
-  linkedin: "LinkedIn",
-  summary: "About you",
-};
 
 /**
  * Import a profile from a resume file (E4-10): choose a PDF, Word or Markdown file, wait
@@ -226,6 +213,17 @@ function Preview({ profile }: { profile: ImportedProfile }) {
         </h2>
         <p className="text-meta text-muted">{importCounts(profile)}. Anything marked “check” isn&apos;t in the file word for word.</p>
       </div>
+
+      {profile.leftOut.length > 0 && (
+        <Section title="Left out">
+          <p className="text-meta text-muted">The AI gave these, but the file doesn&apos;t say them, so they aren&apos;t kept:</p>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+            {profile.leftOut.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       {basics.length > 0 && (
         <Section title="Basics">

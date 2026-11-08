@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Switch } from "radix-ui";
-import { useEffect, useId, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useId, useOptimistic, useRef, useState, useTransition } from "react";
 
 import { plainUnit, type UnitRenderer } from "@/components/documents/document-page";
 import { DocumentPreview } from "@/components/documents/document-preview";
@@ -19,6 +19,7 @@ import {
   type PaperSize,
   type Tone,
 } from "@/generated/prisma/enums";
+import type { ResumeFit } from "@/lib/resume-fit";
 import { type Match, type Requirement, type Unit } from "@/lib/application-data";
 import { EMAIL_UNITS, WRITTEN_EMAIL_UNITS } from "@/lib/application-email";
 import { documentLabels } from "@/lib/document-labels";
@@ -58,6 +59,8 @@ import {
   undoEmailRewrite,
   undoMessage,
 } from "./actions";
+import { ResumeScore } from "./resume-score";
+import { WriteMissingDocument } from "./write-missing-document";
 import { ApplicationHeader } from "./application-header";
 import { ApplicationMenu } from "./application-menu";
 import { ConversationTab } from "./conversation-tab";
@@ -71,7 +74,7 @@ import { RefinePanel, type ChatEntry } from "./refine-panel";
 import { StatusControl } from "./status-control";
 import { SectionsMenu } from "./sections-menu";
 import { ThemeMenu } from "./theme-menu";
-import { byPageLimit, TrimmedNotice } from "./trimmed-notice";
+import { TrimmedNotice } from "./trimmed-notice";
 
 import { aboutWords, type Tab } from "./tabs";
 import { UnitFrame } from "./unit-frame";
@@ -154,6 +157,8 @@ export type ApplicationViewProps = {
   email: Unit[] | null;
   /** The email being written, e.g. since before a reload. */
   writingEmail: string | null;
+  /** A resume or letter it was created without, being written (#367), e.g. since before a reload. */
+  writingDocuments?: { resume: string | null; letter: string | null };
   /** The PDFs to attach to the email. */
   attachments: Attachments;
   /** Sending through Gmail (E15-2), and the application's mail (E15-3). */
@@ -167,6 +172,9 @@ export type ApplicationViewProps = {
   letterDate: Date;
   /** "5/7 match" on the Job posting tab, when the requirements were matched. */
   score: { hit: number; total: number } | null;
+  /** The tailored resume's score, once asked for (#370), and its scoring if it's running. */
+  resumeFit?: ResumeFit | null;
+  scoringResume?: string | null;
   initialTab: Tab;
   /** Whether an AI provider is set up; without one, the AI buttons point to Settings. */
   aiReady: boolean;
@@ -204,6 +212,7 @@ export function ApplicationView({
   baseSections,
   email,
   writingEmail,
+  writingDocuments = { resume: null, letter: null },
   attachments,
   gmail,
   profile,
@@ -212,6 +221,8 @@ export function ApplicationView({
   includeReferences,
   letterDate,
   score,
+  resumeFit = null,
+  scoringResume = null,
   initialTab,
   aiReady,
   rewriting: rewritingAtLoad,
@@ -520,12 +531,12 @@ export function ApplicationView({
       toast(`Added “${result.data.name}” to your skills. Attach it to a role under Experience to make it count.`);
     });
 
-  /** "Put back" something left out, to fit the page limit (E10-10) or by hand (#217). */
-  const putBack = (index: number, pageLimit = resume?.trimmed?.[index] ? byPageLimit(resume.trimmed[index]) : false) =>
+  /** "Put back" something left out by hand (#217), or by the page limit of earlier versions (E10-10). */
+  const putBack = (index: number) =>
     startTransition(async () => {
       const result = await putBackTrimmed({ id: application.id, index });
       if (!result.ok) return toast(result.error);
-      toast(pageLimit ? "Put back. The resume may run over its page limit now." : "Put back.");
+      toast("Put back.");
     });
 
   /** "Leave out" on a part of the tailored resume (#217), with Undo on the toast. */
@@ -533,7 +544,7 @@ export function ApplicationView({
     startTransition(async () => {
       const result = await leaveOutUnit({ id: application.id, unitId: unit.id });
       if (!result.ok) return toast(result.error);
-      toast(`Left out: ${unit.label}.`, { action: { label: "Undo", onClick: () => putBack(result.data.index, false) } });
+      toast(`Left out: ${unit.label}.`, { action: { label: "Undo", onClick: () => putBack(result.data.index) } });
     });
 
   /** "Undo" under a reply (E8-6): puts back what it changed. */
@@ -747,6 +758,7 @@ export function ApplicationView({
                   )}
                   {profile.photo && <PreviewSwitch label="Photo" checked={showPhoto} onCheckedChange={changePhoto} />}
                   {historyButton(DocumentKind.RESUME)}
+                  <ResumeScore applicationId={application.id} fit={resumeFit} scoring={scoringResume} />
                 </span>
               }
             >
@@ -763,7 +775,7 @@ export function ApplicationView({
               />
             </DocumentPreview>
           ) : (
-            <MissingDocument>This application has no tailored resume.</MissingDocument>
+            <WriteMissingDocument applicationId={application.id} kind={DocumentKind.RESUME} aiReady={aiReady} writing={writingDocuments.resume} />
           )}
         </TabsContent>
 
@@ -794,7 +806,7 @@ export function ApplicationView({
               />
             </DocumentPreview>
           ) : (
-            <MissingDocument>This application has no cover letter.</MissingDocument>
+            <WriteMissingDocument applicationId={application.id} kind={DocumentKind.COVER_LETTER} aiReady={aiReady} writing={writingDocuments.letter} />
           )}
         </TabsContent>
 
@@ -924,11 +936,3 @@ function PreviewSwitch({ label, checked, onCheckedChange }: { label: string; che
   );
 }
 
-/** The canvas with a note in place of a document the application doesn't have. */
-function MissingDocument({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex flex-1 justify-center overflow-auto bg-canvas px-10 pt-16 pb-16">
-      <p className="max-w-[420px] text-center text-muted">{children}</p>
-    </div>
-  );
-}

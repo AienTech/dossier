@@ -21,8 +21,11 @@ export async function proxy(request: NextRequest) {
   // The Claude connector (#221) brings its own credentials, an OAuth token,
   // which its routes check; they answer 404 while it's off.
   if (CONNECTOR_PATHS.test(pathname)) return NextResponse.next();
-  // The desktop app signing itself in (desktop.ts); the route checks its token.
-  if (pathname === "/api/desktop/sign-in") return NextResponse.next();
+  // The desktop app signing itself in (desktop.ts), and the system browser
+  // (desktop-browser.ts, #365): the routes check the token or the one-time code.
+  if (pathname === "/api/desktop/sign-in" || pathname === "/api/desktop/browser-link" || pathname === "/api/desktop/browser-sign-in") {
+    return NextResponse.next();
+  }
 
   const session = await decodeSession(
     request.cookies.get(SESSION_COOKIE)?.value,

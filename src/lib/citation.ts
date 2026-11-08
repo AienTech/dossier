@@ -118,6 +118,23 @@ export function citationText(source: string): string {
     .trim();
 }
 
+/**
+ * The bold of a profile's bullets, put back on a tailored text where it keeps
+ * those words (#368). The AI gets bullets without their marks, so what it
+ * writes has none; a text that has some, edited by hand, is left as it is.
+ */
+export function keepBold(text: string, profileText: string): string {
+  if (text.includes("**")) return text;
+  const phrases = [...new Set(citationSpans(profileText).flatMap((span) => (span.bold ? [span.text.trim()] : [])))]
+    .filter((phrase) => phrase && !phrase.includes("\n"))
+    // Longest first, so "Scaled by 40%" wins over "40%" inside it.
+    .sort((a, b) => b.length - a.length);
+  if (phrases.length === 0) return text;
+  const escaped = phrases.map((phrase) => phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  // Only at a word's edge, where a mark counts.
+  return text.replace(new RegExp(`(?<![\\p{L}\\p{N}*])(?:${escaped.join("|")})(?![\\p{L}\\p{N}*])`, "gu"), (phrase) => `**${phrase}**`);
+}
+
 /** Asterisks escaped, so text read from elsewhere (an imported resume) shows as it was. */
 export const escapeMarks = (text: string) => text.replace(/\*/g, "\\*");
 

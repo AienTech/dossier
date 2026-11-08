@@ -11,7 +11,7 @@ import { customKey, DEFAULT_SECTION_LAYOUT, inSidebar, sectionHeading, type Sect
 import { skillLine } from "@/lib/skill-groups";
 import { PHOTO_SHAPES, resolveTheme, type ThemeData } from "@/lib/themes";
 
-import { Contact, ContactLine, DocumentPage, DocumentSection, plainUnit, type UnitRenderer } from "./document-page";
+import { Contact, ContactDetail, ContactLine, DocumentPage, DocumentSection, plainUnit, type UnitRenderer } from "./document-page";
 import styles from "./document.module.css";
 
 type ResumeDocumentProps = ResumeOptions & {
@@ -70,7 +70,9 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
             {entry.bullets.length > 0 && (
               <ul className={styles.bullets}>
                 {entry.bullets.map((bullet, index) => (
-                  <li key={index}>{bullet}</li>
+                  <li key={index}>
+                    <CitationText text={bullet} />
+                  </li>
                 ))}
               </ul>
             )}
@@ -94,7 +96,7 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
         <ul className={styles.contactList}>
           {content.contacts.map((item, index) => (
             <li key={index}>
-              <Contact>{item}</Contact>
+              <ContactDetail>{item}</ContactDetail>
             </li>
           ))}
         </ul>
@@ -128,7 +130,7 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
               head: (
                 <EntryHead
                   title={project.name}
-                  at={project.link && <Contact>{project.link}</Contact>}
+                  at={project.link && <DocumentLink link={project.link} href={project.href} />}
                   dates={project.dates}
                   timeline={resolved.timeline}
                 />
@@ -138,7 +140,9 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
                   {project.bullets.length > 0 && (
                     <ul className={styles.bullets}>
                       {project.bullets.map((bullet, index) => (
-                        <li key={index}>{bullet}</li>
+                        <li key={index}>
+                          <CitationText text={bullet} />
+                        </li>
                       ))}
                     </ul>
                   )}

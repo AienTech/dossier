@@ -2,11 +2,12 @@ import { z } from "zod";
 
 import { AiProvider, Creativity, DateFormat, PaperSize, Tone } from "@/generated/prisma/enums";
 import { announcementFeedSchema } from "@/lib/announcements/contract";
-import { EMPTY_QUERY, JOB_SOURCES, JSEARCH_HOSTS, searchQuerySchema } from "@/lib/job-search/search";
+import { JOB_SOURCES, JSEARCH_HOSTS } from "@/lib/job-search/search";
 import { DEFAULT_SECTION_LAYOUT, sectionLayoutSchema } from "@/lib/resume-sections";
 import { setupGuideSchema } from "@/lib/setup-guide";
 import { SCORERS } from "@/lib/scoring/scorers";
 import { startupsRefreshSchema } from "@/lib/startups/types";
+import { AGENT_MAX_SOURCE_REQUESTS_PER_DAY } from "@/lib/agent/limits";
 
 /** Date styles for documents (SET-6), labelled with an example as in the prototype. */
 export const DATE_FORMATS: readonly { value: DateFormat; label: string }[] = [
@@ -47,22 +48,10 @@ export const isJobRetention = (hours: number) => JOB_RETENTION_OPTIONS.some((opt
 export const jobRetentionLabel = (hours: number) =>
   JOB_RETENTION_OPTIONS.find((option) => option.hours === hours)?.label ?? `${hours} hours`;
 
-const pageLimit = z.enum(["1", "2", "none"]);
-export type PageLimit = z.infer<typeof pageLimit>;
-
-/**
- * "Resume length" (SET-9): how many pages a tailored resume may run to. One
- * that runs over is trimmed when its application is created (E10-10).
- */
-export const PAGE_LIMITS: readonly { value: PageLimit; label: string; pages: number | null }[] = [
-  { value: "1", label: "One page", pages: 1 },
-  { value: "2", label: "Up to two pages", pages: 2 },
-  { value: "none", label: "No limit", pages: null },
-];
-/** The most pages a resume may have, or null for no limit. */
-export const maxPages = (limit: PageLimit): number | null => PAGE_LIMITS.find((option) => option.value === limit)?.pages ?? null;
-/** "one page", "two pages" */
-export const pagesInWords = (pages: number) => (pages === 1 ? "one page" : pages === 2 ? "two pages" : `${pages} pages`);
+/** Which documents New application writes (#367): many job sites ask for only one. */
+export const DOCUMENTS_TO_WRITE = ["both", "resume", "letter"] as const;
+export type DocumentsToWrite = (typeof DOCUMENTS_TO_WRITE)[number];
+export const DOCUMENTS_TO_WRITE_LABELS: Record<DocumentsToWrite, string> = { both: "Resume and cover letter", resume: "Resume only", letter: "Cover letter only" };
 
 // ─── Stored settings ─────────────────────────────────────────────────────────
 // Settings are stored in the Setting table, one text row per key: enums by
@@ -91,13 +80,26 @@ const stringList = json(z.array(z.string()));
 
 /**
  * One run of the job agent (E16), kept here rather than as its Job, which
- * the task-data sweep deletes: the daily limit counts these.
+ * the task-data sweep deletes: the source-request quota counts these.
  */
+export const agentSearchRunSchema = z.object({
+  searchId: z.string(),
+  searchName: z.string(),
+  found: z.number().int().min(0),
+  fresh: z.number().int().min(0),
+  error: z.string().nullable(),
+});
+export type AgentSearchRun = z.infer<typeof agentSearchRunSchema>;
 export const agentRunSchema = z.object({
   at: z.iso.datetime(),
   manual: z.boolean(),
   /** What the run ended with, for the Agent screen; null while it runs. */
   message: z.string().nullable(),
+  /** Slots reserved together before dispatch. Legacy runs consumed one slot. */
+  sourceRequests: z.number().int().min(1).max(AGENT_MAX_SOURCE_REQUESTS_PER_DAY).optional(),
+  /** Each reserved slot's timestamp, advanced immediately before dispatch. */
+  sourceRequestAts: z.array(z.iso.datetime()).min(1).max(AGENT_MAX_SOURCE_REQUESTS_PER_DAY).optional(),
+  searches: z.array(agentSearchRunSchema).optional(),
 });
 export type AgentRun = z.infer<typeof agentRunSchema>;
 /** How many runs are kept: more than a day's worth, for the limit and the screen. */
@@ -127,8 +129,8 @@ export const settingsSchema = z.object({
   customLanguages: stringList.catch([]),
   fileNamePattern: z.string().catch("{name} – {company} – {doc}"),
   includeRefs: flag(false),
-  /** Up to two pages unless chosen (decided 22 October 2026: resumes aren't forced to one page). */
-  pageLimit: pageLimit.catch("2"),
+  /** What New application writes unless chosen there (#367). */
+  documentsToWrite: z.enum(DOCUMENTS_TO_WRITE).catch("both"),
   nightlyBackup: flag(true),
   /** Finished background jobs are deleted after this many hours (JOB_RETENTION_OPTIONS). */
   jobRetentionHours: z.coerce.number().refine(isJobRetention).catch(DEFAULT_JOB_RETENTION_HOURS),
@@ -172,11 +174,9 @@ export const settingsSchema = z.object({
   // AI model. Jev's key is encrypted like the others, under its own key.
   scorer: z.enum(SCORERS).nullable().catch(null),
   typesafeKeyEnc: z.string().nullable().catch(null),
-  // Job agent (E16): one search, run once a day. Off until it's turned on.
+  // Job agent (E16): recurring searches, run once a day. Off until turned on.
   // It asks the source in Settings → Job search, with its key.
   agentEnabled: flag(false),
-  /** The search it runs, as Find jobs asks it; it needs keywords and a country to run. */
-  agentQuery: json(searchQuerySchema).catch(EMPTY_QUERY),
   /** The hour of the day it runs, in the user's time zone. */
   agentHour: z.coerce.number().int().min(0).max(23).catch(7),
   /** Postings scored below this stay out of the queue. */
@@ -262,10 +262,8 @@ export type SettingsData = z.output<typeof settingsSchema>;
 
 /** The settings from Setting rows; keys it doesn't know are ignored. */
 export function settingsFromRows(rows: readonly { key: string; value: string }[]): SettingsData {
+  // Old keys, such as Resume length's pageLimit (removed with the trimmer, #234), are left out here.
   const values: Record<string, string> = Object.fromEntries(rows.map((row) => [row.key, row.value]));
-  // Up to 1.7, the limit was "Keep resumes to one page" (onePage), and off meant no limit. Databases and export files may still have it.
-  if (values.pageLimit === undefined && values.onePage === "false") values.pageLimit = "none";
-  if (values.pageLimit === undefined && values.onePage === "true") values.pageLimit = "1";
   return settingsSchema.parse(values);
 }
 

@@ -5,6 +5,13 @@ import { factTexts, formatDateRange, formatMonthYear, languageLevelLabel, resume
 
 import type { AIProvider } from "../provider";
 
+/** A bullets field as lines, without its **bold** marks (#368). */
+const bulletLines = (bullets: string) =>
+  bullets
+    .split("\n")
+    .map((line) => citationText(line))
+    .filter(Boolean);
+
 // Building blocks shared by the AI tasks (E6-5, PRD §7).
 
 /** How every task is run. */
@@ -15,8 +22,6 @@ export type TaskOptions = {
   strict: boolean;
   /** SET-7: the language to write in, e.g. "Dutch"; the posting's language decides when null. */
   language: string | null;
-  /** SET-9 "Resume length": the most pages a resume may have, or null for no limit (E10-10). */
-  maxPages?: number | null;
   signal?: AbortSignal;
 };
 
@@ -74,7 +79,8 @@ export function profileForPrompt(profile: ProfileData, { includeReferences = fal
         // Unpaid, and not years of experience (#294).
         ...(entry.volunteering ? { volunteering: true } : {}),
         dates: formatDateRange(entry),
-        bullets: entry.bullets.split("\n").map((line) => line.trim()).filter(Boolean),
+        // Without **bold** marks (#368): the resume puts them back where the words stay.
+        bullets: bulletLines(entry.bullets),
         skillsUsed: entry.skillIds.flatMap((id) => skillNames.get(id) ?? []),
       })),
       // A project's link is left out like the other links: the resume shows it as it is.
@@ -82,7 +88,7 @@ export function profileForPrompt(profile: ProfileData, { includeReferences = fal
         id: entry.id,
         name: entry.name,
         dates: formatDateRange(entry),
-        bullets: entry.bullets.split("\n").map((line) => line.trim()).filter(Boolean),
+        bullets: bulletLines(entry.bullets),
         skillsUsed: entry.skillIds.flatMap((id) => skillNames.get(id) ?? []),
       })),
       education: profile.education.map((entry) => ({

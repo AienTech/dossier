@@ -10,6 +10,9 @@ import { resolveFileName } from "@/lib/file-name";
 import { refineJobKey } from "@/lib/jobs/refine";
 import { regenerateUnitJob, unitJobKey } from "@/lib/jobs/regenerate-unit";
 import { findUnfinishedJobs } from "@/lib/jobs/runner";
+import { writeDocumentJobKey } from "@/lib/jobs/write-document";
+import { scoreResumeJobKey } from "@/lib/jobs/score-resume";
+import { resumeFitSchema } from "@/lib/resume-fit";
 import { emailJobKey } from "@/lib/jobs/write-email";
 import { googleConnection } from "@/lib/google/account";
 import { pullInterviewEvents } from "@/lib/google/availability";
@@ -44,7 +47,7 @@ export async function generateMetadata({ params }: PageProps<"/applications/[id]
 export default async function ApplicationPage({ params, searchParams }: PageProps<"/applications/[id]">) {
   const [{ id }, { tab }] = await Promise.all([params, searchParams]);
   await pullCalendar(id);
-  const [{ application, profile, liveProfile, sent, settings, extracted, resume, letter, email, includeReferences, sections, ownSections, letterDate }, aiReady, unitJobs, refineJobs, emailJobs, timeZone, google, emails, themes] =
+  const [{ application, profile, liveProfile, sent, settings, extracted, resume, letter, email, includeReferences, sections, ownSections, letterDate }, aiReady, unitJobs, refineJobs, emailJobs, timeZone, google, emails, themes, resumeJobs, letterJobs, scoreJobs] =
     await Promise.all([
       loadDocuments(id),
       isAiConfigured(),
@@ -55,6 +58,9 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       googleConnection(),
       loadConversation(id),
       loadThemes(),
+      findUnfinishedJobs(writeDocumentJobKey(id, "RESUME")),
+      findUnfinishedJobs(writeDocumentJobKey(id, "COVER_LETTER")),
+      findUnfinishedJobs(scoreResumeJobKey(id)),
     ]);
 
   const match = readJson(matchSchema, application.match);
@@ -115,6 +121,9 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       baseThemeId={settings.baseThemeId}
       email={email}
       writingEmail={emailJobs.at(-1)?.id ?? null}
+      writingDocuments={{ resume: resumeJobs.at(-1)?.id ?? null, letter: letterJobs.at(-1)?.id ?? null }}
+      resumeFit={readJson(resumeFitSchema, application.resumeFit)}
+      scoringResume={scoreJobs.at(-1)?.id ?? null}
       attachments={{ resume: resume ? fileName("RESUME") : null, letter: letter ? fileName("COVER_LETTER") : null }}
       gmail={
         google.status === "not-configured" && emails.length === 0

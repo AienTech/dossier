@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => 
 
 export const row = (id: string, extra: Partial<ApplicationRow> = {}): ApplicationRow => ({
   id,
+  score: null,
   company: "Ledgerly",
   role: "Senior Product Designer",
   location: "Amsterdam",

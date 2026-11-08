@@ -93,7 +93,7 @@ export function tailoringSummary({
     list.push(dropped.length <= 3 ? `Left out ${listOf(dropped)}, which this job isn't about` : `Left out ${dropped.length} skills that don't help here`);
   }
 
-  if (profile.references.length > 0) {
+  if (profile.references.length > 0 && resume.length > 0) {
     list.push(
       references === "included"
         ? "Included your references, since the posting asks for them"
@@ -121,7 +121,12 @@ export function tailoringSummary({
 
   return showChanges
     ? { intro: `Here's what I tailored for ${where}:`, list, foot }
-    : { intro: `Your tailored resume and cover letter for ${where} are ready.`, list: [], foot };
+    : { intro: `${readyLine(resume.length > 0, letter.length > 0)} for ${where} ${resume.length > 0 && letter.length > 0 ? "are" : "is"} ready.`, list: [], foot };
+}
+
+/** "Your tailored resume and cover letter", or only the one written (#367). */
+function readyLine(resume: boolean, letter: boolean): string {
+  return `Your tailored ${[resume && "resume", letter && "cover letter"].filter(Boolean).join(" and ") || "documents"}`;
 }
 
 /** The message as stored: intro, a bulleted list, the footnote. */

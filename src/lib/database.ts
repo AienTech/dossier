@@ -15,6 +15,9 @@ export function isSqliteUrl(url: string): boolean {
   return url.startsWith("file:");
 }
 
+/** Whether this server keeps its data in SQLite: what DATABASE_URL says, as the app, the desktop app and each test run set it. */
+export const usesSqlite = (): boolean => isSqliteUrl(process.env.DATABASE_URL ?? "");
+
 /** A client for the database at `url`. */
 export function createPrismaClient(url: string): PrismaClient {
   if (!isSqliteUrl(url)) return new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });

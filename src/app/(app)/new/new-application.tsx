@@ -13,6 +13,7 @@ import { Stepper } from "@/components/ui/stepper";
 import { Textarea } from "@/components/ui/textarea";
 import type { Tone } from "@/generated/prisma/enums";
 import { useJob } from "@/hooks/use-job";
+import type { DocumentsToWrite } from "@/lib/settings";
 import { withSkillAdded, type Extracted } from "@/lib/application-data";
 import type { PostingFit } from "@/lib/fit";
 import { cancel, retry } from "@/lib/jobs/actions";
@@ -58,6 +59,8 @@ export type Draft = {
   details: Details;
   tone: Tone;
   note: string;
+  /** Which documents to write (#367); missing in drafts from before, which wrote both. */
+  write?: DocumentsToWrite;
   writeJobId: string | null;
   /** The Find jobs posting it was started from (E14-8); missing in drafts from before. */
   postingId?: string | null;
@@ -145,6 +148,8 @@ export type NewApplicationProps = {
   samplePosting: string | null;
   /** Settings → default cover letter tone (SET-6). */
   defaultTone: Tone;
+  /** Settings → Documents to write (#367). */
+  defaultWrite?: DocumentsToWrite;
   /** "+ New application": start over, whatever the tab kept. */
   fresh?: boolean;
   /** "Start application" on Find jobs: start over from this posting. */
@@ -152,7 +157,15 @@ export type NewApplicationProps = {
 };
 
 /** The new application flow (E7): paste → read → review → create. */
-export function NewApplication({ aiReady, writeInClaude = false, samplePosting, defaultTone, fresh = false, fromPosting = null }: NewApplicationProps) {
+export function NewApplication({
+  aiReady,
+  writeInClaude = false,
+  samplePosting,
+  defaultTone,
+  defaultWrite = "both",
+  fresh = false,
+  fromPosting = null,
+}: NewApplicationProps) {
   const [initial] = useState<Draft>(() => ({
     step: "paste",
     posting: "",
@@ -163,6 +176,7 @@ export function NewApplication({ aiReady, writeInClaude = false, samplePosting, 
     details: EMPTY_DETAILS,
     tone: defaultTone,
     note: "",
+    write: defaultWrite,
     writeJobId: null,
     postingId: null,
   }));
@@ -330,7 +344,7 @@ export function NewApplication({ aiReady, writeInClaude = false, samplePosting, 
     if (!draft.read || !draft.readJobId || starting) return;
     setStarting(true);
     const result = toastResult(
-      await startWritingDocuments({ readJobId: draft.readJobId, details: draft.details, match: draft.read.match, tone: draft.tone, note: draft.note }),
+      await startWritingDocuments({ readJobId: draft.readJobId, details: draft.details, match: draft.read.match, tone: draft.tone, note: draft.note, write: draft.write ?? "both" }),
     );
     setStarting(false);
     if (!result.ok) return;
@@ -463,7 +477,14 @@ export function NewApplication({ aiReady, writeInClaude = false, samplePosting, 
               <DetailsCard details={draft.details} onChange={(details) => update({ details })} />
               <MatchCard match={draft.read.match} requirements={draft.read.extracted.requirements} onAddSkill={(index, skill) => void addToProfile(index, skill)} />
               <ScoreCard fit={draft.score ?? null} scoring={scoring} step={scoreJob?.step ?? null} onScore={() => void scoreIt()} />
-              <TailoringCard tone={draft.tone} note={draft.note} onTone={(tone) => update({ tone })} onNote={(note) => update({ note })} />
+              <TailoringCard
+                write={draft.write ?? "both"}
+                tone={draft.tone}
+                note={draft.note}
+                onWrite={(write) => update({ write })}
+                onTone={(tone) => update({ tone })}
+                onNote={(note) => update({ note })}
+              />
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <Button variant="text" onClick={() => update({ step: "paste" })}>
                   ← Back to the posting

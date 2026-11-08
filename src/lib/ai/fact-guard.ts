@@ -67,8 +67,9 @@ export function sourcesFor(profile: ProfileData, extracted: Extracted | null, po
     basics.name, basics.headline, basics.city, basics.country, basics.summary,
     ...profile.skills.map((skill) => skill.name),
     ...profile.languages.map((language) => `${language.name} ${languageLevelLabel(language.level)}`),
-    ...profile.experience.flatMap((entry) => [entry.role, entry.company, entry.location, entry.descriptor, formatDateRange(entry), entry.bullets]),
-    ...profile.projects.flatMap((entry) => [entry.name, entry.link, formatDateRange(entry), entry.bullets]),
+    // Bullets without their **bold** marks (#368).
+    ...profile.experience.flatMap((entry) => [entry.role, entry.company, entry.location, entry.descriptor, formatDateRange(entry), citationText(entry.bullets)]),
+    ...profile.projects.flatMap((entry) => [entry.name, entry.link, formatDateRange(entry), citationText(entry.bullets)]),
     ...profile.education.flatMap((entry) => [entry.degree, entry.school, formatDateRange(entry), entry.notes]),
     // So does what they're certified in, by whom and when (#293).
     ...profile.certifications.flatMap((entry) => [

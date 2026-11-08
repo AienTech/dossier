@@ -22,12 +22,6 @@ vi.mock("@/lib/jobs/runner", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/jobs/runner")>()),
   startJob: vi.fn(async () => "write-job"),
 }));
-// Trimming renders PDFs; here it says what it would cut.
-const trim = vi.hoisted(() => ({ result: { trimmed: [] as unknown[], fits: true } }));
-vi.mock("@/lib/page-limit", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/page-limit")>()),
-  fitResumeToPages: vi.fn(async () => trim.result),
-}));
 vi.mock("@/lib/profile-data", async () => {
   const { demoProfile } = await import("@/lib/demo-profile");
   return { loadProfile: async () => demoProfile() };
@@ -140,6 +134,19 @@ describe("createApplication", () => {
     expect(await prisma().job.count({ where: { key: `application:${id}`, applicationId: id } })).toBe(2);
   });
 
+  it("creates the application without the document that wasn't asked for (#367)", async () => {
+    await finishedJobs();
+    await prisma().job.update({
+      where: { id: "write-job" },
+      data: { result: { resume: demoResumeUnits(), resumeWith: "tailor-resume@1", letter: [], letterWith: "" } },
+    });
+    const result = await createApplication({ writeJobId: "write-job", details, postingUrl: "" });
+    const id = result.ok ? result.data : "";
+    const application = await prisma().application.findUniqueOrThrow({ where: { id }, include: { documents: true, messages: true } });
+    expect(application.documents.map((document) => document.kind)).toEqual(["RESUME"]);
+    expect(application.messages[0].text).not.toMatch(/cover letter/);
+  });
+
   it("links the Find jobs posting it was started from (E14-8)", async () => {
     await finishedJobs();
     const posting = await prisma().posting.create({ data: { source: "JSEARCH", externalId: "job-1", title: "Senior Product Designer" } });
@@ -209,44 +216,4 @@ describe("createApplication", () => {
     expect(await prisma().application.count()).toBe(0);
   });
 
-  it("trims the resume to its page limit and says what was cut (E10-10)", async () => {
-    const { fitResumeToPages } = await import("@/lib/page-limit");
-    await prisma().setting.create({ data: { key: "pageLimit", value: "1" } });
-    await finishedJobs();
-    trim.result = {
-      trimmed: [{ kind: "unit", unit: { id: "experience:e3", label: "Studio Brik role", text: "Built things" }, index: 3 }],
-      fits: true,
-    };
-    const result = await createApplication({ writeJobId: "write-job", details, postingUrl: "" });
-    const id = result.ok ? result.data : "";
-    expect(fitResumeToPages).toHaveBeenCalledWith(id, expect.objectContaining({ experience: expect.any(Array) }), 1);
-    const [message] = await prisma().chatMessage.findMany({ where: { applicationId: id } });
-    expect(message.text).toMatch(/\n- Left out Studio Brik \(2015–2018\) to fit one page\n\nNothing invented/);
-    trim.result = { trimmed: [], fits: true };
-  });
-
-  it("trims to two pages unless another limit was chosen (SET-9)", async () => {
-    const { fitResumeToPages } = await import("@/lib/page-limit");
-    vi.mocked(fitResumeToPages).mockClear();
-    await finishedJobs();
-    trim.result = {
-      trimmed: [{ kind: "unit", unit: { id: "experience:e3", label: "Studio Brik role", text: "Built things" }, index: 3 }],
-      fits: true,
-    };
-    const result = await createApplication({ writeJobId: "write-job", details, postingUrl: "" });
-    const id = result.ok ? result.data : "";
-    expect(fitResumeToPages).toHaveBeenCalledWith(id, expect.anything(), 2);
-    const [message] = await prisma().chatMessage.findMany({ where: { applicationId: id } });
-    expect(message.text).toMatch(/- Left out Studio Brik \(2015–2018\) to fit two pages/);
-    trim.result = { trimmed: [], fits: true };
-  });
-
-  it("leaves the resume as written without a page limit (SET-9)", async () => {
-    const { fitResumeToPages } = await import("@/lib/page-limit");
-    vi.mocked(fitResumeToPages).mockClear();
-    await prisma().setting.create({ data: { key: "pageLimit", value: "none" } });
-    await finishedJobs();
-    expect(await createApplication({ writeJobId: "write-job", details, postingUrl: "" })).toMatchObject({ ok: true });
-    expect(fitResumeToPages).not.toHaveBeenCalled();
-  });
 });

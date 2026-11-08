@@ -15,6 +15,8 @@ import { sameSkill } from "./match-requirements";
 import { COVER_LETTER_APPROACH } from "./prompt-parts";
 import { withoutFrame } from "./write-cover-letter";
 import { resumeUnits } from "./tailor-resume";
+import { profileForPrompt } from "./prompt-parts";
+import { recipientFromJob } from "./write-cover-letter";
 import { recipient } from "./write-email";
 import {
   extractPosting,
@@ -115,22 +117,31 @@ describe("extractPosting", () => {
   });
 });
 
+describe("bold in bullets (#368)", () => {
+  it("reaches the AI and the fact guard without its marks", () => {
+    const bold = { ...profile, experience: profile.experience.map((entry, index) => (index === 0 ? { ...entry, bullets: "Scaled the system by **40%**" } : entry)) };
+    const prompt = profileForPrompt(bold);
+    expect(prompt).toContain("Scaled the system by 40%");
+    expect(prompt).not.toContain("**");
+  });
+});
+
 describe("matchRequirements", () => {
   const answer = {
     matches: [
-      { requirement: 1, skill: "design systems", language: null },
-      { requirement: 2, skill: "User research", language: null },
-      { requirement: 3, skill: "Figma", language: null },
-      { requirement: 4, skill: "Accessibility", language: null },
-      { requirement: 5, skill: null, language: null },
-      { requirement: 6, skill: null, language: "Dutch" },
+      { requirement: 1, skill: "design systems", language: null, certification: null },
+      { requirement: 2, skill: "User research", language: null, certification: null },
+      { requirement: 3, skill: "Figma", language: null, certification: null },
+      { requirement: 4, skill: "Accessibility", language: null, certification: null },
+      { requirement: 5, skill: null, language: null, certification: null },
+      { requirement: 6, skill: null, language: "Dutch", certification: null },
     ],
   };
 
   it("classifies in code: covered with the roles as evidence, partial, gap (NEW-4)", async () => {
     const provider = model(answer);
     const { data, promptVersion } = await matchRequirements(provider, { requirements: extracted.requirements, profile, today }, options);
-    expect(promptVersion).toBe("match-requirements@1");
+    expect(promptVersion).toBe("match-requirements@2");
     expect(sent(provider).effort).toBe("low");
     expect(data.items.map((item) => [item.requirement, item.result, item.note])).toEqual([
       ["5+ years of product design", "covered", "3 roles in your profile, since Sep 2015"],
@@ -138,7 +149,7 @@ describe("matchRequirements", () => {
       ["Runs user research independently", "covered", "Used at Northwind Logistics, Fieldnote"],
       ["Strong prototyping skills in Figma", "covered", "Used at Fieldnote"],
       ["Accessibility know-how (WCAG 2.2)", "gap", "Not in your profile yet"],
-      ["Experience with payments or fintech", "gap", "Nothing in your profile, so I'll address it honestly in the letter"],
+      ["Experience with payments or fintech", "gap", "Nothing in your profile for this yet"],
       ["Dutch is a plus", "covered", "Dutch: Native"],
     ]);
     expect(data.items[1]).toMatchObject({ skill: "Design systems", experienceIds: ["e1"] });
@@ -151,7 +162,7 @@ describe("matchRequirements", () => {
   });
 
   it("forgives small differences in a skill's name, and falls back to the posting's", async () => {
-    const answer = { matches: [{ requirement: 0, skill: "Design system", language: null }, { requirement: 1, skill: null, language: null }] };
+    const answer = { matches: [{ requirement: 0, skill: "Design system", language: null, certification: null }, { requirement: 1, skill: null, language: null, certification: null }] };
     const requirements = [extracted.requirements[1], { ...extracted.requirements[2], skill: "user-research" }];
     const { data } = await matchRequirements(model(answer), { requirements, profile, today }, options);
     expect(data.items.map((item) => [item.result, item.skill])).toEqual([
@@ -164,8 +175,26 @@ describe("matchRequirements", () => {
 
   it("can't be talked into a skill the profile doesn't have", async () => {
     const kubernetes = { text: "Runs Kubernetes clusters", kind: "skill" as const, skill: "Kubernetes", years: null, language: null };
-    const { data } = await matchRequirements(model({ matches: [{ requirement: 0, skill: "Kubernetes", language: null }] }), { requirements: [kubernetes], profile, today }, options);
+    const { data } = await matchRequirements(model({ matches: [{ requirement: 0, skill: "Kubernetes", language: null, certification: null }] }), { requirements: [kubernetes], profile, today }, options);
     expect(data.items[0]).toMatchObject({ result: "gap", skill: null });
+  });
+
+  it("covers a requirement with a certification the profile has, by its own name (#364)", async () => {
+    const asked = { text: "A recognised accessibility certification", kind: "other" as const, skill: null, years: null, language: null };
+    const answer = (certification: string) => ({ matches: [{ requirement: 0, skill: null, language: null, certification }] });
+    const provider = model(answer("Certified Accessibility Specialist"));
+    const { data } = await matchRequirements(provider, { requirements: [asked], profile, today }, options);
+    expect(JSON.parse(sent(provider).messages[0].content).candidateCertifications).toEqual(["Certified Accessibility Specialist"]);
+    expect(data.items[0]).toMatchObject({ result: "covered", note: "Certified Accessibility Specialist, Inclusive Design Institute" });
+
+    // A name the profile doesn't have stays a gap, misspelt or made up.
+    const made = await matchRequirements(model(answer("Certified Accessibility Expert")), { requirements: [asked], profile, today }, options);
+    expect(made.data.items[0]).toMatchObject({ result: "gap" });
+
+    // An expired one is partial, with when it ran out.
+    const later = new Date(2029, 0, 15);
+    const expired = await matchRequirements(model(answer("Certified Accessibility Specialist")), { requirements: [asked], profile, today: later }, options);
+    expect(expired.data.items[0]).toMatchObject({ result: "partial", note: "Certified Accessibility Specialist, Inclusive Design Institute, expired Jun 2028" });
   });
 
   it("works out experience years without asking the model", async () => {
@@ -238,7 +267,7 @@ describe("tailorResume", () => {
 
   it("returns units, keeping only real roles and the profile's own skills (APP-4)", async () => {
     const { data, promptVersion } = await tailorResume(model(answer), { profile, extracted, match: null, facts: [], posting }, options);
-    expect(promptVersion).toBe("tailor-resume@8");
+    expect(promptVersion).toBe("tailor-resume@9");
     expect(data.map((unit) => unit.id)).toEqual([
       "summary",
       "experience:e1",
@@ -339,17 +368,6 @@ describe("tailorResume", () => {
     expect(await levels("French", "German")).toBe("Dutch: Langue maternelle · English: Courant (C2) · German: Intermédiaire (B1)");
   });
 
-  it("asks for a resume that fits the page limit, when there is one (E10-10)", async () => {
-    const system = async (maxPages: number | null) => {
-      const provider = model({ summary: "Designer.", roles: [], projects: [], skills: [], education: [] });
-      await tailorResume(provider, { profile, extracted, match: null, facts: [], posting }, { ...options, maxPages });
-      return sent(provider).system;
-    };
-    expect(await system(1)).toMatch(/has to fit on one page/);
-    expect(await system(2)).toMatch(/has to fit on two pages/);
-    expect(await system(null)).not.toMatch(/has to fit/);
-  });
-
   it("words creativity for every provider, and relaxes the rules when strict mode is off", async () => {
     const provider = model(answer);
     await tailorResume(provider, { profile, extracted, match: null, facts: [], posting }, { ...options, creativity: "EXPRESSIVE", strict: false, language: "Dutch" });
@@ -385,7 +403,7 @@ describe("writeCoverLetter", () => {
   it("returns the recipient, greeting, paragraphs and the tone's sign-off for an English letter (APP-10, E8-11)", async () => {
     const provider = model(answer);
     const { data, promptVersion } = await writeCoverLetter(provider, { profile, extracted, match, tone: "FORMAL", facts: [], posting }, options);
-    expect(promptVersion).toBe("write-cover-letter@5");
+    expect(promptVersion).toBe("write-cover-letter@6");
     expect(data).toEqual([
       { id: "recipient", label: "Recipient", text: "Ledgerly · Hiring team\nAmsterdam" },
       { id: "greeting", label: "Greeting", text: "Dear Ledgerly team," },
@@ -399,6 +417,15 @@ describe("writeCoverLetter", () => {
     expect(sent(provider).system).toContain(COVER_LETTER_APPROACH);
     // Gaps go along, so the letter can acknowledge them honestly.
     expect(prompt(provider)).toMatch(/"inProfile": "gap"/);
+  });
+
+  it("takes the recipient's place only from the job, never the candidate's (#371)", () => {
+    const job = { company: "Ledgerly", location: "Amsterdam" };
+    expect(recipientFromJob("Ledgerly · Hiring team\nAmsterdam", job, posting)).toBe("Ledgerly · Hiring team\nAmsterdam");
+    // The candidate's city isn't the job's: the posting's location takes its place.
+    expect(recipientFromJob("Ledgerly · Hiring team\nRotterdam, Netherlands", job, posting)).toBe("Ledgerly · Hiring team\nAmsterdam");
+    // A remote job has no place to write.
+    expect(recipientFromJob("Acme · Hiring team\nPortland, Oregon", { company: "Acme", location: "Remote (US)" }, "Acme is hiring, remote (US).")).toBe("Acme · Hiring team");
   });
 
   it("leaves out a recipient or greeting the model left empty, for the English ones to fill in", async () => {

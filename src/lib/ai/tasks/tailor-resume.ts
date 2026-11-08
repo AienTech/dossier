@@ -23,7 +23,7 @@ import {
   type Task,
 } from "./prompt-parts";
 
-export const TAILOR_RESUME_VERSION = "tailor-resume@8";
+export const TAILOR_RESUME_VERSION = "tailor-resume@9";
 
 const answerSchema = z.object({
   summary: z.string(),
@@ -43,17 +43,6 @@ const INSTRUCTIONS = `You tailor a candidate's resume to one job, as JSON.
 - education: every entry by id, with its notes shortened or left empty.
 - The profile's certifications, publications and otherSections go on the resume word for word, so don't answer with them; the summary may mention them.`;
 
-/** SET-9: asked for when "Resume length" has a limit; anything still over is trimmed afterwards (E10-10). */
-function pageFit(maxPages: number | null | undefined): string | null {
-  if (maxPages === 1) {
-    return "The resume has to fit on one page: keep the summary to two sentences, give the most relevant roles 3–4 bullets and older roles 2, and keep education and project notes to a few words.";
-  }
-  if (maxPages === 2) {
-    return "The resume has to fit on two pages: keep the summary to three sentences, give the most relevant roles 4–5 bullets and older roles 2–3, and keep education and project notes short.";
-  }
-  return null;
-}
-
 export type TailorInput = {
   profile: ProfileData;
   extracted: Extracted;
@@ -72,7 +61,6 @@ export const tailorResume: Task<TailorInput, Unit[]> = async (provider, { profil
     task: "tailor-resume",
     system: system(
       INSTRUCTIONS,
-      pageFit(options.maxPages),
       truthfulness(options.strict),
       candidateFacts(profile, facts),
       CREATIVITY[options.creativity],

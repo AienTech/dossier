@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { LanguageLevel } from "@/generated/prisma/enums";
-import { BASICS_FIELDS } from "@/lib/profile";
+import { BASICS_FIELDS, type BasicsField } from "@/lib/profile";
 
 // A profile read from a resume file (E4-10, PRO-12), as the preview shows it
 // and the import applies it. Anything the file's text doesn't contain is
@@ -16,6 +16,21 @@ const span = {
 };
 /** Words of an entry that aren't in the file, e.g. a company the model misspelled. */
 const unverified = z.array(z.string());
+
+/** The Basics fields as the import's review names them. */
+export const BASICS_LABELS: Record<BasicsField, string> = {
+  name: "Full name",
+  headline: "Headline",
+  email: "Email",
+  phone: "Phone",
+  dob: "Date of birth",
+  website: "Website",
+  address: "Street address",
+  city: "City",
+  country: "Country",
+  linkedin: "LinkedIn",
+  summary: "About you",
+};
 
 export const importedProfileSchema = z.object({
   basics: z.partialRecord(z.enum(BASICS_FIELDS), z.string()),
@@ -61,6 +76,8 @@ export const importedProfileSchema = z.object({
   references: z.array(
     z.object({ name: z.string(), relation: z.string(), company: z.string(), email: z.string(), phone: z.string(), unverified }),
   ),
+  /** What the model gave that wasn't kept, and why (#371): "Country “Oregon”: not a country". Absent in older readings. */
+  leftOut: z.array(z.string()).default([]),
 });
 export type ImportedProfile = z.infer<typeof importedProfileSchema>;
 
