@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { DocumentPreview } from "@/components/documents/document-preview";
-import { DownloadPdfButton } from "@/components/documents/download-pdf-button";
+import { DownloadSplitButton } from "@/components/documents/download-split-button";
 import { ResumeDocument } from "@/components/documents/resume-document";
 import { PageHeader } from "@/components/page-header";
 import { toast, toastResult } from "@/components/toast";
@@ -224,15 +224,15 @@ export function ResumeWorkspace({
       <PageHeader
         breadcrumb={[{ label: "Profile", href: `/profile?profile=${profileId}` }, { label: "Base resume" }]}
         title="Base resume"
-        description="Built straight from your profile. Every new application starts from this one, then gets tailored to the job."
+        description="Built straight from your profile. Every new application starts from this one, then gets tailored to the job. Word downloads include the theme's fonts; line and page breaks may differ from the PDF."
         actions={
-          <>
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <ProfileSwitcher profiles={profiles} current={profiles.find((entry) => entry.id === profileId) ?? { id: profileId, name: "" }} path="/resume" />
             <Link href={`/profile?profile=${profileId}`} className={buttonClassName("secondary")}>
               Edit profile
             </Link>
-            <DownloadPdfButton href={`/api/pdf?doc=base&profile=${profileId}`}>Download PDF</DownloadPdfButton>
-          </>
+            <DownloadSplitButton pdfHref={`/api/pdf?doc=base&profile=${profileId}`} wordHref={`/api/docx?doc=base&profile=${profileId}`} />
+          </div>
         }
       />
       <div className="@container flex flex-1 flex-wrap border-t border-line">
@@ -349,4 +349,3 @@ function deleteDescription(applications: number): string {
       : `${applications === 1 ? "One application uses" : `${applications} applications use`} it; their documents will use your base theme instead.`;
   return `${used} Editorial becomes your base theme. This can't be undone, but you can export the theme first.`;
 }
-

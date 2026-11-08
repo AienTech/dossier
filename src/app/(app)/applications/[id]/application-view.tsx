@@ -8,6 +8,7 @@ import { useEffect, useOptimistic, useRef, useState, useTransition } from "react
 import { plainUnit, type UnitRenderer } from "@/components/documents/document-page";
 import { DocumentPreview } from "@/components/documents/document-preview";
 import { DownloadPdfButton } from "@/components/documents/download-pdf-button";
+import { DownloadSplitButton } from "@/components/documents/download-split-button";
 import { TailoredLetter, TailoredResume } from "@/components/documents/tailored-documents";
 import { toast, toastResult } from "@/components/toast";
 import { Button } from "@/components/ui/button";
@@ -1065,10 +1066,14 @@ export function ApplicationView({
   const pdfButton = (doc: "resume" | "letter") => {
     const what = doc === "letter" ? "cover letter" : "tailored resume";
     return (
-      <DownloadPdfButton variant="secondary" size="sm" href={`/api/pdf?doc=${doc}&application=${application.id}`} progress={`Rendering your ${what} as a PDF…`}>
-        <Download size={14} aria-hidden="true" />
-        <span className="sr-only">Download the {what} as a</span> PDF
-      </DownloadPdfButton>
+      <DownloadSplitButton
+        variant="secondary"
+        size="sm"
+        pdfHref={`/api/pdf?doc=${doc}&application=${application.id}`}
+        wordHref={`/api/docx?doc=${doc}&application=${application.id}`}
+        pdfProgress={`Rendering your ${what} as a PDF…`}
+        wordProgress={`Preparing your ${what} as a Word document…`}
+      />
     );
   };
   const historyButton = (document: DocumentKind) => (
