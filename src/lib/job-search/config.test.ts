@@ -13,6 +13,8 @@ const nothingSaved = {
   adzunaAppId: null,
   adzunaKeyEnc: null,
   arbeitsagenturAcceptedAt: null,
+  agentreachUrl: null,
+  agentreachKeyEnc: null,
 };
 const ACCEPTED = "2026-10-23T09:00:00.000Z";
 const noEnv = {};
@@ -27,6 +29,7 @@ describe("resolveJobSearchConfig", () => {
       adzuna: { appId: "", keyState: "none" },
       arbeitsagentur: { offered: true, acceptedAt: null },
       freehire: { host: "freehire.me" },
+      agentreach: { url: "http://agentreach:8085", keyState: "none" },
     });
   });
 
@@ -54,6 +57,8 @@ describe("resolveJobSearchConfig", () => {
       jsearchHost: "openwebninja" as const,
       adzunaAppId: "app-saved",
       adzunaKeyEnc: encryptSecret(JOB_SOURCE_KEY, "adz-saved"),
+      agentreachUrl: null,
+      agentreachKeyEnc: null,
       arbeitsagenturAcceptedAt: null,
     };
     const config = resolveJobSearchConfig(saved, { DOSSIER_JOBS_SOURCE: "jsearch", DOSSIER_JSEARCH_KEY: "ak_env", DOSSIER_JSEARCH_HOST: "rapidapi" });
@@ -153,5 +158,32 @@ describe("FreeHire from the environment", () => {
     const own = resolveJobSearchConfig(nothingSaved, { DOSSIER_FREEHIRE_URL: "https://jobs.example:8443" });
     expect(own.freehire).toEqual({ url: "https://jobs.example:8443" });
     expect(jobSearchView(own).freehire).toEqual({ host: "jobs.example:8443" });
+  });
+});
+
+describe("AgentReach from the environment and settings", () => {
+  it("chooses AgentReach when DOSSIER_JOBS_SOURCE says so", () => {
+    expect(resolveJobSearchConfig(nothingSaved, { DOSSIER_JOBS_SOURCE: "agentreach" }).source).toBe("AGENTREACH");
+  });
+
+  it("resolves default endpoint or configured URL", () => {
+    expect(resolveJobSearchConfig(nothingSaved, noEnv).agentreach).toEqual({
+      url: "http://localhost:8080",
+      key: null,
+      keyState: "none",
+    });
+    const custom = resolveJobSearchConfig(nothingSaved, {
+      DOSSIER_AGENTREACH_URL: "http://host.docker.internal:8080",
+      DOSSIER_AGENTREACH_KEY: "secret-token",
+    });
+    expect(custom.agentreach).toEqual({
+      url: "http://host.docker.internal:8080",
+      key: "secret-token",
+      keyState: "env",
+    });
+    expect(credentialsFor(custom, "AGENTREACH")).toEqual({
+      url: "http://host.docker.internal:8080",
+      key: "secret-token",
+    });
   });
 });

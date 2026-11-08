@@ -109,6 +109,7 @@ export const settingsSchema = z.object({
   provider: z.enum(AiProvider).nullable().catch(null),
   baseUrl: z.string().nullable().catch(null),
   model: z.string().nullable().catch(null),
+  aiEndpoint: z.enum(["chat/completions", "/responses"]).catch("chat/completions"),
   /** Encrypted with a key derived from DOSSIER_SECRET (E6-2); never sent to the client. */
   apiKeyEnc: z.string().nullable().catch(null),
   creativity: z.enum(Creativity).catch(Creativity.BALANCED),
@@ -167,6 +168,8 @@ export const settingsSchema = z.object({
   adzunaKeyEnc: z.string().nullable().catch(null),
   /** When "I understand" was ticked under the Bundesagentur für Arbeit's note (#223); its searches wait for it. */
   arbeitsagenturAcceptedAt: z.iso.datetime().nullable().catch(null),
+  agentreachUrl: z.string().trim().max(1000).nullable().catch(null),
+  agentreachKeyEnc: z.string().nullable().catch(null),
   // Scoring (#274): what Score in Find jobs and the job agent score postings
   // with. Null means "not set in the app": DOSSIER_SCORER decides, else the
   // AI model. Jev's key is encrypted like the others, under its own key.

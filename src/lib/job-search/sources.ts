@@ -12,6 +12,8 @@ export type JobSearchSettingsView = {
   arbeitsagentur: { offered: boolean; acceptedAt: string | null };
   /** The FreeHire it searches: "freehire.me", or a self-hosted one's host (DOSSIER_FREEHIRE_URL). */
   freehire: { host: string };
+  /** The AgentReach endpoint it searches (DOSSIER_AGENTREACH_URL or custom endpoint). */
+  agentreach: { url: string; keyState: JobKeyState };
 };
 
 /** Where to get a JSearch key, by where it's from. */
@@ -92,7 +94,21 @@ export const SOURCE_INFO: Record<JobSource, SourceInfo> = {
     // It has a city filter, but only for the names it knows, and a country with it widens rather than narrows.
     radius: false,
   },
+  AGENTREACH: {
+    name: "AgentReach",
+    description: "Postings from LinkedIn, Reddit and social platforms, searched via AgentReach.",
+    tag: "LinkedIn · Reddit · Social & Web",
+    keyUrl: "https://github.com/Panniantong/Agent-Reach",
+    quotaPeriod: null,
+    attribution: "Jobs via AgentReach",
+    attributionLink: null,
+    countries: null,
+    radius: false,
+  },
 };
+
+/** AgentReach default local endpoint. */
+export const AGENTREACH_DEFAULT_URL = "http://agentreach:8085";
 
 /** FreeHire's public catalogue; DOSSIER_FREEHIRE_URL can name a self-hosted one instead. */
 export const FREEHIRE_URL = "https://freehire.me";

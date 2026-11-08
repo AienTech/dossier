@@ -21,6 +21,7 @@ const off: JobSearchSettingsView = {
   adzuna: { appId: "", keyState: "none" },
   arbeitsagentur: { offered: true, acceptedAt: null },
   freehire: { host: "freehire.me" },
+  agentreach: { url: "http://localhost:8080", keyState: "none" },
 };
 const ACCEPTED = "2026-10-23T09:00:00.000Z";
 const withSource = (view: Partial<JobSearchSettingsView>): JobSearchSettingsView => ({ ...off, ...view });
@@ -36,13 +37,14 @@ beforeEach(() => {
 });
 
 describe("JobSearchSection", () => {
-  it("offers the four sources and Off, as a radio group, Off by default", () => {
+  it("offers the sources and Off, as a radio group, Off by default", () => {
     render(<JobSearchSection initial={off} />);
     expect(screen.getByRole("heading", { name: "Job search" })).toBeInTheDocument();
     expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("aria-label"))).toEqual([
       "JSearch",
       "Adzuna",
       "FreeHire",
+      "AgentReach",
       "Bundesagentur für Arbeit",
       "Off",
     ]);
@@ -162,5 +164,21 @@ describe("JobSearchSection", () => {
     vi.mocked(testJobSource).mockResolvedValue({ ok: false, error: "Something went wrong on the server. Please try again." });
     await userEvent.click(screen.getByRole("button", { name: "Test connection" }));
     expect(await screen.findByText("Something went wrong on the server. Please try again.")).toBeInTheDocument();
+  });
+
+  it("shows AgentReach settings and saves AgentReach URL when changed", async () => {
+    vi.mocked(saveJobSearchDetails).mockResolvedValue({
+      ok: true,
+      data: withSource({ source: "AGENTREACH", agentreach: { url: "http://localhost:9090", keyState: "none" } }),
+    });
+    render(<JobSearchSection initial={withSource({ source: "AGENTREACH" })} />);
+    expect(screen.getByRole("link", { name: "AgentReach" })).toHaveAttribute("href", "https://github.com/Panniantong/Agent-Reach");
+    const urlInput = screen.getByLabelText("AgentReach URL");
+    expect(urlInput).toHaveValue("http://localhost:8080");
+
+    await userEvent.clear(urlInput);
+    await userEvent.type(urlInput, "http://localhost:9090");
+    await userEvent.tab();
+    expect(saveJobSearchDetails).toHaveBeenCalledWith({ agentreachUrl: "http://localhost:9090" });
   });
 });

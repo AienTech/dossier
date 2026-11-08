@@ -3,72 +3,68 @@ services:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-dossier}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      POSTGRES_USER: dossier
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: dossier
     volumes:
-      # Postgres 18+ keeps data in a versioned subdirectory, so mount the parent.
       - pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U dossier -d dossier"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   app:
-    build:
-      context: .
-      target: dev
+    image: ${DOSSIER_IMAGE:-dossier:local}
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      # Overrides the localhost URL in .env, which is meant for tools run on the host.
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dossier}
+      DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD}@db:5432/dossier?connect_timeout=15&pool_timeout=15
+      DOSSIER_PASSWORD: ${DOSSIER_PASSWORD:?Set DOSSIER_PASSWORD in .env to a hash from hash-password}
+      DOSSIER_SECRET: ${DOSSIER_SECRET:?Set DOSSIER_SECRET in .env}
+      DOSSIER_BACKUP_RETENTION_DAYS: ${DOSSIER_BACKUP_RETENTION_DAYS:-}
+      TZ: ${TZ:-UTC}
+      DOSSIER_AI_PROVIDER: ${DOSSIER_AI_PROVIDER:-}
+      DOSSIER_AI_URL: ${DOSSIER_AI_URL:-}
+      DOSSIER_AI_MODEL: ${DOSSIER_AI_MODEL:-}
+      DOSSIER_AI_ENDPOINT: ${DOSSIER_AI_ENDPOINT:-}
+      DOSSIER_AI_KEY: ${DOSSIER_AI_KEY:-}
+      DOSSIER_AI_TIMEOUT_SECONDS: ${DOSSIER_AI_TIMEOUT_SECONDS:-}
+      DOSSIER_TELEMETRY: ${DOSSIER_TELEMETRY:-}
+      DOSSIER_JOBS_SOURCE: ${DOSSIER_JOBS_SOURCE:-}
+      DOSSIER_JSEARCH_KEY: ${DOSSIER_JSEARCH_KEY:-}
+      DOSSIER_JSEARCH_HOST: ${DOSSIER_JSEARCH_HOST:-}
+      DOSSIER_ADZUNA_APP_ID: ${DOSSIER_ADZUNA_APP_ID:-}
+      DOSSIER_ADZUNA_KEY: ${DOSSIER_ADZUNA_KEY:-}
+      DOSSIER_FREEHIRE_URL: ${DOSSIER_FREEHIRE_URL:-}
+      DOSSIER_AGENTREACH_URL: ${DOSSIER_AGENTREACH_URL:-http://agentreach:8085}
+      DOSSIER_AGENTREACH_KEY: ${DOSSIER_AGENTREACH_KEY:-}
+      DOSSIER_JOBS_ARBEITSAGENTUR: ${DOSSIER_JOBS_ARBEITSAGENTUR:-}
+      DOSSIER_SCORER: ${DOSSIER_SCORER:-}
+      DOSSIER_TYPESAFE_KEY: ${DOSSIER_TYPESAFE_KEY:-}
+      DOSSIER_GOOGLE_CLIENT_ID: ${DOSSIER_GOOGLE_CLIENT_ID:-}
+      DOSSIER_GOOGLE_CLIENT_SECRET: ${DOSSIER_GOOGLE_CLIENT_SECRET:-}
+      DOSSIER_PUBLIC_URL: ${DOSSIER_PUBLIC_URL:-}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:${DOSSIER_PORT:-3001}:3000"
     volumes:
-      - .:/app
-      # Keep the container's own (Debian) node_modules and build cache
-      # instead of the host's. node_modules is a named volume so installs made
-      # through docker/bin/yarn persist, whichever container ran them.
-      - node_modules:/app/node_modules
-      - /app/.next
+      - data:/data
+    mem_limit: 1g
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  # Prisma Studio on http://localhost:5555. Not started by `docker compose up`;
-  # run `docker compose up -d studio` when you want it.
-  studio:
-    profiles: [tools]
-    build:
-      context: .
-      target: dev
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dossier}
-    # Studio has no login and can edit every row, so keep it off the network.
+  agentreach:
+    image: node:24-alpine
+    restart: unless-stopped
+    volumes:
+      - ./services/agentreach:/app
+    working_dir: /app
+    command: ["node", "server.js"]
     ports:
-      - "127.0.0.1:5555:5555"
-    volumes:
-      - .:/app
-      - node_modules:/app/node_modules
-    init: true
-    command: sh -c "node docker/studio-proxy.mjs & exec node_modules/.bin/prisma studio --port 5555 --browser none"
-
-  # A local model for trying the AI features. Not started by `docker compose
-  # up`: run `docker compose up -d ollama`, then pull a model with
-  # `docker compose exec ollama ollama pull qwen2.5:3b`. The app reaches it at
-  # http://ollama:11434; models are kept in the ollama volume.
-  ollama:
-    profiles: [ai]
-    image: ollama/ollama:0.40.13
-    volumes:
-      - ollama:/root/.ollama
+      - "127.0.0.1:8085:8085"
 
 volumes:
   pgdata:
-  node_modules:
-  ollama:
+  data:

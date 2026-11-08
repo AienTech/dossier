@@ -8,7 +8,7 @@ import { loadSettings } from "@/lib/settings-data";
 import type { RequestContext, SourceCredentials } from "./adapter";
 import { JobSearchError, jobSearchError } from "./errors";
 import type { JobSource, JSearchHost } from "./search";
-import { ARBEITSAGENTUR_NOTE, FREEHIRE_URL, SOURCE_INFO, type JobKeyState, type JobSearchSettingsView } from "./sources";
+import { ARBEITSAGENTUR_NOTE, FREEHIRE_URL, AGENTREACH_DEFAULT_URL, SOURCE_INFO, type JobKeyState, type JobSearchSettingsView } from "./sources";
 
 // Which job source to search, and with which key (E14-4): what's saved in
 // Settings, or else the DOSSIER_JOBS_* variables. Each source keeps its own
@@ -28,9 +28,14 @@ export type JobSearchConfig = {
   arbeitsagentur: { offered: boolean; acceptedAt: string | null };
   /** The FreeHire to search: freehire.me, or a self-hosted one (DOSSIER_FREEHIRE_URL). */
   freehire: { url: string };
+  /** The AgentReach endpoint to search (DOSSIER_AGENTREACH_URL or custom endpoint). */
+  agentreach: { url: string; key: string | null; keyState: JobKeyState };
 };
 
-type SavedJobSettings = Pick<SettingsData, "jobSource" | "jsearchKeyEnc" | "jsearchHost" | "adzunaAppId" | "adzunaKeyEnc" | "arbeitsagenturAcceptedAt">;
+type SavedJobSettings = Pick<
+  SettingsData,
+  "jobSource" | "jsearchKeyEnc" | "jsearchHost" | "adzunaAppId" | "adzunaKeyEnc" | "arbeitsagenturAcceptedAt" | "agentreachUrl" | "agentreachKeyEnc"
+>;
 type JobEnv = Pick<
   Env,
   | "DOSSIER_JOBS_SOURCE"
@@ -39,6 +44,8 @@ type JobEnv = Pick<
   | "DOSSIER_ADZUNA_APP_ID"
   | "DOSSIER_ADZUNA_KEY"
   | "DOSSIER_FREEHIRE_URL"
+  | "DOSSIER_AGENTREACH_URL"
+  | "DOSSIER_AGENTREACH_KEY"
   | "DOSSIER_JOBS_ARBEITSAGENTUR"
 >;
 
@@ -47,6 +54,7 @@ const FROM_ENV: Record<NonNullable<Env["DOSSIER_JOBS_SOURCE"]>, JobSource | null
   adzuna: "ADZUNA",
   arbeitsagentur: "ARBEITSAGENTUR",
   freehire: "FREEHIRE",
+  agentreach: "AGENTREACH",
   off: null,
 };
 
@@ -82,6 +90,10 @@ export function resolveJobSearchConfig(saved: SavedJobSettings, source: JobEnv, 
     },
     arbeitsagentur: { offered, acceptedAt: saved.arbeitsagenturAcceptedAt },
     freehire: { url: source.DOSSIER_FREEHIRE_URL ?? FREEHIRE_URL },
+    agentreach: {
+      url: saved.agentreachUrl ?? source.DOSSIER_AGENTREACH_URL ?? AGENTREACH_DEFAULT_URL,
+      ...keyOf(saved.agentreachKeyEnc, source.DOSSIER_AGENTREACH_KEY, secret),
+    },
   };
 }
 
@@ -108,21 +120,25 @@ export function jobSearchView(config: JobSearchConfig): JobSearchSettingsView {
     adzuna: { appId: config.adzuna.appId, keyState: config.adzuna.keyState },
     arbeitsagentur: config.arbeitsagentur,
     freehire: { host: new URL(config.freehire.url).host },
+    agentreach: { url: config.agentreach.url, keyState: config.agentreach.keyState },
   };
 }
 
 /**
  * Where a source's requests go: its own address, unless the end-to-end
  * tests point every source at their fake one (DOSSIER_JOBS_TEST_BASE_URL),
- * or FreeHire is pointed at a self-hosted origin (DOSSIER_FREEHIRE_URL).
+ * or FreeHire is pointed at a self-hosted origin (DOSSIER_FREEHIRE_URL),
+ * or AgentReach is pointed at a configured endpoint.
  */
 export function requestContext(
   source: JobSource,
   base = env.DOSSIER_JOBS_TEST_BASE_URL,
   freehireUrl = env.DOSSIER_FREEHIRE_URL,
+  agentreachUrl = env.DOSSIER_AGENTREACH_URL,
 ): RequestContext {
   if (base) return { baseUrl: `${base.replace(/\/+$/, "")}/${source.toLowerCase()}` };
   if (source === "FREEHIRE" && freehireUrl) return { baseUrl: freehireUrl };
+  if (source === "AGENTREACH" && agentreachUrl) return { baseUrl: agentreachUrl };
   return {};
 }
 
@@ -154,5 +170,7 @@ export function credentialsFor<S extends JobSource>(config: JobSearchConfig, sou
     }
     case "FREEHIRE":
       return {} as SourceCredentials[S];
+    case "AGENTREACH":
+      return { url: config.agentreach.url, key: config.agentreach.key } as SourceCredentials[S];
   }
 }

@@ -41,6 +41,7 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
   const track = useTrackSave();
   const [view, setView] = useState(initial);
   const [appId, setAppId] = useState(initial.adzuna.appId);
+  const [agentreachUrl, setAgentreachUrl] = useState(initial.agentreach?.url ?? "");
   const [connection, setConnection] = useState<Connection>({ status: "untested" });
   const source = view.source;
 
@@ -76,7 +77,13 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
     apply(toastResult(await track(saveJobSearchDetails({ adzunaAppId: appId }))));
   };
 
-  const saveKey = async (keySource: "JSEARCH" | "ADZUNA", change: { action: "set"; value: string } | { action: "clear" }) => {
+  const saveAgentreachUrl = async () => {
+    if (agentreachUrl.trim() === view.agentreach.url) return;
+    changed();
+    apply(toastResult(await track(saveJobSearchDetails({ agentreachUrl }))));
+  };
+
+  const saveKey = async (keySource: "JSEARCH" | "ADZUNA" | "AGENTREACH", change: { action: "set"; value: string } | { action: "clear" }) => {
     changed();
     return apply(toastResult(await track(saveJobSourceKey({ source: keySource, change }))));
   };
@@ -178,6 +185,42 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
                   ? `No key needed. Dossier searches FreeHire's public catalogue at ${view.freehire.host}.`
                   : `No key needed. Dossier searches your own FreeHire at ${view.freehire.host}.`}
               </p>
+            )}
+            {source === "AGENTREACH" && (
+              <div className="flex flex-col gap-5">
+                <p className="text-sm text-muted">
+                  Searches relevant jobs across LinkedIn, Reddit, and social platforms via{" "}
+                  <a
+                    href="https://github.com/Panniantong/Agent-Reach"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-ink"
+                  >
+                    AgentReach
+                  </a>
+                  . Point Dossier to your local or hosted AgentReach instance.
+                </p>
+                <div className="grid grid-cols-1 gap-x-[18px] gap-y-5 sm:grid-cols-2">
+                  <Input
+                    label="AgentReach URL"
+                    value={agentreachUrl}
+                    placeholder="http://agentreach:8085"
+                    spellCheck={false}
+                    autoComplete="off"
+                    inputClassName="font-mono text-[13.5px]"
+                    hint="For Docker, use http://agentreach:8085 (or http://host.docker.internal:8085 if run on host)."
+                    onChange={(event) => setAgentreachUrl(event.target.value)}
+                    onBlur={() => void saveAgentreachUrl()}
+                  />
+                  <KeyField
+                    label="API token (optional)"
+                    keyState={view.agentreach.keyState}
+                    envName="DOSSIER_AGENTREACH_KEY"
+                    getKey={{ href: "https://github.com/Panniantong/Agent-Reach", text: "AgentReach on GitHub" }}
+                    onSave={(change) => saveKey("AGENTREACH", change)}
+                  />
+                </div>
+              </div>
             )}
 
             {testable && (
