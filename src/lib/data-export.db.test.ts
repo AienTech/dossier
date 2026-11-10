@@ -67,6 +67,16 @@ describe("buildExport (E10-4)", () => {
     expect(withKey.settings.map((setting) => setting.key)).not.toContain("apiKeyEnc");
   });
 
+  it("never exports the inactive providers' encrypted configurations, even when including the active key", async () => {
+    await prisma().setting.upsert({ where: { key: "aiConnections" }, create: { key: "aiConnections", value: JSON.stringify([{ provider: "OPENAI", baseUrl: "https://private-provider.example/v1", model: "private-model", apiKeyEnc: "encrypted-inactive-provider-key" }]) }, update: {} });
+    for (const includeApiKey of [false, true]) {
+      const file = JSON.stringify(await buildExport(prisma(), { now, includeApiKey }));
+      expect(file).not.toContain("aiConnections");
+      expect(file).not.toContain("encrypted-inactive-provider-key");
+      expect(file).not.toContain("private-provider.example");
+    }
+  });
+
   it("leaves out the install's own settings: the usage ping's ID, day and answer", async () => {
     await prisma().setting.createMany({
       data: [

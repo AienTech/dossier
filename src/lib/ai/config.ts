@@ -101,6 +101,10 @@ export async function loadAiSettingsView(): Promise<AiSettingsView> {
     baseUrl: config.baseUrl,
     model: config.model ?? "",
     keyState: keyStateOf(saved, config),
+    connections: saved.aiConnections.map((entry) => ({
+      provider: entry.provider, baseUrl: entry.baseUrl, model: entry.model,
+      keyState: entry.apiKeyEnc ? apiKeyState(entry.apiKeyEnc) : "none",
+    })),
   };
 }
 

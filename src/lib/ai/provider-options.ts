@@ -119,9 +119,12 @@ export const API_KEY_UNREADABLE = "Your saved API key can't be read. Please ente
 export type KeyState = "none" | "set" | "unreadable" | "env";
 
 /** What the AI provider section starts from. */
-export type AiSettingsView = {
+export type AiConnectionView = {
   provider: AiProvider;
   baseUrl: string;
   model: string;
   keyState: KeyState;
 };
+
+/** Redacted saved configurations: key material never leaves the server. */
+export type AiSettingsView = AiConnectionView & { connections?: AiConnectionView[] };

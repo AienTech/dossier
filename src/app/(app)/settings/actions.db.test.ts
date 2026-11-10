@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { loadAiSettingsView } from "@/lib/ai/config";
 import { decryptApiKey } from "@/lib/ai/api-key";
 import { MockProvider } from "@/lib/ai/providers/mock";
 import { loadSettings } from "@/lib/settings-data";
@@ -69,7 +70,7 @@ describe("saveAiProvider", () => {
     expect(await settings()).toMatchObject({ provider: "LOCAL", baseUrl: "http://ollama:11434", model: "qwen2.5:3b" });
   });
 
-  it("removes the key when the provider changes, so it never reaches another server", async () => {
+  it("never reuses a provider key for another server", async () => {
     await saveAiProvider({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5" });
     await saveApiKey({ provider: "ANTHROPIC", change: { action: "set", value: "sk-ant-secret" } });
     await saveAiProvider({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-opus-5-5" });
@@ -86,6 +87,45 @@ describe("saveAiProvider", () => {
     expect((await settings()).apiKeyEnc).toBeNull();
   });
 
+});
+
+describe("saved AI configurations", () => {
+  it("keeps both providers' encrypted keys and models across switching and a fresh settings load", async () => {
+    await saveAiProvider({ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", model: "router-model" });
+    await saveApiKey({ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", change: { action: "set", value: "router-private-key" } });
+    await saveAiProvider({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-model" });
+    await saveApiKey({ provider: "ANTHROPIC", change: { action: "set", value: "claude-private-key" } });
+    const saved = await settings();
+    expect(saved.aiConnections).toHaveLength(2);
+    const view = await loadAiSettingsView();
+    expect(view.connections?.map((entry) => entry.model)).toEqual(["router-model", "claude-model"]);
+    expect(JSON.stringify(view)).not.toContain("apiKeyEnc");
+    expect(JSON.stringify(view)).not.toContain("private-key");
+    expect(JSON.stringify(saved.aiConnections)).not.toContain("private-key");
+    await saveAiProvider({ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", model: "router-model" });
+    expect(decryptApiKey((await settings()).apiKeyEnc!)).toBe("router-private-key");
+    await saveAiProvider({ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", model: "router-new-model" });
+    expect(decryptApiKey((await settings()).apiKeyEnc!)).toBe("router-private-key");
+    await saveAiProvider({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-model" });
+    expect(decryptApiKey((await settings()).apiKeyEnc!)).toBe("claude-private-key");
+  });
+
+  it("only removes the chosen server's key and does not resurrect it when switching back", async () => {
+    const router = { provider: "OPENAI" as const, baseUrl: "https://openrouter.ai/api/v1", model: "router-model" };
+    const gemini = { provider: "OPENAI" as const, baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-model" };
+    await saveAiProvider(router);
+    await saveApiKey({ ...router, change: { action: "set", value: "router-key" } });
+    await saveAiProvider(gemini);
+    expect((await settings()).apiKeyEnc).toBeNull();
+    await saveApiKey({ ...gemini, change: { action: "set", value: "gemini-key" } });
+    await saveApiKey({ ...router, change: { action: "clear" } });
+    expect(await settings()).toMatchObject({ baseUrl: gemini.baseUrl });
+    expect(decryptApiKey((await settings()).apiKeyEnc!)).toBe("gemini-key");
+    await saveAiProvider(router);
+    expect((await settings()).apiKeyEnc).toBeNull();
+    await saveAiProvider(gemini);
+    expect(decryptApiKey((await settings()).apiKeyEnc!)).toBe("gemini-key");
+  });
 });
 
 describe("saveApiKey", () => {

@@ -8,9 +8,9 @@ import { AiProvider, Creativity, DateFormat, JobStatus, PaperSize, Tone } from "
 import { action, ActionError } from "@/lib/action";
 import { lockAgentSearches } from "@/lib/agent/searches";
 import { AiError, createProvider } from "@/lib/ai";
-import { applyApiKeyChange } from "@/lib/ai/api-key";
+import { saveAiConnection, saveAiConnectionKey } from "@/lib/ai/connections";
 import { keyStateOf, loadAiConfig, resolveAiConfig } from "@/lib/ai/config";
-import { sameAiServer, type KeyState } from "@/lib/ai/provider-options";
+import type { KeyState } from "@/lib/ai/provider-options";
 import { DOCUMENT_LANGUAGES } from "@/lib/document-language";
 import { deleteAllBackups } from "@/lib/backups";
 import { env } from "@/lib/env";
@@ -43,8 +43,8 @@ async function currentKeyState(): Promise<KeyState> {
 
 /**
  * Saves the provider, server address and model (SET-1). A key belongs to
- * its provider and server: switching either removes it, so it's never sent to
- * another company's server.
+ * its provider and server: switching restores that server's saved configuration
+ * and keeps other servers' keys encrypted for later use.
  */
 export const saveAiProvider = action(
   z.object({
@@ -54,15 +54,7 @@ export const saveAiProvider = action(
     model: z.string().trim().max(200),
   }),
   async ({ provider, baseUrl, model }) => {
-    const current = await loadSettings();
-    const previous = resolveAiConfig(current, env);
-    const serverChanged = baseUrl && URL.canParse(baseUrl) && !sameAiServer(previous.baseUrl, baseUrl);
-    await saveSettings({
-      provider,
-      baseUrl: baseUrl || null,
-      model: model || null,
-      ...(current.provider !== provider || serverChanged ? { apiKeyEnc: null } : {}),
-    });
+    await saveAiConnection({ provider, baseUrl, model });
     return { keyState: await currentKeyState() };
   },
 );
@@ -71,19 +63,14 @@ export const saveAiProvider = action(
 export const saveApiKey = action(
   z.object({
     provider: z.enum(AiProvider),
+    baseUrl: z.string().trim().max(500).optional(),
     change: z.discriminatedUnion("action", [
       z.object({ action: z.literal("set"), value: z.string().trim().min(1).max(1000) }),
       z.object({ action: z.literal("clear") }),
     ]),
   }),
-  async ({ provider, change }) => {
-    const current = await loadSettings();
-    await saveSettings({
-      apiKeyEnc: applyApiKeyChange(current.apiKeyEnc, change),
-      // Until now the provider came from DOSSIER_AI_*; the key makes it a saved choice.
-      ...(current.provider ? {} : { provider }),
-    });
-    return { keyState: await currentKeyState() };
+  async ({ provider, baseUrl, change }) => {
+    return { keyState: await saveAiConnectionKey({ provider, baseUrl }, change) };
   },
 );
 

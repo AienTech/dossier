@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { action, ActionError } from "@/lib/action";
 import { AiError, createProvider } from "@/lib/ai";
-import { applyApiKeyChange } from "@/lib/ai/api-key";
+import { rememberedAiConnection, saveAiConnection } from "@/lib/ai/connections";
 import { loadAiConfig } from "@/lib/ai/config";
 import { loadSettings, saveSettings } from "@/lib/settings-data";
 import { AI_CHOICES, aiChoice, LOCAL_ADDRESSES, pickModel, type AiChoiceId } from "@/lib/setup/ai-choices";
@@ -30,10 +30,9 @@ export const connectAi = action(z.object({ choice: z.enum(choiceIds), key: z.str
   const choice = aiChoice(id);
   if (!choice.key) throw new ActionError(`${choice.name} runs on your computer, so there's no key to check.`);
   const saved = await loadSettings();
-  const same = saved.provider === choice.provider && saved.baseUrl === choice.baseUrl;
-  const apiKeyEnc = key ? applyApiKeyChange(null, { action: "set", value: key }) : same ? saved.apiKeyEnc : null;
-  if (!apiKeyEnc) return { connected: false as const, kind: "auth" as const, message: `Paste your ${choice.key.label} first.` };
-  await saveSettings({ provider: choice.provider, baseUrl: choice.baseUrl, model: choice.models[0], apiKeyEnc });
+  const remembered = rememberedAiConnection(saved, { provider: choice.provider, baseUrl: choice.baseUrl });
+  if (!key && !remembered?.apiKeyEnc) return { connected: false as const, kind: "auth" as const, message: `Paste your ${choice.key.label} first.` };
+  await saveAiConnection({ provider: choice.provider, baseUrl: choice.baseUrl, model: remembered?.model || choice.models[0] }, key ? { action: "set", value: key } : undefined);
 
   const config = { ...(await loadAiConfig()), timeoutMs: CHECK_TIMEOUT_MS };
   try {
@@ -77,7 +76,7 @@ export const findLocalAi = action(z.object({ choice: z.enum(["lmstudio", "ollama
     }
     const same = saved.provider === choice.provider;
     const model = same && saved.model && models.includes(saved.model) ? saved.model : (models[0] ?? null);
-    await saveSettings({ provider: choice.provider, baseUrl, model, apiKeyEnc: same ? saved.apiKeyEnc : null });
+    await saveAiConnection({ provider: choice.provider, baseUrl, model: model ?? "" });
     return { found: true as const, baseUrl, models, model };
   }
   return { found: false as const };

@@ -84,11 +84,11 @@ describe("AiProviderSection", () => {
     render(<AiProviderSection initial={{ ...local, provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5-5" }} />);
     await userEvent.type(screen.getByLabelText("API key"), "sk-ant-secret");
     await userEvent.tab();
-    expect(saveApiKey).toHaveBeenCalledWith({ provider: "ANTHROPIC", change: { action: "set", value: "sk-ant-secret" } });
+    expect(saveApiKey).toHaveBeenCalledWith({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", change: { action: "set", value: "sk-ant-secret" } });
     await waitFor(() => expect(screen.getByLabelText("API key")).toHaveValue(""));
     expect(screen.getByLabelText("API key")).toHaveAttribute("placeholder", "Saved · type a new key to replace it");
     await userEvent.click(screen.getByRole("button", { name: "Remove saved key" }));
-    expect(saveApiKey).toHaveBeenLastCalledWith({ provider: "ANTHROPIC", change: { action: "clear" } });
+    expect(saveApiKey).toHaveBeenLastCalledWith({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", change: { action: "clear" } });
   });
 
   it("says when a saved key can't be read", () => {
@@ -151,5 +151,49 @@ describe("setup provider continuity", () => {
     render(<AiProviderSection initial={{ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", model: "custom-chat", keyState: "set" }} />);
     await userEvent.click(screen.getByRole("radio", { name: "Gemini" }));
     await waitFor(() => expect(saveAiProvider).toHaveBeenCalledWith({ provider: "OPENAI", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "" }));
+  });
+});
+
+
+describe("remembered provider configurations", () => {
+  it("restores the original endpoint, model and saved-key state after switching away and back", async () => {
+    render(<AiProviderSection initial={{ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", model: "my-router-model", keyState: "set", connections: [{ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "my-claude-model", keyState: "set" }] }} />);
+    vi.mocked(saveAiProvider).mockResolvedValue({ ok: true, data: { keyState: "set" } });
+    await userEvent.click(screen.getByRole("radio", { name: "Anthropic" }));
+    await waitFor(() => expect(screen.getByLabelText("Model")).toHaveValue("my-claude-model"));
+    expect(screen.getByLabelText("Server address")).toHaveValue("https://api.anthropic.com");
+    await waitFor(() => expect(saveAiProvider).toHaveBeenCalledWith({ provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "my-claude-model" }));
+    await userEvent.click(screen.getByRole("radio", { name: "OpenRouter" }));
+    await waitFor(() => expect(screen.getByLabelText("Model")).toHaveValue("my-router-model"));
+    expect(screen.getByLabelText("API key")).toHaveAttribute("placeholder", "Saved · type a new key to replace it");
+  });
+
+  it("waits for a pending model save before activating another provider", async () => {
+    let finish!: (value: Awaited<ReturnType<typeof saveAiProvider>>) => void;
+    vi.mocked(saveAiProvider).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const user = userEvent.setup();
+    render(<AiProviderSection initial={local} />);
+    await screen.findByRole("option", { name: "llama3.1:8b" });
+    await user.selectOptions(screen.getByLabelText("Model"), "llama3.1:8b");
+    await waitFor(() => expect(saveAiProvider).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("radio", { name: "Anthropic" }));
+    expect(screen.getByRole("radio", { name: "Local model" })).toBeChecked();
+    expect(saveAiProvider).toHaveBeenCalledTimes(1);
+    finish({ ok: true, data: { keyState: "none" } });
+    await waitFor(() => expect(screen.getByRole("radio", { name: "Anthropic" })).toBeChecked());
+  });
+
+  it("commits pending model edits before switching, and restores a custom server after reload", async () => {
+    const user = userEvent.setup();
+    render(<AiProviderSection initial={{ provider: "OPENAI", baseUrl: "https://custom.example/v1", model: "custom-model", keyState: "set", connections: [{ provider: "MISTRAL", baseUrl: "https://api.mistral.ai/v1", model: "saved-mistral", keyState: "set" }] }} />);
+    await user.selectOptions(screen.getByLabelText("Model"), "__other");
+    await user.clear(screen.getByLabelText("Model name"));
+    await user.type(screen.getByLabelText("Model name"), "custom-revised");
+    await user.click(screen.getByRole("radio", { name: "Mistral" }));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "Mistral" })).toBeChecked());
+    expect(saveAiProvider).toHaveBeenCalledWith({ provider: "OPENAI", baseUrl: "https://custom.example/v1", model: "custom-revised" });
+    await user.click(screen.getByRole("radio", { name: "OpenAI-compatible" }));
+    await waitFor(() => expect(screen.getByLabelText("Server address")).toHaveValue("https://custom.example/v1"));
+    expect(screen.getByLabelText("Model")).toHaveValue("custom-revised");
   });
 });

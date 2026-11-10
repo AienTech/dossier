@@ -37,6 +37,12 @@ Exports you download and database dumps you take are copies outside Dossier's re
 - **Disconnect** (Settings → Google) revokes Dossier's access at Google and forgets the account. Mail already in Dossier stays, with its applications.
 - **Disconnect all apps** (Settings → MCP connector) signs Claude and every other app out, and so do turning the connector off, a new `DOSSIER_PASSWORD` or a new `DOSSIER_SECRET`. What an app read before stays with it: for Claude, in your Claude chats, under your Claude account.
 
+### Saved AI-provider configurations
+
+Switching providers keeps each server's endpoint, model and encrypted key so you can return to it later. Only the selected provider is used for AI tasks. Keys are scoped by provider kind and server origin and are never returned to the browser. **Remove saved key** affects that server's key; it does not erase the other configurations. Already removed keys cannot be recovered by remembering configurations later.
+
+The saved-provider history stays on this installation and is excluded from ordinary data exports, even when you choose to include the active provider's key. Full database backups contain its encrypted keys and still require the same server secret to decrypt them.
+
 ## What leaves your server
 
 | Who receives it | When | What |

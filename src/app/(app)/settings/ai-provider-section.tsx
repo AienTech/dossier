@@ -1,7 +1,7 @@
 "use client";
 
 import { RadioGroup } from "radix-ui";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useTrackSave } from "@/components/save-tracker";
 import { toastResult } from "@/components/toast";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { API_KEY_UNREADABLE, PROVIDER_OPTIONS, providerOption, type AiSettingsView } from "@/lib/ai/provider-options";
+import { API_KEY_UNREADABLE, PROVIDER_OPTIONS, providerOption, type AiConnectionView, type AiSettingsView } from "@/lib/ai/provider-options";
 import { cn } from "@/lib/cn";
 import { useAutosave } from "@/hooks/use-autosave";
 
@@ -51,17 +51,24 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   const [connection, setConnection] = useState<Connection>({ status: "untested" });
   const [modelList, setModelList] = useState<ModelList>({ loading: true });
   const option = providerOption(provider, baseUrl);
+  const [switching, setSwitching] = useState(false);
+  const connectionId = (value: AiConnectionView) => providerOption(value.provider, value.baseUrl).preset ?? value.provider;
+  const connections = useRef(new Map<string, AiConnectionView>([...(initial.connections ?? []), initial].map((value) => [connectionId(value), value])));
+  const active = useRef({ provider: initial.provider, baseUrl: initial.baseUrl });
+  const modelRequest = useRef(0);
 
   const reloadModels = () => {
+    const request = ++modelRequest.current;
     setModelList({ loading: true });
-    void listAiModels({}).then((result) => setModelList(toModelList(result)));
+    void listAiModels({}).then((result) => { if (request === modelRequest.current) setModelList(toModelList(result)); });
   };
 
   // The list for what's saved when the page opens.
   useEffect(() => {
     let current = true;
+    const request = ++modelRequest.current;
     void listAiModels({}).then((result) => {
-      if (current) setModelList(toModelList(result));
+      if (current && request === modelRequest.current) setModelList(toModelList(result));
     });
     return () => {
       current = false;
@@ -72,11 +79,20 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   const changed = () => setConnection({ status: "untested" });
 
   const fields = useMemo(() => ({ provider, baseUrl, model }), [provider, baseUrl, model]);
+  useLayoutEffect(() => { active.current = { provider, baseUrl }; }, [provider, baseUrl]);
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
+  const persist = (value: typeof fields) => {
+    const result = writes.current.catch(() => undefined).then(() => track(saveAiProvider(value)));
+    writes.current = result;
+    return result;
+  };
   const savedServer = useRef(`${initial.provider} ${initial.baseUrl}`);
   const { flush } = useAutosave(fields, async (value) => {
-    const result = await track(saveAiProvider(value));
+    const result = await persist(value);
     if (result.ok) {
+      if (active.current.provider !== value.provider || active.current.baseUrl !== value.baseUrl) return result;
       setKeyState(result.data.keyState);
+      connections.current.set(connectionId({ ...value, keyState: result.data.keyState }), { ...value, keyState: result.data.keyState });
       // A different server may offer different models.
       const server = `${value.provider} ${value.baseUrl}`;
       if (server !== savedServer.current) {
@@ -93,21 +109,38 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
     if (saveNow > 0) flush();
   }, [saveNow, flush]);
 
-  const chooseProvider = (next: string) => {
-    const nextOption = PROVIDER_OPTIONS.find((entry) => (entry.preset ?? entry.value) === next)!;
-    setProvider(nextOption.value);
-    setBaseUrl(nextOption.defaultUrl);
-    setModel(nextOption.defaultModel);
-    setOtherModel(false);
-    setUrlLeft(false);
-    setKeyInput("");
-    changed();
-    setSaveNow((count) => count + 1);
+  const chooseProvider = async (next: string) => {
+    if (switching) return;
+    setSwitching(true);
+    try {
+      // Commit the current draft before the autosaver can coalesce it with the new provider.
+      flush();
+      const saved = toastResult(await persist(fields));
+      if (!saved.ok) return;
+      connections.current.set(option.preset ?? provider, { ...fields, keyState: saved.data.keyState });
+      const nextOption = PROVIDER_OPTIONS.find((entry) => (entry.preset ?? entry.value) === next)!;
+      const remembered = connections.current.get(next);
+      ++modelRequest.current;
+      setModelList({ loading: true });
+      setProvider(nextOption.value);
+      setBaseUrl(remembered?.baseUrl ?? nextOption.defaultUrl);
+      setModel(remembered?.model ?? nextOption.defaultModel);
+      setKeyState(remembered?.keyState ?? "none");
+      setOtherModel(false);
+      setUrlLeft(false);
+      setKeyInput("");
+      changed();
+      setSaveNow((count) => count + 1);
+    } finally { setSwitching(false); }
   };
 
   const saveKey = async (change: { action: "set"; value: string } | { action: "clear" }) => {
-    const result = toastResult(await track(saveApiKey({ provider, change })));
+    const pending = writes.current.catch(() => undefined).then(() => track(saveApiKey({ provider, baseUrl, change })));
+    writes.current = pending;
+    const result = toastResult(await pending);
     if (!result.ok) return;
+    connections.current.set(option.preset ?? provider, { provider, baseUrl, model, keyState: result.data.keyState });
+    if (active.current.provider !== provider || active.current.baseUrl !== baseUrl) return;
     setKeyState(result.data.keyState);
     setKeyInput("");
     changed();
@@ -129,7 +162,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   const models = [...new Set([...(modelList.loading ? [] : modelList.models), model].filter(Boolean))];
 
   return (
-    <>
+    <fieldset disabled={switching} className="contents">
       <SettingsSectionIntro title="AI provider">
         This is what reads job postings and writes your drafts. A local model keeps everything on your machine.
       </SettingsSectionIntro>
@@ -137,7 +170,8 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
       <RadioGroup.Root
         aria-label="Provider"
         value={option.preset ?? provider}
-        onValueChange={chooseProvider}
+        onValueChange={(value) => void chooseProvider(value)}
+        disabled={switching}
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
       >
         {PROVIDER_OPTIONS.map((entry) => (
@@ -284,7 +318,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
           <ConnectionStatus connection={connection} />
         </div>
       </Card>
-    </>
+    </fieldset>
   );
 }
 
