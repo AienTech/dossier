@@ -21,38 +21,42 @@ const choiceIds = AI_CHOICES.map((choice) => choice.id) as [AiChoiceId, ...AiCho
 
 /**
  * The AI step's Check (E21-2): saves a hosted provider with its key, picks
- * the first of the guide's models the account has, and sends it a short
+ * a model from the account's live model list, and sends it a short
  * question. Without a key, it checks the one saved for the same provider.
  * Saved either way, so a key waiting for credit doesn't have to be pasted
  * again.
  */
-export const connectAi = action(z.object({ choice: z.enum(choiceIds), key: z.string().trim().max(1000).optional() }), async ({ choice: id, key }) => {
+export const connectAi = action(z.object({ choice: z.enum(choiceIds), key: z.string().trim().max(1000).optional(), model: z.string().trim().max(200).optional() }), async ({ choice: id, key, model: requested }) => {
   const choice = aiChoice(id);
   if (!choice.key) throw new ActionError(`${choice.name} runs on your computer, so there's no key to check.`);
   const saved = await loadSettings();
   const same = saved.provider === choice.provider && saved.baseUrl === choice.baseUrl;
   const apiKeyEnc = key ? applyApiKeyChange(null, { action: "set", value: key }) : same ? saved.apiKeyEnc : null;
   if (!apiKeyEnc) return { connected: false as const, kind: "auth" as const, message: `Paste your ${choice.key.label} first.` };
-  await saveSettings({ provider: choice.provider, baseUrl: choice.baseUrl, model: choice.models[0], apiKeyEnc });
+  const previousModel = same ? saved.model : null;
+  await saveSettings({ provider: choice.provider, baseUrl: choice.baseUrl, model: previousModel ?? choice.models[0], apiKeyEnc });
 
   const config = { ...(await loadAiConfig()), timeoutMs: CHECK_TIMEOUT_MS };
+  let served: string[] = [];
   try {
-    let served: string[] = [];
     try {
       served = await createProvider(config).listModels(AbortSignal.timeout(15_000));
     } catch (error) {
       // A server without a model list still answers; a wrong key or no connection is the answer already.
       if (!(error instanceof AiError) || error.kind === "auth" || error.kind === "unreachable" || error.kind === "config") throw error;
     }
-    const model = pickModel(choice.models, served);
+    if (choice.id === "gemini") served = served.map((id) => id.replace(/^models\//, ""));
+    served = [...new Set(served)];
+    const wanted = requested || (previousModel && served.includes(previousModel) ? previousModel : null);
+    const model = wanted ? (!served.length || served.includes(wanted) ? wanted : null) : pickModel(choice.models, served);
     if (!model) {
-      return { connected: false as const, kind: "model" as const, message: `Your ${choice.name} account doesn't offer the models Dossier uses: ${choice.models.join(" or ")}.` };
+      return { connected: false as const, kind: "model" as const, models: served, message: "Choose a model offered by your account, then check again." };
     }
     await saveSettings({ model });
     const { latencyMs } = await createProvider({ ...config, model }).test(AbortSignal.timeout(CHECK_TIMEOUT_MS));
-    return { connected: true as const, model, seconds: Math.round(latencyMs / 100) / 10 };
+    return { connected: true as const, model, models: served, seconds: Math.round(latencyMs / 100) / 10 };
   } catch (error) {
-    if (error instanceof AiError) return { connected: false as const, kind: error.kind, message: error.message };
+    if (error instanceof AiError) return { connected: false as const, kind: error.kind, message: error.message, models: served };
     throw error;
   }
 });

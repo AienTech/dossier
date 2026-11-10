@@ -33,7 +33,7 @@ export type AiChoice = {
   provider: AiProvider;
   /** A hosted one's address; a local one is looked for on this computer instead (LOCAL_ADDRESSES). */
   baseUrl: string;
-  /** Models in the order Dossier would pick them; the first one the account has is used. Empty for a local one, whose models are the user's. */
+  /** Preferred defaults, when offered; the live account list is not restricted to these. Empty for a local one, whose models are the user's. */
   models: readonly string[];
   cost: string;
   data: string;
@@ -179,7 +179,7 @@ export const AI_CHOICES: readonly AiChoice[] = [
     id: "openrouter",
     priority: "other",
     name: "OpenRouter",
-    about: "One key for many companies' models. Dossier starts on an OpenAI model.",
+    about: "One key for many companies' models. Choose one from your account.",
     provider: AiProvider.OPENAI,
     baseUrl: "https://openrouter.ai/api/v1",
     models: ["openai/gpt-6.1-terra", "google/gemini-3.8-flash"],
@@ -206,7 +206,7 @@ export const LOCAL_ADDRESSES: Record<"lmstudio" | "ollama", readonly string[]> =
   ollama: ["http://localhost:11434", "http://host.docker.internal:11434", "http://ollama:11434"],
 };
 
-/** The model to use: the first of `wanted` the server lists (Gemini lists them as models/…), else the first wanted, if the list said nothing. */
+/** The model to use: the first of `wanted` the server lists (Gemini lists them as models/…), otherwise let the user choose; use a preferred default only if listing is unavailable. */
 export function pickModel(wanted: readonly string[], served: readonly string[]): string | null {
   const found = wanted.find((model) => served.some((id) => id === model || id === `models/${model}`));
   if (found) return found;

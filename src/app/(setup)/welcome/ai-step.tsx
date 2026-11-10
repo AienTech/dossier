@@ -38,7 +38,7 @@ function hint(kind: AiErrorKind, choice: AiChoice): string | null {
     case "unreachable":
       return `Dossier couldn't reach ${choice.name}. Check that this server is online, then try again.`;
     case "model":
-      return "Your account may not have access to them yet. New accounts sometimes wait a little: try again later, or pick another company.";
+      return "Choose a model from the list, then check again. If the server cannot list models, enter its model name.";
     default:
       return null;
   }
@@ -120,6 +120,8 @@ function ChoicePanel({ choice, onConnected }: { choice: AiChoice; onConnected: (
   const [key, setKey] = useState("");
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const local = choice.key === null;
+  const [models, setModels] = useState<string[] | null>(null);
+  const [model, setModel] = useState("");
 
   const check = async () => {
     setStatus({ state: "checking" });
@@ -130,9 +132,11 @@ function ChoicePanel({ choice, onConnected }: { choice: AiChoice; onConnected: (
       if (result.data.found && result.data.model) onConnected();
       return;
     }
-    const result = toastResult(await connectAi({ choice: choice.id, key: key.trim() || undefined }));
+    const result = toastResult(await connectAi({ choice: choice.id, key: key.trim() || undefined, model: model || undefined }));
     if (!result.ok) return setStatus({ state: "idle" });
+    if ("models" in result.data && result.data.models && (result.data.connected || result.data.models.length)) setModels(result.data.models);
     if (result.data.connected) {
+      setModel(result.data.model);
       setKey("");
       setStatus({ state: "connected", model: result.data.model, seconds: result.data.seconds });
       onConnected();
@@ -182,8 +186,25 @@ function ChoicePanel({ choice, onConnected }: { choice: AiChoice; onConnected: (
             placeholder={choice.key.startsWith ? `Starts with ${choice.key.startsWith}` : "Paste it here"}
             hint="Stored encrypted on your server, and never shown again."
             value={key}
-            onChange={(event) => setKey(event.target.value)}
+            onChange={(event) => {
+              setKey(event.target.value);
+              setModels(null);
+              setModel("");
+              setStatus({ state: "idle" });
+            }}
           />
+        )}
+        {!local && models !== null && (
+          models.length ? <Select label="Model" value={model} className="max-w-[420px]" onChange={(event) => {
+            setModel(event.target.value);
+            setStatus({ state: "idle" });
+          }}>
+            {!model && <option value="">Choose a model</option>}
+            {models.map((name) => <option key={name} value={name}>{name}</option>)}
+          </Select> : <Input label="Model name" value={model} hint="This server did not return a model list. Enter a model name, then check it." onChange={(event) => {
+            setModel(event.target.value);
+            setStatus({ state: "idle" });
+          }} />
         )}
         <Button type="submit" className="self-start" aria-disabled={status.state === "checking" || undefined}>
           {status.state === "checking" ? (local ? "Looking…" : "Checking…") : local ? `Find ${choice.name}` : "Check it"}

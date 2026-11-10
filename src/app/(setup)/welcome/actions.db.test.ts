@@ -68,9 +68,23 @@ describe("the setup guide's AI step (E21-2)", () => {
     expect(await loadSettings()).toMatchObject({ provider: "OPENAI", baseUrl: "https://api.openai.com/v1" });
   });
 
-  it("says when the account has none of the guide's models", async () => {
+  it("accepts models from the live account list beyond the guide's suggestions", async () => {
     ai.make = (config) => new MockProvider({ model: config.model, models: ["something-else"] });
-    expect(await connectAi({ choice: "mistral", key: "k" })).toMatchObject({ ok: true, data: { connected: false, kind: "model" } });
+    expect(await connectAi({ choice: "mistral", key: "k" })).toMatchObject({ ok: true, data: { connected: false, kind: "model", models: ["something-else"] } });
+    expect(await connectAi({ choice: "mistral", model: "something-else" })).toMatchObject({ data: { connected: true, model: "something-else" } });
+  });
+
+  it("checks the selected live model, preserves it on recheck, and rejects one absent from the account", async () => {
+    ai.make = (config) => new MockProvider({ model: config.model, models: ["fresh-chat", "another-chat"] });
+    expect(await connectAi({ choice: "openrouter", key: "sk-router", model: "another-chat" })).toMatchObject({ data: { connected: true, model: "another-chat", models: ["fresh-chat", "another-chat"] } });
+    expect(await connectAi({ choice: "openrouter" })).toMatchObject({ data: { connected: true, model: "another-chat" } });
+    expect(await connectAi({ choice: "openrouter", model: "not-listed" })).toMatchObject({ data: { connected: false, kind: "model", models: ["fresh-chat", "another-chat"] } });
+    expect((await loadSettings()).model).toBe("another-chat");
+  });
+
+  it("offers new Gemini models even when Google prefixes them with models/", async () => {
+    ai.make = (config) => new MockProvider({ model: config.model, models: ["models/gemini-new"] });
+    expect(await connectAi({ choice: "gemini", key: "google-key", model: "gemini-new" })).toMatchObject({ data: { connected: true, model: "gemini-new", models: ["gemini-new"] } });
   });
 
   it("finds a local model where it answers, and keeps the model chosen before", async () => {
