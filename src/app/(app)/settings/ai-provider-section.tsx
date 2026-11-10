@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import type { AiProvider } from "@/generated/prisma/enums";
 import { API_KEY_UNREADABLE, PROVIDER_OPTIONS, providerOption, type AiSettingsView } from "@/lib/ai/provider-options";
 import { cn } from "@/lib/cn";
 import { useAutosave } from "@/hooks/use-autosave";
@@ -51,7 +50,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   const [urlLeft, setUrlLeft] = useState(false);
   const [connection, setConnection] = useState<Connection>({ status: "untested" });
   const [modelList, setModelList] = useState<ModelList>({ loading: true });
-  const option = providerOption(provider);
+  const option = providerOption(provider, baseUrl);
 
   const reloadModels = () => {
     setModelList({ loading: true });
@@ -94,9 +93,9 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
     if (saveNow > 0) flush();
   }, [saveNow, flush]);
 
-  const chooseProvider = (next: AiProvider) => {
-    const nextOption = providerOption(next);
-    setProvider(next);
+  const chooseProvider = (next: string) => {
+    const nextOption = PROVIDER_OPTIONS.find((entry) => (entry.preset ?? entry.value) === next)!;
+    setProvider(nextOption.value);
     setBaseUrl(nextOption.defaultUrl);
     setModel(nextOption.defaultModel);
     setOtherModel(false);
@@ -137,16 +136,16 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
 
       <RadioGroup.Root
         aria-label="Provider"
-        value={provider}
-        onValueChange={(value) => chooseProvider(value as AiProvider)}
+        value={option.preset ?? provider}
+        onValueChange={chooseProvider}
         className="grid grid-cols-1 gap-3 sm:grid-cols-2"
       >
         {PROVIDER_OPTIONS.map((entry) => (
           <RadioGroup.Item
-            key={entry.value}
-            value={entry.value}
+            key={entry.preset ?? entry.value}
+            value={entry.preset ?? entry.value}
             aria-label={entry.name}
-            aria-describedby={`provider-${entry.value}`}
+            aria-describedby={`provider-${entry.preset ?? entry.value}`}
             className="group flex flex-col gap-1.5 rounded-card border border-line-card bg-card p-[18px] text-left hover:border-line-strong data-[state=checked]:border-primary data-[state=checked]:shadow-[0_0_0_1px_var(--color-primary)]"
           >
             <span className="flex items-center justify-between gap-2">
@@ -158,7 +157,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
                 <RadioGroup.Indicator className="size-2 rounded-full bg-primary" />
               </span>
             </span>
-            <span id={`provider-${entry.value}`} className="flex flex-col gap-1.5">
+            <span id={`provider-${entry.preset ?? entry.value}`} className="flex flex-col gap-1.5">
               <span className="text-meta text-muted">{entry.description}</span>
               <span className="text-xs text-muted">{entry.tag}</span>
             </span>

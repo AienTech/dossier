@@ -77,6 +77,15 @@ describe("saveAiProvider", () => {
     expect(await saveAiProvider({ provider: "OPENAI", baseUrl: "https://llm.example/v1", model: "" })).toMatchObject({ data: { keyState: "none" } });
     expect(await settings()).toMatchObject({ provider: "OPENAI", model: null, apiKeyEnc: null });
   });
+  it("keeps the key for the same server but clears it between OpenRouter and Gemini", async () => {
+    await saveAiProvider({ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", model: "provider/model" });
+    await saveApiKey({ provider: "OPENAI", change: { action: "set", value: "sk-openrouter" } });
+    await saveAiProvider({ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1/", model: "provider/another" });
+    expect((await settings()).apiKeyEnc).not.toBeNull();
+    await saveAiProvider({ provider: "OPENAI", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-model" });
+    expect((await settings()).apiKeyEnc).toBeNull();
+  });
+
 });
 
 describe("saveApiKey", () => {

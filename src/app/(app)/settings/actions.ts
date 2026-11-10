@@ -10,7 +10,7 @@ import { lockAgentSearches } from "@/lib/agent/searches";
 import { AiError, createProvider } from "@/lib/ai";
 import { applyApiKeyChange } from "@/lib/ai/api-key";
 import { keyStateOf, loadAiConfig, resolveAiConfig } from "@/lib/ai/config";
-import type { KeyState } from "@/lib/ai/provider-options";
+import { sameAiServer, type KeyState } from "@/lib/ai/provider-options";
 import { DOCUMENT_LANGUAGES } from "@/lib/document-language";
 import { deleteAllBackups } from "@/lib/backups";
 import { env } from "@/lib/env";
@@ -43,7 +43,7 @@ async function currentKeyState(): Promise<KeyState> {
 
 /**
  * Saves the provider, server address and model (SET-1). A key belongs to
- * its provider: switching provider removes it, so it's never sent to
+ * its provider and server: switching either removes it, so it's never sent to
  * another company's server.
  */
 export const saveAiProvider = action(
@@ -55,11 +55,13 @@ export const saveAiProvider = action(
   }),
   async ({ provider, baseUrl, model }) => {
     const current = await loadSettings();
+    const previous = resolveAiConfig(current, env);
+    const serverChanged = baseUrl && URL.canParse(baseUrl) && !sameAiServer(previous.baseUrl, baseUrl);
     await saveSettings({
       provider,
       baseUrl: baseUrl || null,
       model: model || null,
-      ...(current.provider !== provider ? { apiKeyEnc: null } : {}),
+      ...(current.provider !== provider || serverChanged ? { apiKeyEnc: null } : {}),
     });
     return { keyState: await currentKeyState() };
   },

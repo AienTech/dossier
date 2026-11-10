@@ -201,7 +201,7 @@ async function aboutFacts(): Promise<AboutFacts> {
     { label: "Server", value: host },
     { label: "Database", value: `${sqlite ? "SQLite" : "PostgreSQL"} · ${formatBytes(Number(database.size))}` },
     { label: "Sign-in", value: isDesktopApp() ? "none, on this computer" : "set via DOSSIER_PASSWORD" },
-    { label: "AI", value: [providerOption(ai.provider).name, ai.model].filter(Boolean).join(" · ") },
+    { label: "AI", value: [providerOption(ai.provider, ai.baseUrl).name, ai.model].filter(Boolean).join(" · ") },
     { label: "Applications", value: String(applications) },
   ];
 }

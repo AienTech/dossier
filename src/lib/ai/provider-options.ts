@@ -1,8 +1,21 @@
 import { AiProvider } from "@/generated/prisma/enums";
+import { aiChoice } from "@/lib/setup/ai-choices";
+
+const HOSTED_PRESETS = (["openai", "gemini", "openrouter"] as const).map((preset) => {
+  const choice = aiChoice(preset);
+  return {
+    preset, value: AiProvider.OPENAI, name: choice.name,
+    vendor: preset === "gemini" ? "Google" : preset === "openrouter" ? "OpenRouter and the model provider" : "OpenAI",
+    description: choice.about, tag: "Hosted · pay per use", local: false,
+    defaultUrl: choice.baseUrl, urlPlaceholder: choice.baseUrl, defaultModel: "",
+    apiKey: { label: "API key" },
+  };
+});
 
 /** The provider cards in Settings → AI provider (SET-1), as in the prototype's `PROVIDERS`. */
 export const PROVIDER_OPTIONS: readonly {
   value: AiProvider;
+  preset?: "openai" | "gemini" | "openrouter";
   name: string;
   /** Who receives the data, for the privacy notes; null when it's whoever runs the server. */
   vendor: string | null;
@@ -60,6 +73,7 @@ export const PROVIDER_OPTIONS: readonly {
     defaultModel: "",
     apiKey: { label: "API key" },
   },
+  ...HOSTED_PRESETS,
   {
     value: AiProvider.ANTHROPIC,
     name: "Anthropic",
@@ -86,8 +100,16 @@ export const PROVIDER_OPTIONS: readonly {
   },
 ];
 
-export function providerOption(provider: AiProvider) {
-  return PROVIDER_OPTIONS.find((option) => option.value === provider)!;
+/** Keep the setup choice recognizable without adding database provider types. */
+export function providerOption(provider: AiProvider, baseUrl?: string) {
+  return (baseUrl && provider === AiProvider.OPENAI
+    ? PROVIDER_OPTIONS.find((option) => option.preset && sameAiServer(option.defaultUrl, baseUrl))
+    : undefined) ?? PROVIDER_OPTIONS.find((option) => option.value === provider)!;
+}
+
+/** A key may stay on the same origin when its API path or model changes. */
+export function sameAiServer(left: string, right: string): boolean {
+  return URL.canParse(left) && URL.canParse(right) && new URL(left).origin === new URL(right).origin;
 }
 
 /** What people see when a saved key can't be decrypted, e.g. after DOSSIER_SECRET changed. */

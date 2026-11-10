@@ -32,6 +32,9 @@ describe("AiProviderSection", () => {
       "Local model",
       "LM Studio",
       "OpenAI-compatible",
+      "OpenAI",
+      "Gemini",
+      "OpenRouter",
       "Anthropic",
       "Mistral",
     ]);
@@ -124,5 +127,29 @@ describe("AiProviderSection", () => {
     render(<AiProviderSection initial={{ ...local, model: "" }} />);
     expect(await screen.findByText(/^Couldn't list the models: Couldn't reach the server/)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Choose a model" })).toBeInTheDocument();
+  });
+});
+
+
+describe("setup provider continuity", () => {
+  it.each([
+    ["OpenRouter", "https://openrouter.ai/api/v1", "vendor/new-chat-model"],
+    ["Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-custom"],
+    ["OpenAI", "https://api.openai.com/v1", "gpt-custom"],
+  ])("recognizes %s after setup without resetting its endpoint, key or model", async (name, baseUrl, model) => {
+    vi.mocked(listAiModels).mockResolvedValue({ ok: true, data: { models: [model, "another-live-model"], problem: null } });
+    render(<AiProviderSection initial={{ provider: "OPENAI", baseUrl, model, keyState: "set" }} />);
+    expect(screen.getByRole("radio", { name })).toBeChecked();
+    expect(screen.getByLabelText("Server address")).toHaveValue(baseUrl);
+    expect(screen.getByLabelText("Model")).toHaveValue(model);
+    expect(await screen.findByRole("option", { name: "another-live-model" })).toBeInTheDocument();
+    expect(saveAiProvider).not.toHaveBeenCalled();
+    expect(saveApiKey).not.toHaveBeenCalled();
+  });
+
+  it("switches between the compatible-server presets without needing a new provider type", async () => {
+    render(<AiProviderSection initial={{ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", model: "custom-chat", keyState: "set" }} />);
+    await userEvent.click(screen.getByRole("radio", { name: "Gemini" }));
+    await waitFor(() => expect(saveAiProvider).toHaveBeenCalledWith({ provider: "OPENAI", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "" }));
   });
 });

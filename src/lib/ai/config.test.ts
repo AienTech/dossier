@@ -71,6 +71,13 @@ describe("resolveAiConfig", () => {
     expect(resolveAiConfig(saved, { DOSSIER_AI_PROVIDER: "openai", DOSSIER_AI_KEY: "sk-env" }).apiKey).toBeNull();
   });
 
+  it("does not lend an OpenRouter environment key to a saved Gemini endpoint", () => {
+    const saved = { provider: "OPENAI" as const, baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-model", apiKeyEnc: null };
+    const source = { DOSSIER_AI_PROVIDER: "openai" as const, DOSSIER_AI_URL: "https://openrouter.ai/api/v1", DOSSIER_AI_KEY: "sk-router-env" };
+    expect(resolveAiConfig(saved, source).apiKey).toBeNull();
+    expect(resolveAiConfig({ ...saved, baseUrl: "https://openrouter.ai/api/v1/" }, source).apiKey).toBe("sk-router-env");
+  });
+
   it("reports a saved key it can't read instead of failing", () => {
     const saved = { provider: "ANTHROPIC" as const, baseUrl: null, model: null, apiKeyEnc: encryptApiKey("sk", "b".repeat(32)) };
     const config = resolveAiConfig(saved, noEnv);

@@ -5,7 +5,7 @@ import { env, type Env } from "@/lib/env";
 import { loadSettings } from "@/lib/settings-data";
 
 import { API_KEY_UNREADABLE, ApiKeyUnreadable, apiKeyState, decryptApiKey } from "./api-key";
-import type { AiSettingsView, KeyState } from "./provider-options";
+import { sameAiServer, type AiSettingsView, type KeyState } from "./provider-options";
 
 // Which provider to use and how to reach it (E6-1): what's saved in Settings,
 // or else the DOSSIER_AI_* variables, or else the defaults below.
@@ -53,7 +53,7 @@ type AiEnv = Pick<
 /**
  * Settings win once a provider is saved there; until then the environment
  * decides. The two are never mixed, except that an env key still serves a
- * saved provider of the same kind that has no key of its own.
+ * saved provider of the same kind and server that has no key of its own.
  */
 export function resolveAiConfig(saved: SavedSettings | null, source: AiEnv, secret?: string): AiConfig {
   const envProvider = source.DOSSIER_AI_PROVIDER ? FROM_ENV[source.DOSSIER_AI_PROVIDER] : null;
@@ -70,7 +70,7 @@ export function resolveAiConfig(saved: SavedSettings | null, source: AiEnv, secr
       if (!(error instanceof ApiKeyUnreadable)) throw error;
       apiKeyProblem = API_KEY_UNREADABLE;
     }
-  } else if (!useSaved || envProvider === provider) {
+  } else if (!useSaved || (envProvider === provider && sameAiServer(saved!.baseUrl || defaults.baseUrl, source.DOSSIER_AI_URL || defaults.baseUrl))) {
     apiKey = source.DOSSIER_AI_KEY ?? null;
   }
 
