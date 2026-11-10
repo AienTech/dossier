@@ -908,6 +908,15 @@ describe("version history (E8-10)", () => {
     expect(items[1]).toHaveTextContent("Written by the AI");
   });
 
+  it("says the history didn't load, rather than that there are no versions", async () => {
+    const user = userEvent.setup();
+    vi.mocked(listVersions).mockResolvedValueOnce({ ok: false, error: "Something went wrong on the server. Please try again." });
+    render(<ApplicationView {...props} />);
+    await user.click(screen.getAllByRole("button", { name: "History" })[0]);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong on the server. Please try again.");
+    expect(screen.queryByText(/No versions yet/)).not.toBeInTheDocument();
+  });
+
   it("shows an earlier version in place, restores it, or goes back", async () => {
     const user = userEvent.setup();
     vi.mocked(listVersions).mockResolvedValue({ ok: true, data: [written] });
