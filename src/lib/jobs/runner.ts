@@ -179,6 +179,19 @@ async function notify(id: string): Promise<void> {
   if (job) for (const listener of listeners) listener(job);
 }
 
+/**
+ * PostgreSQL's jsonb refuses the NUL character, which a model can put in its text: leave it out of the
+ * result's strings before the schema checks them, so the schema validates what is saved. Keys are left alone.
+ */
+function withoutNul(value: unknown): unknown {
+  if (typeof value === "string") return value.replaceAll("\u0000", "");
+  if (Array.isArray(value)) return value.map(withoutNul);
+  if (value !== null && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withoutNul(item)]));
+  }
+  return value;
+}
+
 /** Records how a job ended; one deleted meanwhile (its application, a discarded import) just ends. */
 async function finish(
   id: string,
@@ -243,7 +256,7 @@ async function execute(id: string, controller: AbortController): Promise<void> {
         else await notify(id);
       },
     });
-    await finish(id, { status: JobStatus.DONE, result: definition.result.parse(result) as Prisma.InputJsonValue });
+    await finish(id, { status: JobStatus.DONE, result: definition.result.parse(withoutNul(result)) as Prisma.InputJsonValue });
   } catch (error) {
     // AI failures already say what to do; anything else is logged and kept vague.
     const message = controller.signal.aborted
