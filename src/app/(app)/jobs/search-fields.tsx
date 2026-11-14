@@ -60,11 +60,12 @@ export function SearchFields({
       </Select>
       <Select
         label="Within"
-        value={String(value.radiusKm)}
+        value={value.radiusKm === null ? "any" : String(value.radiusKm)}
         disabled={noRadius || !value.place.trim()}
         hint={noRadius ? `${SOURCE_INFO[source].name} has no distance filter` : value.place.trim() ? undefined : "Add a place first"}
-        onChange={(event) => onChange({ radiusKm: Number(event.target.value) as RadiusKm })}
+        onChange={(event) => onChange({ radiusKm: event.target.value === "any" ? null : (Number(event.target.value) as RadiusKm) })}
       >
+        <option value="any">Any distance</option>
         {RADII_KM.map((km) => (
           <option key={km} value={km}>
             {km} km

@@ -45,6 +45,14 @@ describe("Adzuna search", () => {
     expect(url.searchParams.has("max_days_old")).toBe(false);
   });
 
+  it("omits distance when radiusKm is null even with a place", async () => {
+    const requests = stubFetch(() => json(adzunaPage));
+    await adzuna.search({ ...query, radiusKm: null }, credentials, null);
+    const [{ url }] = requests;
+    expect(url.searchParams.get("where")).toBe("Hamburg");
+    expect(url.searchParams.has("distance")).toBe(false);
+  });
+
   it("maps results to the shared shape, marked incomplete, with the HTML taken out", async () => {
     stubFetch(() => json(adzunaPage));
     const page = await adzuna.search(query, credentials, null);

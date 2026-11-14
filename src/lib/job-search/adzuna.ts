@@ -79,7 +79,7 @@ function searchUrl(query: SearchQuery, { appId, key }: SourceCredentials["ADZUNA
   url.searchParams.set("what", query.remoteOnly ? `${query.keywords} remote` : query.keywords);
   if (query.place) {
     url.searchParams.set("where", query.place);
-    url.searchParams.set("distance", String(query.radiusKm));
+    if (query.radiusKm !== null) url.searchParams.set("distance", String(query.radiusKm));
   }
   const days = POSTED_WITHIN.find((option) => option.value === query.postedWithin)?.days;
   if (days) url.searchParams.set("max_days_old", String(days));

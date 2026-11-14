@@ -190,7 +190,7 @@ export function createDossierServer(origin: string): McpServer {
         place: z.string().max(200).optional().describe("City or region. Defaults to the profile's city. Use '' for the whole country."),
         country: z.string().max(60).optional().describe("Country name or ISO code, e.g. 'Germany' or 'de'. Defaults to the profile's country."),
         remote_only: z.boolean().optional().describe("Only remote postings."),
-        radius_km: z.literal(RADII_KM).optional(),
+        radius_km: z.literal(RADII_KM).nullable().optional(),
         posted_within: z.enum(POSTED).optional().describe("any, day, 3days, week or month. Defaults to month."),
         experience: z
           .enum(LEVELS)
@@ -211,7 +211,7 @@ export function createDossierServer(origin: string): McpServer {
         keywords: input.keywords,
         place: remoteOnly ? "" : (input.place ?? basics.city).trim(),
         country,
-        radiusKm: input.radius_km ?? DEFAULT_RADIUS_KM,
+        radiusKm: input.radius_km === undefined ? DEFAULT_RADIUS_KM : input.radius_km,
         remoteOnly,
         postedWithin: input.posted_within ?? "month",
         // Left out rather than "any", as Find jobs does (public issue 100).
