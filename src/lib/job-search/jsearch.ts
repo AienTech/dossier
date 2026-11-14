@@ -147,7 +147,7 @@ function searchUrl(query: SearchQuery, host: JSearchHost, next: string | null, b
   // Without a country, JSearch searches the US.
   url.searchParams.set("country", query.country || "us");
   url.searchParams.set("date_posted", DATE_POSTED[query.postedWithin]);
-  if (query.place) url.searchParams.set("radius", String(query.radiusKm));
+  if (query.place && query.radiusKm !== null) url.searchParams.set("radius", String(query.radiusKm));
   if (query.remoteOnly) url.searchParams.set("work_from_home", "true");
   // The level as far as JSearch can filter it (public issue 59); the rest is read from the postings.
   const level = experienceAskedFor(query);

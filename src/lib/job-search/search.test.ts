@@ -27,6 +27,11 @@ describe("search in the URL", () => {
     const href = searchHref(query);
     expect(href).toBe("/jobs?q=product+designer&where=Hamburg&country=de&radius=50&remote=1&posted=week");
     expect(queryFromParams(Object.fromEntries(new URL(href, "http://x").searchParams))).toEqual(query);
+
+    const anyRadius = { ...query, country: "au", place: "Sydney", radiusKm: null };
+    const anyHref = searchHref(anyRadius);
+    expect(anyHref).toBe("/jobs?q=product+designer&where=Sydney&country=au&radius=any&remote=1&posted=week");
+    expect(queryFromParams(Object.fromEntries(new URL(anyHref, "http://x").searchParams))).toEqual(anyRadius);
   });
 
   it("leaves defaults out of the URL", () => {
@@ -70,6 +75,7 @@ describe("a search in a line", () => {
   it("names the radius only for a source that has one", () => {
     const query = { ...EMPTY_QUERY, keywords: "product designer", place: "Hamburg", country: "de", remoteOnly: true, postedWithin: "week" as const };
     expect(describeSearch(query, "Germany")).toBe("product designer · Hamburg, 25 km · Remote only · Past week");
+    expect(describeSearch({ ...query, radiusKm: null }, "Germany")).toBe("product designer · Hamburg · Remote only · Past week");
     expect(describeSearch(query, "Germany", "ADZUNA")).toBe("product designer · Hamburg, 25 km · Remote only · Past week");
     expect(describeSearch(query, "Germany", "FREEHIRE")).toBe("product designer · Hamburg · Remote only · Past week");
     expect(describeSearch({ ...query, place: "" }, "Germany", "FREEHIRE")).toBe("product designer · Germany · Remote only · Past week");

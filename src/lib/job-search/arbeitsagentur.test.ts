@@ -51,6 +51,14 @@ describe("Arbeitsagentur search", () => {
     expect(url.searchParams.has("veroeffentlichtseit")).toBe(false);
   });
 
+  it("omits umkreis when radiusKm is null even with a place", async () => {
+    const requests = stubFetch(() => json(arbeitsagenturPage));
+    await arbeitsagentur.search({ ...query, radiusKm: null }, {}, null);
+    const [{ url }] = requests;
+    expect(url.searchParams.get("wo")).toBe("Hamburg");
+    expect(url.searchParams.has("umkreis")).toBe(false);
+  });
+
   it("maps offers to the shared shape, to be completed by the details", async () => {
     stubFetch(() => json(arbeitsagenturPage));
     const page = await arbeitsagentur.search(query, {}, null);

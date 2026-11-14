@@ -32,6 +32,14 @@ describe("JSearch search", () => {
     });
   });
 
+  it("omits radius when radiusKm is null even with a place", async () => {
+    const requests = stubFetch(() => json(jsearchV2Page));
+    await jsearch.search({ ...query, place: "Sydney", country: "au", radiusKm: null }, ninja, null);
+    const [{ url }] = requests;
+    expect(url.searchParams.has("radius")).toBe(false);
+    expect(url.searchParams.get("country")).toBe("au");
+  });
+
   it("asks for the level as far as JSearch can filter it (public issue 59)", async () => {
     const requests = stubFetch(() => json(jsearchV2Page));
     await jsearch.search({ ...query, experience: "intern" }, ninja, null);

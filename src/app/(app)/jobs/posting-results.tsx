@@ -158,7 +158,7 @@ export function PostingResults(props: PostingResultsProps) {
   };
 
   const searched = props.mode === "search" ? props.search.query : null;
-  const radius = props.mode === "search" && SOURCE_INFO[props.search.source].radius;
+  const radius = props.mode === "search" && SOURCE_INFO[props.search.source].radius && props.search.query.radiusKm !== null;
   const empty =
     mode === "saved"
       ? "Nothing saved yet. Save a posting from your search results to keep it here."

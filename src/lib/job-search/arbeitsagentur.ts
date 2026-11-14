@@ -100,7 +100,7 @@ function searchUrl(query: SearchQuery, page: number, baseUrl?: string): URL {
   url.searchParams.set("size", String(PAGE_SIZE));
   if (query.place) {
     url.searchParams.set("wo", query.place);
-    url.searchParams.set("umkreis", String(query.radiusKm));
+    if (query.radiusKm !== null) url.searchParams.set("umkreis", String(query.radiusKm));
   }
   const days = POSTED_WITHIN.find((option) => option.value === query.postedWithin)?.days;
   if (days) url.searchParams.set("veroeffentlichtseit", String(days));
