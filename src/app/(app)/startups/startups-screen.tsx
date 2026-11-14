@@ -307,8 +307,8 @@ function StartupCard({ startup: initial, headline, aiReady, today }: { startup: 
 
       {startup.roles.length > 0 && (
         <ul aria-label="Roles" className="flex flex-wrap gap-1.5">
-          {startup.roles.map((role) => (
-            <li key={role} className="rounded-full border border-line-field bg-input px-2.5 py-1 text-xs">
+          {startup.roles.map((role, index) => (
+            <li key={`${index}:${role}`} className="rounded-full border border-line-field bg-input px-2.5 py-1 text-xs">
               {role}
             </li>
           ))}
