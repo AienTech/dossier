@@ -42,7 +42,15 @@ import { appVersion } from "@/lib/version";
 
 import { connectorDraftJob } from "./draft";
 import { readPastedPosting } from "./handoff";
-import { saveWrittenApplication, WRITTEN_IN_CLAUDE, writtenDetailsSchema, writtenLetterSchema, writtenMatchSchema, writtenResumeSchema } from "./write";
+import {
+  reviseWrittenApplication,
+  saveWrittenApplication,
+  WRITTEN_IN_CLAUDE,
+  writtenDetailsSchema,
+  writtenLetterSchema,
+  writtenMatchSchema,
+  writtenResumeSchema,
+} from "./write";
 
 // The Claude connector's tools (#221, src/app/api/mcp), adapted from Anirudh
 // Sharma's fork of Dossier: search for jobs, read the profile and the
@@ -414,7 +422,7 @@ export function createDossierServer(origin: string): McpServer {
       description:
         "Saves a tailored resume and cover letter you wrote as a Draft application in Dossier, where the user can review, edit and download them as PDFs. " +
         "Give the posting (posting_id or paste_id when Dossier handed it over, search_id and number, posting_url or posting_text), its details, the resume (by the ids from get_profile) and the letter. " +
-        "Only use facts from the profile. Nothing is sent.",
+        "Only use facts from the profile. Nothing is sent. To change an application already saved, use update_application instead of saving it again.",
       inputSchema: z.object({
         ...postingSource,
         details: writtenDetailsSchema,
@@ -444,6 +452,38 @@ export function createDossierServer(origin: string): McpServer {
         link: linkTo(`/applications/${saved.applicationId}`),
         check_these: saved.unverified.length > 0 ? saved.unverified : undefined,
         next: saved.unverified.length > 0 ? "Dossier marked names or numbers it couldn't find in the profile or posting; tell the user to check them." : undefined,
+      });
+    },
+  );
+
+  server.registerTool(
+    "update_application",
+    {
+      title: "Change a draft application",
+      description:
+        "Replaces the resume, the cover letter or the match of a Draft application, for changes the user asks for after save_application. " +
+        "Read it with get_application first and keep what the user changed by hand. Give only the parts that change, each whole, in save_application's form; the rest stays. " +
+        "Only a Draft can be changed. Only use facts from the profile. Nothing is sent.",
+      inputSchema: z.object({
+        application_id: z.string().min(1).max(100),
+        change: z.string().trim().min(1).max(200).describe("What the user asked to change, in a few words, e.g. 'Shorter first bullet'; shown in the document's history"),
+        resume: writtenResumeSchema.optional(),
+        cover_letter: writtenLetterSchema.optional(),
+        // Without save_application's default: a match left out stays as it is.
+        match: writtenMatchSchema.unwrap().optional(),
+      }),
+      annotations: { readOnlyHint: false, idempotentHint: true },
+    },
+    async ({ application_id, change, resume, cover_letter, match }) => {
+      if (!resume && !cover_letter && !match) return failure("Give the resume, cover_letter or match to change.");
+      const revised = await reviseWrittenApplication(application_id, { resume, letter: cover_letter, match, change });
+      if ("error" in revised) return failure(revised.error);
+      return text({
+        application_id,
+        status: "Draft",
+        link: linkTo(`/applications/${application_id}`),
+        check_these: revised.unverified.length > 0 ? revised.unverified : undefined,
+        next: revised.unverified.length > 0 ? "Dossier marked names or numbers it couldn't find in the profile or posting; tell the user to check them." : undefined,
       });
     },
   );

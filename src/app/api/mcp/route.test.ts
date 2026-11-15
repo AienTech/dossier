@@ -101,6 +101,7 @@ describe("the Claude connector at /api/mcp (#221)", () => {
       "save_job_scores",
       "search_jobs",
       "set_application_status",
+      "update_application",
     ]);
   });
 

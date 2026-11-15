@@ -177,6 +177,28 @@ describe("the Claude connector's tools (#221)", () => {
     });
   });
 
+  it("changes a saved Draft in place, and refuses one that was sent", async () => {
+    const saved = await tool("save_application", {
+      posting_text: "Product Designer at Acme",
+      details: { company: "Acme", role: "Product Designer" },
+      resume: { summary: "Designer who ships calm products.", roles: [], skills: ["Figma"] },
+      cover_letter: { paragraphs: [{ text: "I'd like to help Acme." }] },
+      match: [{ requirement: "Figma", result: "covered" }],
+    });
+    const id = saved.json.application_id as string;
+
+    const updated = await tool("update_application", { application_id: id, change: "Warmer summary", resume: { summary: "Designer who ships warm products.", roles: [], skills: ["Figma"] } });
+    expect(updated.json).toMatchObject({ application_id: id, status: "Draft" });
+    expect((await tool("get_application", { id })).json.resume).toContain("Designer who ships warm products.");
+    expect(await prisma().application.count({ where: { company: "Acme" } })).toBe(1);
+    // A part left out stays as it was.
+    expect((await prisma().application.findUniqueOrThrow({ where: { id } })).match).toMatchObject({ items: [{ requirement: "Figma" }] });
+
+    expect(await tool("update_application", { application_id: id, change: "Nothing" })).toMatchObject({ isError: true });
+    await tool("set_application_status", { id, status: "SENT" });
+    expect((await tool("update_application", { application_id: id, change: "Too late", match: [] })).text).toContain("Only a Draft");
+  });
+
   it("has Dossier's own model draft one only when there is one, and says how it's coming along", async () => {
     expect((await tool("draft_application", { posting_text: "Designer at Acme" })).text).toContain("save_application");
     fake.aiUsable = true;
