@@ -121,7 +121,7 @@ To put HireMe on a server, on your own domain with HTTPS, follow the [installati
 
 ## Documentation
 
-The [wiki](https://github.com/shahzadafridi/HireMe/wiki) has what comes after installing. It is being carried over from the Dossier wiki, which documents the same screens while it is:
+The [wiki](https://github.com/shahzadafridi/HireMe/wiki) has what comes after installing. It is being carried over from the upstream wiki, which documents the same screens while it is:
 
 - [Choosing an AI provider](https://github.com/shahzadafridi/HireMe/wiki/Choosing-an-AI-provider): a hosted model, or a local one with Ollama or LM Studio.
 - [Choosing a job source](https://github.com/shahzadafridi/HireMe/wiki/Choosing-a-job-source): JSearch, Adzuna or FreeHire (and an unofficial one for Germany), and the job agent.
@@ -225,4 +225,4 @@ Working on HireMe itself: see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 HireMe is free software under the [GNU Affero General Public License v3.0](LICENSE). You may use, change and share it; if you run a changed version for others over a network, you must offer them its source code.
 
-HireMe continues the Dossier project, which is also AGPL-3.0. [NOTICE](NOTICE) records the original project, what changed and where this source is published.
+HireMe continues the project it was forked from, under the same AGPL-3.0. [NOTICE](NOTICE) records that project, its copyright, what changed and where this source is published.
