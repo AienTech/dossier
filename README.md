@@ -45,6 +45,10 @@ It's for one person on a small server: one password, your data in your own Postg
 - **MCP connector (optional):** control your job search from OpenBot, Cursor, ChatGPT, Claude or another MCP client: search and save jobs, pull past searches, read your profile, create drafts, record applied jobs and rejections, update application details, archive and restore cards, and read dashboard totals and status history. Uses the existing OAuth sign-in at `/api/mcp`. Turn it on in Settings → MCP connector; see [MCP setup and tool reference](docs/mcp.md).
 - **Gmail and Calendar (optional):** connect your Google account to send an application from your own address with its PDFs attached, see employers' replies next to each application, have the AI read what they ask and draft your answer from your profile, offer interview times you're free, and see your month and the week ahead on the dashboard, with interviews kept in step with Google Calendar both ways. Nothing is sent without your confirmation. Set it up by entering your Google OAuth client in Settings → Google, or with `HIREME_GOOGLE_CLIENT_ID` and `HIREME_GOOGLE_CLIENT_SECRET` (see [Connecting Gmail and Calendar](https://github.com/shahzadafridi/HireMe/wiki/Connecting-Gmail-and-Calendar)).
 - **Track:** a board and a table of every application, and a dashboard with your funnel (last 30 days, 90 days or all time), a week-by-week chart, what's worth a look next, upcoming interviews included, and a calendar.
+- **Application packets:** every job becomes one folder a bot can read: the tailored PDFs, the posting, the standard answers and the review rules, as a private ZIP download or a dated snapshot in your own Google Drive. The link is in the prompt, so nothing has to be carried between apps by hand.
+- **Apply with a bot:** choose Grok Bot, OpenBot, Claude or another assistant, per job or as a default. Each keeps its own handoff preferences, and one optional prompt template with placeholders controls the format everywhere. On a Mac, the helper fills the chosen bot's composer for you and never presses Send.
+- **Reviewed connector actions (optional):** an MCP app can ask you, once per action, to send an email, delete an application or hand an approved packet to an external submission. Each review freezes what it will do, and revoking access or editing the card cancels it.
+- **Setup & health:** one page that says which parts are configured, which were checked live, and where to fix what's missing.
 - **Your data:** export and import everything as one file, nightly backups, and Delete everything.
 
 ## Screenshots
@@ -117,7 +121,7 @@ To put HireMe on a server, on your own domain with HTTPS, follow the [installati
 
 ## Documentation
 
-The [wiki](https://github.com/shahzadafridi/HireMe/wiki) has what comes after installing:
+The [wiki](https://github.com/shahzadafridi/HireMe/wiki) has what comes after installing. It is being carried over from the Dossier wiki, which documents the same screens while it is:
 
 - [Choosing an AI provider](https://github.com/shahzadafridi/HireMe/wiki/Choosing-an-AI-provider): a hosted model, or a local one with Ollama or LM Studio.
 - [Choosing a job source](https://github.com/shahzadafridi/HireMe/wiki/Choosing-a-job-source): JSearch, Adzuna or FreeHire (and an unofficial one for Germany), and the job agent.
@@ -129,12 +133,77 @@ The [wiki](https://github.com/shahzadafridi/HireMe/wiki) has what comes after in
 - [Privacy](https://github.com/shahzadafridi/HireMe/wiki/Privacy): what stays on your server and what leaves it. [PRIVACY.md](PRIVACY.md) has the details.
 - [Environment variables](https://github.com/shahzadafridi/HireMe/wiki/Environment-variables): every setting the server reads.
 
+## Hosted installs
+
+HireMe runs as a single process by default: the request that starts an AI job returns at once, and the work continues inside that process, along with the nightly backups, the inbox checks and the job agent. That is right for a laptop or one server, and the [installation guide](https://github.com/shahzadafridi/HireMe/wiki) covers it.
+
+A container platform that sleeps or scales can end that process mid-job. Set `HIREME_RUNTIME` to split the work instead:
+
+- `HIREME_RUNTIME=web` answers requests and starts nothing on its own. When an interactive job is queued, it wakes the worker.
+- `HIREME_RUNTIME=worker` owns the queue, the schedules and startup recovery. One instance holds a database lock, so a restart never runs two leaders at once, and it needs `DATABASE_URL_UNPOOLED` (a direct connection; a transaction pooler cannot hold a session lock).
+- Leave `HIREME_RUNTIME` unset and the desktop behaviour is unchanged.
+
+The worker stays up during a nightly window and stops outside it unless work is queued, which keeps a small plan's usage bounded. Everything is configuration, nothing is tied to one provider: `HIREME_WORKER_WINDOW_START` and `HIREME_WORKER_WINDOW_END` set the window in UTC hours, and a platform that offers a worker daemon and its API takes `HIREME_WORKER_VERCEL_TOKEN`, `HIREME_WORKER_PROJECT_ID`, `HIREME_WORKER_TEAM_ID`, `HIREME_WORKER_DAEMON` and `HIREME_WORKER_REGION`. Without those, leave the runtime unset and run one process.
+
+If the worker cannot start, the job is marked failed with a Retry, and its input is kept. Nothing is lost silently, and the website stays up while the worker is down.
+
+## Applying through a bot
+
+The application toolbar has a compact bot selector, **Apply with bot** and **Copy bot prompt**. **Settings → Job agent → Application bots** is where each bot is set up: choose a default, write handoff preferences per bot, and edit one shared **Prompt template** for all of them.
+
+The template is optional. Write it in your own words and use `{{company}}`, `{{role}}`, `{{job_details}}`, `{{location}}`, `{{salary}}`, `{{posting_url}}`, `{{application_url}}`, `{{application_id}}`, `{{drive_url}}`, `{{zip_url}}`, `{{candidate}}`, `{{bot}}` and `{{packet_folder}}`; HireMe fills them from the selected job. Put `{{default_prompt}}` where the complete generated context should go, or leave it out and it is appended. The required parts — the packet links, the private-file rules, the approval rule and the board update — are always included, so a template can change the wording but cannot drop them.
+
+**Apply with bot** opens the chosen app with a short message holding that job's current Drive snapshot, its ZIP fallback and the HireMe card link, and copies the complete prompt as a fallback. Grok Bot and Claude Desktop accept a prefilled message; review it there and press Send yourself. OpenBot has no such link, so it uses the local helper below, or the clipboard.
+
+The prompt tells the bot to read `bot-prompt.md` first, then `application.md` and `instructions.md`, to use Drive when it can reach it and the ZIP when it cannot, to show every answer and attachment for review, never to submit without an explicit OK, and — after a confirmed submission — to update this exact HireMe card and verify the update. A packet is never treated as proof that a job was submitted.
+
+### The macOS helper
+
+A hosted HireMe cannot type into an application on your Mac, and neither Grok Bot nor OpenBot accepts a prefilled prompt from a web page. The helper closes that gap:
+
+```
+bash scripts/macos/install-bot-helper.sh
+```
+
+It builds **HireMe Bot Helper.app** in `~/Applications` and registers the `hireme-bot://` link. Allow it once in **System Settings → Privacy & Security → Accessibility**; the installer signs it with the Mac's Apple Development identity when one exists, so rebuilding it keeps that permission. No daemon, storage service, bot API token or Local scripts permission is involved, and Node is not needed after installing.
+
+In **Settings → Job agent**, choose **Open OpenBot and fill prompt (macOS)** or **Open Grok Bot and fill prompt (macOS)** and give the exact agent name — OpenBot's sidebar name (default Job Manager) or Grok Bot's (default Job Finder). There is no separate review window and no script per job: Apply with bot opens the app, selects that agent and pastes into its empty composer. You read it and press Send.
+
+Each bot is driven through its own control. OpenBot's **Chat with …** toggle opens the named chat; Grok Bot's sidebar item must report itself current for its single generic prompt box to be used. The helper pastes only into a composer that names the requested agent, or into Grok's one box while that agent is current; otherwise it stops and asks you to open the chat. A press is retried when a bot ignores it, but never while the agent already reports itself open, so a chat is never toggled shut.
+
+Each bot also has an optional **app name**, for a beta build, a renamed copy or an install outside `/Applications`. Leave it empty to open the bot's default app or the copy already running. The first time a name resolves to an app HireMe has not pasted into before, the helper asks once and remembers the answer — a link must never be able to type into an app you did not choose. It never presses Return, never sends, and refuses to overwrite an existing draft. It restores your clipboard after pasting.
+
+On any other computer, **Copy bot prompt** works the same way; the helper is a convenience, not a requirement.
+
+## Application packets and Google Drive
+
+A packet is one folder per application, named `Company-Role-YYYY-MM-DD`, holding `resume.pdf` and `cover-letter.pdf` when they exist, `application.md` (posting, match, standard answers, document text), `instructions.md` and `bot-prompt.md`. The ZIP download is generated inside an authenticated request from HireMe's own storage, so a hosted install with no shared disk still serves it and no CV ever sits at a public URL. A job can only rewrite its own folder.
+
+**Settings → Google → Google Drive** keeps a dated copy of each packet in your own Drive:
+
+```
+HireMe/<company>-<role>-<YYYY-MM-DD>/<UTC timestamp and snapshot id>/
+  application.md
+  instructions.md
+  bot-prompt.md
+  resume.pdf          (when available)
+  cover-letter.pdf    (when available)
+```
+
+Enable the **Google Drive API** in the Google Cloud project behind your OAuth client, then connect Drive with the `drive.file` scope: HireMe sees only files it created or that you shared with it, not your whole Drive. Auto-save is on by default and runs in the background when an application is created or its documents change; unchanged packets are not uploaded twice, and a failed upload is labelled `(incomplete)` and reported in a banner. Earlier snapshots are kept, the newest link is recorded on the card, and the older ones are still reachable in Drive.
+
+Drive links are private by default: a bot needs your signed-in browser or its own authorized Drive connection. Turn on **Make snapshot links shareable** when a bot cannot reach your account — each new snapshot folder then becomes readable by anyone holding its link, while the HireMe folder above it stays private. It applies to snapshots saved after the change; folders shared earlier keep their sharing until you change them in Drive. Disconnecting Google or deleting an application does not delete Drive files.
+
+## Setup and health
+
+**Settings → Setup & health** lists every requirement in one place: profile, AI providers, job sources, scoring, document defaults, bots, Drive, the job agent, MCP access, mail, calendar, backups and hosting. Each item says whether it is configured and links to the exact section that fixes it. Saved configuration and permissions are labelled **Configured**; checks that actually call a service are labelled separately, because a saved key does not prove a working one.
+
 ## Known limitations
 
 - **Desktop only:** made for a laptop or desktop browser, not for phones.
 - **Single user:** one password and one profile; there are no accounts.
 - **English interface:** the app itself is in English. Documents can be written in other languages; in the 21 built-in ones, their headings, dates and language levels are in that language too, and in one added with **Other language…** those stay in English.
-- **One instance:** run a single copy of the app per database. The nightly backups, the AI job queue and the PDF browser live inside the app's process.
+- **One instance:** a desktop or single-process install runs one copy per database. The nightly backups, the AI job queue and the PDF browser live inside its process. A hosted install can split them: `HIREME_RUNTIME=web` containers answer requests, and one `HIREME_RUNTIME=worker` container owns the queue and the schedules.
 
 ## Performance and sizing
 
@@ -156,152 +225,4 @@ Working on HireMe itself: see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 HireMe is free software under the [GNU Affero General Public License v3.0](LICENSE). You may use, change and share it; if you run a changed version for others over a network, you must offer them its source code.
 
-### Apply with bot from a hosted HireMe
-
-The application toolbar has a compact bot selector, **Apply with bot**, and
-**Copy bot prompt**. Use **Bot settings** to preview the complete prompt for that
-job in **Settings → Job agent → Application bots**. Choose Grok Bot, OpenBot,
-Claude or another assistant, with separate handoff preferences and a default.
-The optional shared **Prompt template** field controls the format for all bots.
-Use placeholders such as `{{company}}`, `{{role}}`, `{{job_details}}`,
-`{{application_url}}`, `{{drive_url}}` and `{{zip_url}}`. HireMe fills these with
-the selected job’s data. Leave the field empty to use the generated prompt.
-Required application context, file links, review and board-update instructions
-are appended, or inserted where you put `{{default_prompt}}`.
-
-OpenBot and other assistants use a clipboard handoff; paste the prompt into the
-bot. Configure optional MCP access in **Settings → MCP connector**.
-
-**Apply with bot** opens Grok Bot or Claude Desktop with a short prefilled
-message containing the job’s current Drive snapshot, ZIP fallback and HireMe
-tracking links. You review and send that message in the bot. Grok uses its
-configured Bot ID, or your primary Bot when none is configured. The app must be
-installed and signed in. OpenBot uses the optional local Mac helper described below; other apps use
-clipboard handoff. The complete prompt is copied as a fallback.
-
-`bot-prompt.md` stores the shared template filled with this application’s
-context, plus optional preferences labelled by bot. In Drive it contains its
-exact snapshot URL; ZIP packets contain the authenticated ZIP source link. The
-opening message tells the bot to read that file, use Drive first and ZIP if
-Drive is inaccessible, review every answer, and update the existing HireMe
-card only after confirmed submission. Drive links remain private; the bot needs
-your signed-in browser or its own authorized Drive connection. Template or
-bot-preference changes produce a new snapshot when auto-save next checks the job.
-
-The prompt includes the candidate's contact and profile links, job context,
-posting and HireMe tracking URLs, and that job's current Drive packet link.
-It tries Drive first, then the authenticated job-specific ZIP download if Drive
-is missing or inaccessible. The ZIP is generated directly without a storage
-server and contains `application.md`, `instructions.md`, and available PDFs.
-Extract it into `~/Documents/hireme/apply/`, or attach it to the bot's chat.
-
-The bot must verify the packet, use truthful answers, show every answer and
-attachment, and obtain explicit approval before submitting. After confirmed
-submission it must update the existing HireMe board card using an authorized
-connector or signed-in browser, record evidence, and verify the update. If it
-cannot update the board, it reports that step as pending and provides a note.
-Failed or uncertain submissions must never be marked Sent.
-
-### Keep application history in Google Drive
-
-Enable **Google Drive API** in the Google Cloud project used by your HireMe
-OAuth client. In **Settings → Google**, connect Drive with `drive.file`
-permission. This is separate from Gmail and Calendar. The permission covers
-files HireMe creates or that you explicitly authorize, rather than your whole
-Drive. Create or find the HireMe folder there to browse the archive.
-
-**Automatically save application packets** is on by default. Reviewed jobs with
-a resume or cover letter are queued in the background when created, changed or
-opened. Unchanged content is not uploaded twice. Turn auto-save off in Google
-settings if desired. No manual Save to Google Drive button is needed.
-
-```
-HireMe/<company>-<role>-<YYYY-MM-DD>/<UTC timestamp and snapshot id>/
-  application.md
-  instructions.md
-  bot-prompt.md
-  resume.pdf          (when available)
-  cover-letter.pdf    (when available)
-```
-
-The folder date is the application’s UTC creation date. ZIP filenames and their
-internal folders use the same company-role-date name. Unsafe path characters
-are replaced. Stable application IDs remain inside metadata and tracking links
-to identify the exact card. Existing Drive job folders are renamed in place
-when the next packet saves, keeping their history.
-
-Each changed packet creates a dated snapshot; earlier versions stay in Drive.
-The latest link is kept on the application without adding board notes or
-changing application approvals. Failed uploads are labelled `(incomplete)`.
-A red banner at the top reports connection or sync problems and links to Google
-settings; job-specific failures offer retry. ZIP handoffs remain available.
-
-Drive links are private by default: the bot needs your signed-in browser or its
-own authorized Drive connection, and sharing a link does not grant access. Turn
-on **Make snapshot links shareable** in Settings → Google → Google Drive when a
-bot cannot reach your account; each new snapshot folder is then readable by
-anyone holding its link, while the HireMe folder above it stays private. The
-setting applies to snapshots saved after it changes — folders shared earlier
-keep their sharing until you change it in Drive. Disconnecting Google or
-deleting an application does not delete Drive archives; remove those in Drive
-when needed. Snapshots describe documents, not proof of submission.
-
-### Check setup and health
-
-Open **Settings → Setup & health** for configuration checks covering your
-profile, AI providers, job sources, scoring, document defaults, bots, Drive,
-job agent, MCP access, mail, calendar, backups and hosting. Each item links to
-its configuration section. Saved configuration and permissions are labelled
-**Configured**; live checks are labelled separately. An API being configured
-does not prove that its key, quota or service is healthy. Use the connection
-test in the linked settings section where available.
-
-### Direct OpenBot handoff from the live site
-
-A hosted server cannot control a desktop app on your Mac. Install the local URL
-handler once with `bash scripts/macos/install-bot-helper.sh`. It builds
-**HireMe Bot Helper.app** in `~/Applications` and registers `hireme-bot://`.
-Allow that app in macOS Settings → Privacy & Security → Accessibility once.
-The installer signs the helper with this Mac’s Apple Development identity when
-one exists, so rebuilding it keeps that permission instead of asking again.
-No daemon, file-storage server, OpenBot API token or Local scripts permission is
-needed. Node is not needed by the installed helper.
-
-In Settings → Job agent → OpenBot, select **Open OpenBot and fill prompt (macOS)**
-and set **OpenBot agent name** to the exact sidebar name (default: Job Manager).
-Apply with bot is a normal browser app link, avoiding popup-window blocking.
-It opens OpenBot, selects the named agent and pastes into its empty composer.
-There is no separate helper review window or per-job script to run. You review
-and press Send in OpenBot. The script never sends a message or presses Enter,
-and refuses to overwrite an existing draft or type into another app.
-
-Each bot is driven through its own agent control: OpenBot’s **Chat with …**
-toggle opens the named chat, and Grok Bot’s sidebar agent (marked current by the
-app) must already be selected. The helper pastes only into a composer that names
-the requested agent, or — for Grok’s single generic Prompt box — only while that
-agent is the current one; otherwise it stops and asks you to open the chat. A
-press can be retried when a bot ignores it, but the helper never presses an agent
-that already reports itself open, so it cannot toggle your chat shut.
-
-Each bot also has an optional **app name**. Leave it empty to open the bot’s
-default app, or the copy that is already running; set it when the app is
-installed under another name (for example a beta). The first time a name resolves
-to an app HireMe has not pasted into before, the helper asks you once and
-remembers the answer, because a link must never be able to type into an app you
-did not choose.
-
-The browser copies the complete template-based prompt. The helper uses that
-clipboard text only when it matches this exact HireMe application; otherwise
-it uses the short Drive-first/ZIP-fallback message embedded in the link. It
-restores the clipboard after pasting. Each new computer needs its own one-time
-helper/Accessibility setup; devices without it can use Copy bot prompt.
-
-Grok uses its supported single-line prompt link. Keep the composer empty and
-allow the browser’s Open Grok Bot prompt. It preserves existing drafts.
-
-Inbox connection status is independent of automatic Gmail checks. Turning
-those checks off keeps manual Check now available. A Google account connected
-only for Drive/Calendar is shown as connected, with a specific Gmail read-access
-request rather than a misleading reconnect message.
-
-The same Mac helper also supports Grok Bot. In Settings → Job agent → Grok Bot, choose “Open Grok Bot and fill prompt (macOS)” and enter the exact sidebar name (for example, Job Finder). It uses the helper’s existing Accessibility permission. Native app links remain available on other devices. Both helper modes preserve existing drafts and leave Send to you.
+HireMe continues the Dossier project, which is also AGPL-3.0. [NOTICE](NOTICE) records the original project, what changed and where this source is published.
