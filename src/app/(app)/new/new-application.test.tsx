@@ -121,12 +121,12 @@ describe("the paste step (E7-1)", () => {
     expect(screen.getByRole("link", { name: "Choose one in Settings → AI provider" })).toHaveAttribute("href", "/settings?section=ai");
   });
 
-  it("hands the posting to a Claude chat when the connector is on and Dossier has no model (#221)", async () => {
+  it("hands the posting to a Claude chat when the connector is on and HireMe has no model (#221)", async () => {
     const tab = { closed: false, opener: {}, location: { href: "about:blank" }, close: vi.fn() };
     const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
     vi.mocked(handOffToClaude).mockResolvedValue({ ok: true, data: { url: "https://claude.ai/new?q=write" } });
     render(<NewApplication {...props} aiReady={false} writeInClaude />);
-    expect(screen.getByRole("note")).toHaveTextContent(/Dossier has no AI model of its own, so Claude writes this one/);
+    expect(screen.getByRole("note")).toHaveTextContent(/HireMe has no AI model of its own, so Claude writes this one/);
     await userEvent.type(screen.getByLabelText("Job posting"), "Ledgerly is hiring.");
     await userEvent.type(screen.getByLabelText(/^Link to the posting/), "https://jobs.example/1");
     await userEvent.click(screen.getByRole("button", { name: "Write it with Claude →" }));
@@ -154,7 +154,14 @@ describe("the reading step (E7-2)", () => {
     expect(screen.getByRole("heading", { name: "Reading the posting…" })).toBeInTheDocument();
     emit({ step: "Picking out the role, company and requirements" });
     expect(screen.getByText("Picking out the role, company and requirements").closest("li")).toHaveAttribute("aria-current", "step");
-    expect(screen.getByText("This can take a little longer on a local model.")).toBeInTheDocument();
+    expect(screen.getByText("The page will update as each step finishes.")).toBeInTheDocument();
+  });
+
+  it("shows worker startup while queued instead of pretending to read the posting", async () => {
+    await startReading();
+    emit({ status: "QUEUED", step: "Starting the cloud worker…" });
+    expect(screen.getByRole("heading", { name: "Waiting for the cloud worker…" })).toBeInTheDocument();
+    expect(screen.getByText(/A cold start can take a minute or two/)).toBeInTheDocument();
   });
 
   it("offers Retry and a way back with the text intact when it fails", async () => {

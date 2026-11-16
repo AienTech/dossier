@@ -14,13 +14,13 @@ vi.mock("@/lib/auth/session", () => ({ getSession: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/jobs/runner", () => ({ getJob: vi.fn(), defineJob: <T,>(definition: T) => definition }));
 const dataDir = vi.hoisted(() => ({ path: "" }));
-vi.mock("@/lib/env", () => ({ env: { get DOSSIER_DATA_DIR() { return dataDir.path; } } }));
+vi.mock("@/lib/env", () => ({ env: { get HIREME_DATA_DIR() { return dataDir.path; } } }));
 
 const get = (id: string) => GET(new NextRequest(`http://localhost:3000/api/downloads/${id}`), { params: Promise.resolve({ id }) });
-const done = { id: "job-1", type: "zip-pdfs", status: "DONE", step: null, error: null, result: { file: "abc-123.zip", fileName: "dossier-pdfs-2026-09-28.zip", documents: 2 } } as const;
+const done = { id: "job-1", type: "zip-pdfs", status: "DONE", step: null, error: null, result: { file: "abc-123.zip", fileName: "hireme-pdfs-2026-09-28.zip", documents: 2 } } as const;
 
 beforeEach(async () => {
-  dataDir.path = await mkdtemp(path.join(tmpdir(), "dossier-downloads-"));
+  dataDir.path = await mkdtemp(path.join(tmpdir(), "hireme-downloads-"));
   await mkdir(path.join(dataDir.path, "downloads"));
   await writeFile(path.join(dataDir.path, "downloads", "abc-123.zip"), "PK zip");
   vi.mocked(getSession).mockResolvedValue({ persistent: false, issuedAt: new Date(), expiresAt: new Date() });
@@ -32,7 +32,7 @@ describe("GET /api/downloads/[id] (E10-5)", () => {
     const response = await get("job-1");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/zip");
-    expect(response.headers.get("content-disposition")).toContain('filename="dossier-pdfs-2026-09-28.zip"');
+    expect(response.headers.get("content-disposition")).toContain('filename="hireme-pdfs-2026-09-28.zip"');
     expect(await response.text()).toBe("PK zip");
     expect(await readdir(path.join(dataDir.path, "downloads"))).toEqual([]);
     expect((await get("job-1")).status).toBe(410);

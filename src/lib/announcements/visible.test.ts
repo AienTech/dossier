@@ -71,8 +71,8 @@ describe("currentAnnouncement", () => {
 
   it("keeps a link to anywhere on the web", () => {
     for (const url of [
-      "https://dossier.aien.me/news",
-      "https://github.com/AienTech/dossier/releases/tag/v1.13.1",
+      "https://hireme.example/news",
+      "https://github.com/shahzadafridi/HireMe/releases/tag/v1.13.1",
       "https://example.org/a?b=c#d",
       "http://example.org/plain",
       "https://example.org:8443/port",

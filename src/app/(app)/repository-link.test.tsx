@@ -5,12 +5,12 @@ import { RepositoryLink } from "./repository-link";
 import { SidebarFrame } from "./sidebar-frame";
 
 afterEach(() => {
-  document.cookie = "dossier_sidebar=; max-age=0; path=/";
+  document.cookie = "hireme_sidebar=; max-age=0; path=/";
 });
 
 function renderLink(initialCollapsed = false) {
   render(
-    <SidebarFrame initialCollapsed={initialCollapsed} brand={<span>Dossier</span>}>
+    <SidebarFrame initialCollapsed={initialCollapsed} brand={<span>HireMe</span>}>
       <RepositoryLink />
     </SidebarFrame>,
   );
@@ -20,7 +20,7 @@ function renderLink(initialCollapsed = false) {
 describe("RepositoryLink", () => {
   it("opens the repository in a new tab", () => {
     const link = renderLink();
-    expect(link).toHaveAttribute("href", "https://github.com/AienTech/dossier");
+    expect(link).toHaveAttribute("href", "https://github.com/shahzadafridi/HireMe");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(link).not.toHaveAttribute("title");

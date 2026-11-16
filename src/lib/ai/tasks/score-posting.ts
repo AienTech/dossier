@@ -8,7 +8,7 @@ export const SCORE_POSTING_VERSION = "score-posting@2";
 
 // The job agent's first look at a posting (E16-2): a cheap, explainable fit
 // score before anything is spent on a draft. Adapted from avinashbatchala's
-// fork of Dossier.
+// fork of HireMe.
 
 /** What the model answers; code checks and trims it (scoreFrom). */
 const answerSchema = z.object({

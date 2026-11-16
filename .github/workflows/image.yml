@@ -83,7 +83,7 @@ jobs:
             (async () => {
               const browser = await chromium.launch({ args: ["--disable-dev-shm-usage"] });
               const page = await browser.newPage();
-              await page.setContent("<h1>Dossier</h1>");
+              await page.setContent("<h1>HireMe</h1>");
               const pdf = await page.pdf({ format: "A4" });
               await browser.close();
               if (pdf.subarray(0, 5).toString() !== "%PDF-") throw new Error("That is not a PDF.");

@@ -75,8 +75,8 @@ for (const path of SCREENS) {
 test.describe("dark, with the sidebar collapsed", () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await context.addCookies([
-      { name: "dossier_theme", value: "dark", url: baseURL! },
-      { name: "dossier_sidebar", value: "collapsed", url: baseURL! },
+      { name: "hireme_theme", value: "dark", url: baseURL! },
+      { name: "hireme_sidebar", value: "collapsed", url: baseURL! },
     ]);
   });
 
@@ -102,8 +102,8 @@ test.describe("dark, with the sidebar collapsed", () => {
     await page.goto(application);
     await page.getByRole("button", { name: "More actions" }).click();
     await expectAccessible(page);
-    await context.clearCookies({ name: "dossier_session" });
-    await context.addCookies([{ name: "dossier_theme", value: "dark", url: baseURL! }]);
+    await context.clearCookies({ name: "hireme_session" });
+    await context.addCookies([{ name: "hireme_theme", value: "dark", url: baseURL! }]);
     await page.goto("/login");
     await expectAccessible(page);
   });
@@ -283,7 +283,7 @@ test("keyboard: a dialog starts on Cancel and gives focus back", async ({ page }
 
 test("contrast: a segmented control's selected option is marked at 3:1 in both schemes (WCAG 1.4.11)", async ({ page, context, baseURL }) => {
   for (const scheme of ["light", "dark"]) {
-    await context.addCookies([{ name: "dossier_theme", value: scheme, url: baseURL! }]);
+    await context.addCookies([{ name: "hireme_theme", value: scheme, url: baseURL! }]);
     await page.goto("/applications");
     const view = page.getByRole("radiogroup", { name: "View" });
     const selected = view.getByRole("radio", { checked: true });

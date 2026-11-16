@@ -18,6 +18,8 @@ const CONNECTOR_PATHS = /^\/(?:api\/(?:mcp|oauth)(?:\/|$)|\.well-known\/oauth-(?
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (pathname === "/login") return pass(request);
+  // This one route checks Vercel's CRON_SECRET itself; it never uses a browser session.
+  if (pathname === "/api/worker-schedule") return NextResponse.next();
   // The Claude connector (#221) brings its own credentials, an OAuth token,
   // which its routes check; they answer 404 while it's off.
   if (CONNECTOR_PATHS.test(pathname)) return NextResponse.next();

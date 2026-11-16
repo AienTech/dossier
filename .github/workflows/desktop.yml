@@ -57,7 +57,7 @@ jobs:
             [ "$actual" = "$version" ] || { echo "::error file=$file::$file says $actual, not $version."; exit 1; }
           done
 
-      # Dossier itself, built as for the image: what "On this computer" runs.
+      # HireMe itself, built as for the image: what "On this computer" runs.
       - run: yarn install --immutable
       - run: yarn generate
       - run: yarn build
@@ -101,8 +101,8 @@ jobs:
       - name: Checksums
         working-directory: desktop/release
         run: |
-          ls -l Dossier-*
-          sha256sum Dossier-*.AppImage Dossier-*.deb Dossier-*.exe > SHA256SUMS.txt
+          ls -l HireMe-*
+          sha256sum HireMe-*.AppImage HireMe-*.deb HireMe-*.exe > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Attach them, and publish the release
@@ -111,7 +111,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release upload "$TAG" Dossier-*.AppImage Dossier-*.deb Dossier-*.exe SHA256SUMS.txt --clobber
+          gh release upload "$TAG" HireMe-*.AppImage HireMe-*.deb HireMe-*.exe SHA256SUMS.txt --clobber
           gh release edit "$TAG" --draft=false --latest
 
       - name: Say what's left when it fails

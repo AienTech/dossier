@@ -8,14 +8,14 @@ import { API_KEY_UNREADABLE, ApiKeyUnreadable, apiKeyState, decryptApiKey } from
 import { DEFAULT_TIMEOUT_SECONDS, type AiSettingsView, type KeyState } from "./provider-options";
 
 // Which provider to use and how to reach it (E6-1): what's saved in Settings,
-// or else the DOSSIER_AI_* variables, or else the defaults below.
+// or else the HIREME_AI_* variables, or else the defaults below.
 
 export type AiConfig = {
   provider: AiProvider;
   baseUrl: string;
   model: string | null;
   apiKey: string | null;
-  /** Why the saved key can't be used, e.g. DOSSIER_SECRET changed. */
+  /** Why the saved key can't be used, e.g. HIREME_SECRET changed. */
   apiKeyProblem: string | null;
   timeoutMs: number;
 };
@@ -28,7 +28,7 @@ export const PROVIDER_DEFAULTS: Record<AiProvider, { baseUrl: string; model: str
   [AiProvider.LMSTUDIO]: { baseUrl: "http://host.docker.internal:1234", model: null, timeoutSeconds: DEFAULT_TIMEOUT_SECONDS.local },
 };
 
-const FROM_ENV: Record<NonNullable<Env["DOSSIER_AI_PROVIDER"]>, AiProvider> = {
+const FROM_ENV: Record<NonNullable<Env["HIREME_AI_PROVIDER"]>, AiProvider> = {
   local: AiProvider.LOCAL,
   openai: AiProvider.OPENAI,
   anthropic: AiProvider.ANTHROPIC,
@@ -47,7 +47,7 @@ type SavedSettings = {
 
 type AiEnv = Pick<
   Env,
-  "DOSSIER_AI_PROVIDER" | "DOSSIER_AI_URL" | "DOSSIER_AI_MODEL" | "DOSSIER_AI_KEY" | "DOSSIER_AI_TIMEOUT_SECONDS"
+  "HIREME_AI_PROVIDER" | "HIREME_AI_URL" | "HIREME_AI_MODEL" | "HIREME_AI_KEY" | "HIREME_AI_TIMEOUT_SECONDS"
 >;
 
 /**
@@ -55,10 +55,10 @@ type AiEnv = Pick<
  * decides. The two are never mixed, except that an env key still serves a
  * saved provider of the same kind, on the same server, that has no key of
  * its own. A timeout saved in Settings counts for any provider, before
- * DOSSIER_AI_TIMEOUT_SECONDS.
+ * HIREME_AI_TIMEOUT_SECONDS.
  */
 export function resolveAiConfig(saved: SavedSettings | null, source: AiEnv, secret?: string): AiConfig {
-  const envProvider = source.DOSSIER_AI_PROVIDER ? FROM_ENV[source.DOSSIER_AI_PROVIDER] : null;
+  const envProvider = source.HIREME_AI_PROVIDER ? FROM_ENV[source.HIREME_AI_PROVIDER] : null;
   const useSaved = Boolean(saved?.provider);
   const provider = (useSaved ? saved!.provider : envProvider) ?? AiProvider.LOCAL;
   const defaults = PROVIDER_DEFAULTS[provider];
@@ -72,18 +72,18 @@ export function resolveAiConfig(saved: SavedSettings | null, source: AiEnv, secr
       if (!(error instanceof ApiKeyUnreadable)) throw error;
       apiKeyProblem = API_KEY_UNREADABLE;
     }
-  } else if (!useSaved || (envProvider === provider && sameServer(provider, saved!.baseUrl, source.DOSSIER_AI_URL))) {
-    apiKey = source.DOSSIER_AI_KEY ?? null;
+  } else if (!useSaved || (envProvider === provider && sameServer(provider, saved!.baseUrl, source.HIREME_AI_URL))) {
+    apiKey = source.HIREME_AI_KEY ?? null;
   }
 
   return {
     provider,
-    baseUrl: (useSaved ? saved!.baseUrl : source.DOSSIER_AI_URL) || defaults.baseUrl,
-    model: (useSaved ? saved!.model : source.DOSSIER_AI_MODEL) || defaults.model,
+    baseUrl: (useSaved ? saved!.baseUrl : source.HIREME_AI_URL) || defaults.baseUrl,
+    model: (useSaved ? saved!.model : source.HIREME_AI_MODEL) || defaults.model,
     apiKey,
     apiKeyProblem,
     // Settings → AI provider's timeout, whichever provider (public issue 118).
-    timeoutMs: (saved?.aiTimeoutSeconds ?? source.DOSSIER_AI_TIMEOUT_SECONDS ?? defaults.timeoutSeconds) * 1000,
+    timeoutMs: (saved?.aiTimeoutSeconds ?? source.HIREME_AI_TIMEOUT_SECONDS ?? defaults.timeoutSeconds) * 1000,
   };
 }
 
@@ -108,7 +108,7 @@ export async function loadAiConfig(): Promise<AiConfig> {
 
 /**
  * The AI settings as the settings screen shows them: what's in effect,
- * whether it comes from Settings or DOSSIER_AI_*, and never the key.
+ * whether it comes from Settings or HIREME_AI_*, and never the key.
  */
 export async function loadAiSettingsView(): Promise<AiSettingsView> {
   const saved = await loadSettings();
@@ -119,7 +119,7 @@ export async function loadAiSettingsView(): Promise<AiSettingsView> {
     model: config.model ?? "",
     keyState: keyStateOf(saved, config),
     timeoutSeconds: saved.aiTimeoutSeconds,
-    envTimeoutSeconds: env.DOSSIER_AI_TIMEOUT_SECONDS ?? null,
+    envTimeoutSeconds: env.HIREME_AI_TIMEOUT_SECONDS ?? null,
   };
 }
 
@@ -129,14 +129,14 @@ export function keyStateOf(saved: { provider: AiProvider | null; apiKeyEnc: stri
   return config.apiKey ? "env" : "none";
 }
 
-/** Whether an AI provider has been chosen, in Settings or with DOSSIER_AI_PROVIDER. */
+/** Whether an AI provider has been chosen, in Settings or with HIREME_AI_PROVIDER. */
 export async function isAiConfigured(): Promise<boolean> {
-  if (env.DOSSIER_AI_PROVIDER) return true;
+  if (env.HIREME_AI_PROVIDER) return true;
   return Boolean((await loadSettings()).provider);
 }
 
 /**
- * Whether Dossier's own AI model can be called: a provider with its model,
+ * Whether HireMe's own AI model can be called: a provider with its model,
  * and a key for the hosted ones that always need one. Without it, and with
  * the Claude connector on, the AI buttons hand the work to Claude chat
  * (src/lib/connector/handoff.ts, #221).

@@ -45,7 +45,7 @@ export async function withAgentScanLock<T>(work: (signal: AbortSignal) => Promis
   }
 }
 
-// On SQLite, Dossier is one process on one file (the desktop app, or one
+// On SQLite, HireMe is one process on one file (the desktop app, or one
 // container), so the scan lock is held in that process.
 const globalForScan = globalThis as unknown as { agentScanRunning?: boolean };
 

@@ -1,4 +1,4 @@
--- The whole schema at Dossier 1.11.0. Skill and Language names compare
+-- The whole schema at HireMe 1.11.0. Skill and Language names compare
 -- without case (COLLATE NOCASE, added by hand), as citext does in PostgreSQL.
 
 -- CreateTable

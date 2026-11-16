@@ -1,4 +1,4 @@
-// Puts together what "On this computer" runs: the standalone Dossier server, its
+// Puts together what "On this computer" runs: the standalone HireMe server, its
 // database setup, and a Node binary, for one platform, in build-server/. Every
 // download is checked against a hash pinned here. Run after the app's own build:
 //
@@ -53,7 +53,7 @@ function run(command, args) {
 
 const out = path.join(desktop, "build-server");
 const server = path.join(out, "server");
-const scratch = mkdtempSync(path.join(tmpdir(), "dossier-prepare-"));
+const scratch = mkdtempSync(path.join(tmpdir(), "hireme-prepare-"));
 rmSync(out, { recursive: true, force: true });
 
 /**

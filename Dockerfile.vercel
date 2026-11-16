@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1
+# Same full runtime as the desktop/self-hosted app, including Chromium.
+# This file deliberately selects Vercel's Container preset over Next.js.
+FROM node:24-trixie-slim AS base
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/*
+RUN corepack enable
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+FROM base AS deps
+COPY package.json yarn.lock .yarnrc.yml ./
+# Vercel disables dependency lifecycle scripts. Fetch Prisma's migration
+# engine explicitly at build time: the non-root runtime must not download
+# executable binaries into node_modules on startup.
+RUN yarn install --immutable \
+  && node node_modules/@prisma/engines/scripts/postinstall.js \
+  && node node_modules/prisma/build/index.js -v
+
+FROM deps AS build
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY . .
+RUN yarn prisma generate && yarn build
+RUN mkdir /tools && cp -r prisma prisma7.config.ts /tools/ \
+  && node_modules/.bin/esbuild prisma/seed.ts --bundle --platform=node --format=esm --target=node24 \
+    --external:pg-native --outfile=/tools/seed.mjs \
+    --banner:js='import { createRequire } from "node:module"; const require = createRequire(import.meta.url);'
+
+FROM base AS production
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 \
+    HIREME_DATA_DIR=/tmp/hireme HIREME_RUNTIME=web
+RUN --mount=type=bind,from=deps,source=/app/node_modules/playwright-core,target=/tmp/playwright-core \
+  node /tmp/playwright-core/cli.js install --with-deps --only-shell chromium \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+COPY --from=build /tools ./tools
+# Startup checks run under a shared release lock. Keep the migration CLI
+# available so an out-of-window release can prepare its additive schema.
+COPY --from=deps /app/node_modules ./tools/node_modules
+COPY docker/start-vercel.sh ./start-vercel.sh
+COPY docker/prepare-schema.mjs ./prepare-schema.mjs
+COPY docker/warm-worker.mjs ./warm-worker.mjs
+RUN mkdir -p /tmp/hireme .next/cache && chown node:node /tmp/hireme .next/cache
+USER node
+EXPOSE 3000
+CMD ["sh", "./start-vercel.sh", "web"]

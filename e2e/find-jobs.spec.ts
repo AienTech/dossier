@@ -84,7 +84,7 @@ test("says when nothing was found", async ({ page }) => {
 test("tests the connection in Settings → Job search", async ({ page }) => {
   await page.goto("/settings?section=jobs");
   await expect(page.getByRole("radio", { name: "JSearch" })).toBeChecked();
-  await expect(page.getByLabel("API key")).toHaveAttribute("placeholder", "Using DOSSIER_JSEARCH_KEY · type one to save it here");
+  await expect(page.getByLabel("API key")).toHaveAttribute("placeholder", "Using HIREME_JSEARCH_KEY · type one to save it here");
   await page.getByRole("button", { name: "Test connection" }).click();
   await expect(page.getByText(/^Connected · JSearch answered in/)).toBeVisible();
 });
@@ -142,7 +142,7 @@ test("searches FreeHire, which needs no key and has no radius", async ({ page })
     expect.poll(async () => (await sql<{ value: string }>(`SELECT value FROM "Setting" WHERE key = 'jobSource'`))[0]?.value).toContain(source);
   await page.goto("/settings?section=jobs");
   await page.getByRole("radio", { name: "FreeHire" }).click();
-  await expect(page.getByText("No key needed. Dossier searches FreeHire's public catalogue at freehire.me.")).toBeVisible();
+  await expect(page.getByText("No key needed. HireMe searches FreeHire's public catalogue at freehire.me.")).toBeVisible();
   await chosen("FREEHIRE");
 
   await page.goto("/jobs?q=product+designer&where=Rotterdam&country=nl");

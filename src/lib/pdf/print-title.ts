@@ -10,7 +10,7 @@ import { loadProfileName } from "@/lib/profile-data";
  * A print page's metadata. Its title becomes the PDF's Title, which some
  * viewers show instead of the file name, so it names the person and the
  * document, as the default file name does: "Jane Doe – Resume" (public issue
- * 131). No company, and no "· Dossier".
+ * 131). No company, and no "· HireMe".
  */
 export async function printMetadata(kind: DocumentKind): Promise<Metadata> {
   const name = (await loadProfileName()).trim();

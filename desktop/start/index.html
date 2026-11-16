@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'" />
-    <title>Dossier</title>
+    <title>HireMe</title>
     <link rel="stylesheet" href="start.css" />
     <script src="start.js" defer></script>
   </head>
@@ -12,7 +12,7 @@
       <img src="../icon.png" alt="" class="mark" width="44" height="44" />
 
       <section id="choose" hidden>
-        <h1>Where should Dossier keep your data?</h1>
+        <h1>Where should HireMe keep your data?</h1>
         <p class="lead">You can change this later, and changing it deletes nothing.</p>
         <div class="options">
           <button type="button" class="option" id="pick-local" disabled aria-describedby="local-note">
@@ -22,17 +22,17 @@
           </button>
           <button type="button" class="option" id="pick-server">
             <span class="option-title">On my server</span>
-            <span class="option-text">Connect to your own Dossier. Your data stays on your server, and this app is its window.</span>
+            <span class="option-text">Connect to your own HireMe. Your data stays on your server, and this app is its window.</span>
           </button>
         </div>
       </section>
 
       <section id="server" hidden>
         <h1>Connect to your server</h1>
-        <p class="lead">The address you open Dossier at in a browser.</p>
+        <p class="lead">The address you open HireMe at in a browser.</p>
         <form id="server-form" novalidate>
           <label for="address">Your server's address</label>
-          <input id="address" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="https://dossier.example.com" aria-describedby="server-message" />
+          <input id="address" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="https://hireme.example.com" aria-describedby="server-message" />
           <p id="server-message" class="message" role="alert"></p>
           <div class="actions">
             <button type="submit" class="primary" id="connect">Connect</button>
@@ -42,12 +42,12 @@
       </section>
 
       <section id="starting" hidden>
-        <h1>Starting Dossier…</h1>
+        <h1>Starting HireMe…</h1>
         <p class="lead" role="status">This takes a moment, and longer after an update.</p>
       </section>
 
       <section id="local-problem" hidden>
-        <h1 id="problem-title">Dossier couldn't start</h1>
+        <h1 id="problem-title">HireMe couldn't start</h1>
         <p class="lead" id="problem-text" role="alert"></p>
         <p class="log" id="problem-log"></p>
         <div class="actions">

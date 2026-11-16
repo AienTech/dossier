@@ -1,3 +1,5 @@
+import { gzipSync } from "node:zlib";
+
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,7 +13,7 @@ vi.mock("@/lib/auth/session", () => ({ getSession: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: { job: { findMany: vi.fn(async () => []) } } }));
 vi.mock("@/lib/jobs/runner", () => ({ cancelJob: vi.fn() }));
-vi.mock("@/lib/backups", () => ({ writeBackup: vi.fn(async () => "dossier-backup-before-import-2026-09-28-120000.json") }));
+vi.mock("@/lib/backups", () => ({ writeBackup: vi.fn(async () => "hireme-backup-before-import-2026-09-28-120000.json") }));
 const summary = { applications: 2, roles: 3, skills: 7, themes: 0, notes: 1 };
 vi.mock("@/lib/frozen-copy", () => ({ freezeSentApplications: vi.fn() }));
 vi.mock("@/lib/data-import", () => ({
@@ -38,6 +40,25 @@ beforeEach(() => {
 });
 
 describe("POST /api/import (E10-6)", () => {
+  it("reads compressed exports without changing their JSON", async () => {
+    const response = await POST(new NextRequest("http://localhost:3000/api/import?preview=1", {
+      method: "POST", headers: { origin: "http://localhost:3000", host: "localhost:3000", "content-encoding": "gzip" },
+      body: new Uint8Array(gzipSync('{"profile":{}}')),
+    }), undefined);
+    expect(response.status).toBe(200);
+    expect(parseExport).toHaveBeenLastCalledWith('{"profile":{}}');
+  });
+
+  it("refuses damaged compressed uploads and oversized expansion", async () => {
+    for (const [body, status] of [[Buffer.from("broken"), 400], [gzipSync("x".repeat(11 * 1024 * 1024)), 413]] as const) {
+      const response = await POST(new NextRequest("http://localhost:3000/api/import", {
+        method: "POST", headers: { origin: "http://localhost:3000", host: "localhost:3000", "content-encoding": "gzip" }, body: new Uint8Array(body),
+      }), undefined);
+      expect(response.status).toBe(status);
+    }
+    expect(importExport).not.toHaveBeenCalled();
+    expect(writeBackup).not.toHaveBeenCalled();
+  });
   it("says what a file would replace, changing nothing", async () => {
     const response = await post("?preview=1");
     expect(await response.json()).toEqual({ incoming: summary, current: { ...summary, applications: 9 }, exportedAt: "2026-09-27T10:00:00.000Z" });
@@ -55,10 +76,10 @@ describe("POST /api/import (E10-6)", () => {
   });
 
   it("refuses a file that isn't an export", async () => {
-    vi.mocked(parseExport).mockReturnValueOnce({ ok: false, error: "That file isn't a Dossier export." });
+    vi.mocked(parseExport).mockReturnValueOnce({ ok: false, error: "That file isn't a HireMe export." });
     const response = await post();
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "That file isn't a Dossier export." });
+    expect(await response.json()).toEqual({ error: "That file isn't a HireMe export." });
     expect(writeBackup).not.toHaveBeenCalled();
   });
 

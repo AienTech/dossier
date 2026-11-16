@@ -1,7 +1,7 @@
 import { argon2, randomBytes, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
-// DOSSIER_PASSWORD holds an argon2id hash of the sign-in password, never the
+// HIREME_PASSWORD holds an argon2id hash of the sign-in password, never the
 // password itself, so reading the environment doesn't reveal it. The hash is
 // written as
 //
@@ -54,7 +54,7 @@ function compute(password: string, { memory, passes, parallelism, salt }: Omit<P
   return derive("argon2id", { message: password, nonce: salt, memory, passes, parallelism, tagLength: length });
 }
 
-/** Hashes `password` with a fresh random salt, for DOSSIER_PASSWORD. */
+/** Hashes `password` with a fresh random salt, for HIREME_PASSWORD. */
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(SALT_BYTES);
   const hash = await compute(password, { ...DEFAULTS, salt }, HASH_BYTES);

@@ -10,7 +10,7 @@ import { logServerError } from "@/lib/log";
 /**
  * Where Google sends the browser back after consent (E15-1). It comes from
  * Google's site, so route()'s same-origin check can't apply: the signed
- * state proves Dossier started it, and the session that it's the user. It
+ * state proves HireMe started it, and the session that it's the user. It
  * goes back where the state says: Settings, or the setup guide (E21-5).
  */
 export async function GET(request: NextRequest): Promise<Response> {

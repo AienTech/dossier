@@ -7,10 +7,10 @@ import { resetData, sql } from "./support";
 
 // The MCP connector (#221, #281): off until it's turned on in Settings; then
 // Claude registers, the user signs in and allows it on the consent page,
-// Claude trades the code for tokens and uses Dossier's tools at /api/mcp,
+// Claude trades the code for tokens and uses HireMe's tools at /api/mcp,
 // until Disconnect all apps or the switch goes off. Another app registers
 // only once its callback address is added. The "Claude" here is a request
-// context without Dossier's cookie, and claude.ai's callback is answered by
+// context without HireMe's cookie, and claude.ai's callback is answered by
 // the test.
 
 const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
@@ -73,7 +73,7 @@ test("connects Claude through Settings and the consent page, serves its tools, a
   expect(registered.status()).toBe(201);
   const n8nQuery = new URLSearchParams({ response_type: "code", client_id: (await registered.json()).client_id, redirect_uri: n8n, code_challenge: "a".repeat(43), code_challenge_method: "S256", state: "s" });
   await page.goto(`/oauth/authorize?${n8nQuery}`);
-  await expect(page.getByRole("heading", { name: "Connect n8n to Dossier" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connect n8n to HireMe" })).toBeVisible();
 
   const { client_id: clientId } = await (await claude.post("/api/oauth/register", { data: { redirect_uris: [CALLBACK], client_name: "Claude" } })).json();
 
@@ -83,7 +83,7 @@ test("connects Claude through Settings and the consent page, serves its tools, a
   await page.route("https://claude.ai/**", (route) => route.fulfill({ status: 200, contentType: "text/plain", body: "Back in Claude" }));
   const query = new URLSearchParams({ response_type: "code", client_id: clientId, redirect_uri: CALLBACK, code_challenge: challenge, code_challenge_method: "S256", state: "xyz", resource: address });
   await page.goto(`/oauth/authorize?${query}`);
-  await expect(page.getByRole("heading", { name: "Connect Claude to Dossier" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connect Claude to HireMe" })).toBeVisible();
   await expect(page.getByText("Once you allow it, it can:", { exact: false })).toBeVisible();
   await expect(page.getByText("It can never send an application or an email, or delete anything.", { exact: false })).toBeVisible();
   await expectAccessible(page);
@@ -97,7 +97,7 @@ test("connects Claude through Settings and the consent page, serves its tools, a
       form: { grant_type: "authorization_code", code: back.searchParams.get("code")!, client_id: clientId, redirect_uri: CALLBACK, code_verifier: verifier },
     })
   ).json();
-  expect(tokens).toMatchObject({ token_type: "Bearer", scope: "dossier" });
+  expect(tokens).toMatchObject({ token_type: "Bearer", scope: "hireme" });
 
   const mcp = (body: unknown) =>
     claude.post("/api/mcp", {

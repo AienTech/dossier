@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
 const SEVERITY: Record<Severity, { word: string; icon: LucideIcon; tone: string }> = {
   security: { word: "Security notice", icon: ShieldAlert, tone: "text-notice-security" },
   important: { word: "Important", icon: TriangleAlert, tone: "text-notice-important" },
-  info: { word: "From Dossier", icon: Megaphone, tone: "text-on-inverse-muted" },
+  info: { word: "From HireMe", icon: Megaphone, tone: "text-on-inverse-muted" },
 };
 
 const never = () => () => {};

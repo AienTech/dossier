@@ -21,7 +21,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const telemetry = vi.hoisted(() => ({ value: undefined as "on" | "off" | undefined }));
 vi.mock("@/lib/env", () => ({
   env: {
-    get DOSSIER_TELEMETRY() {
+    get HIREME_TELEMETRY() {
       return telemetry.value;
     },
   },
@@ -62,11 +62,11 @@ describe("answering the usage ping question (#172)", () => {
     expect(await loadSettings()).toMatchObject({ usagePingChoice: "off", usagePingId: null, usagePingDay: null });
   });
 
-  it("changes nothing while DOSSIER_TELEMETRY decides", async () => {
+  it("changes nothing while HIREME_TELEMETRY decides", async () => {
     telemetry.value = "off";
     expect(await chooseUsagePing({ send: true })).toEqual({
       ok: false,
-      error: "DOSSIER_TELEMETRY=off is set on the server, so it decides. Change it there.",
+      error: "HIREME_TELEMETRY=off is set on the server, so it decides. Change it there.",
     });
     expect((await loadSettings()).usagePingChoice).toBeNull();
   });

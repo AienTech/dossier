@@ -4,7 +4,7 @@ import { answerUsagePing, fakePings, resetData, sql } from "./support";
 
 // The usage ping is opt-in (#172): a production server asks once after
 // sign-in and sends nothing before a yes. Here a yes reaches the fake
-// receiver (DOSSIER_USAGE_PING_TEST_URL), never the project's.
+// receiver (HIREME_USAGE_PING_TEST_URL), never the project's.
 test.beforeAll(resetData);
 test.afterAll(() => answerUsagePing("off"));
 

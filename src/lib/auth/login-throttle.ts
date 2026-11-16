@@ -80,7 +80,7 @@ export async function startLoginAttempt(
   return { allowed: true, succeeded: () => takeBack(db, client, counted.global, now) };
 }
 
-/** Restarting Dossier lifts a block on everyone, for when no known browser is at hand (#334). */
+/** Restarting HireMe lifts a block on everyone, for when no known browser is at hand (#334). */
 export async function liftBlockOnEveryone(db: PrismaClient): Promise<void> {
   await db.loginThrottle.deleteMany({ where: { key: GLOBAL_KEY } });
 }

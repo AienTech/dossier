@@ -14,7 +14,7 @@ import {
 
 // Resume themes (RES-2…RES-4) and the page geometry every document shares.
 // The numbers come from the prototype (`H`, `D` and `FONTS` in
-// design/Dossier.dc.html) and are in page units: a page is 640 units wide, and
+// design/HireMe.dc.html) and are in page units: a page is 640 units wide, and
 // the `--u` custom property says how big a unit is where the page is shown.
 
 /** A theme as documents and the theme panels use it; a Theme row fits. */

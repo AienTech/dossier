@@ -16,7 +16,7 @@ import { SettingsSectionIntro } from "./settings-screen";
 const LINK = "font-medium text-ink underline underline-offset-2";
 
 /**
- * Settings → MCP connector (#221, #281): Dossier as a connector for Claude
+ * Settings → MCP connector (#221, #281): HireMe as a connector for Claude
  * and other MCP apps, off until it's turned on here. Then it shows the
  * address to add in an app, Claude's steps, the other apps allowed to sign
  * in, and Disconnect all apps, which signs every one of them out.
@@ -63,8 +63,8 @@ export function ConnectorSection({
   return (
     <>
       <SettingsSectionIntro title="MCP connector">
-        Use Dossier from AI apps that speak MCP: Claude, in chats on claude.ai, in the Desktop and mobile apps and in its command-line app, or another app such as
-        n8n. They can search for jobs, read your profile and applications, and save the applications and fit scores they write. They never send or delete anything.
+        Use HireMe from OpenBot, Cursor, ChatGPT, Claude, or another app that speaks MCP. Connected apps can search and save jobs, track applied jobs and rejections,
+        edit application details, archive and restore cards, and read your dashboard. They can also read your profile and write application drafts. Access is controlled per app. Sending, permanent deletion and final submission handoffs require your approval in HireMe.
       </SettingsSectionIntro>
 
       {inDesktopApp && (
@@ -74,12 +74,13 @@ export function ConnectorSection({
         </p>
       )}
 
+      <a href="/delegations" className="mb-4 block underline">Manage app permissions and action approvals</a>
       <Card padding="none" className="px-7 py-4">
         <Toggle
           label="Let apps connect"
           description={
             on
-              ? "On. Apps connect at the address below, once you've signed in to Dossier and allowed them."
+              ? "On. Apps connect at the address below, once you've signed in to HireMe and allowed them."
               : "Off. The connector's addresses aren't open on this server."
           }
           checked={on}
@@ -101,28 +102,47 @@ export function ConnectorSection({
                 </Button>
               </div>
             </div>
+            <h3 className="text-control font-medium">In OpenBot</h3>
+            <p className="text-sm text-pretty">
+              Add a custom HTTP MCP server named HireMe in OpenBot, paste the address above, and sign in.
+              First add OpenBot&apos;s callback address under Other apps below. Current desktop builds use{" "}
+              <code className="font-mono text-label">openbot://mcp-auth</code>;
+              if OpenBot shows a different callback address, add that exact address instead. Its permissions are saved separately from ChatGPT and other connected apps.
+            </p>
+            <h3 className="text-control font-medium">In Cursor</h3>
+            <p className="text-sm text-pretty">Add this server to Cursor&apos;s MCP configuration, then connect and sign in:</p>
+            <pre className="overflow-x-auto rounded-control bg-input p-3 font-mono text-[13px]">{JSON.stringify({ mcpServers: { hireme: { url: address } } }, null, 2)}</pre>
+            <h3 className="text-control font-medium">In ChatGPT</h3>
+            <p className="text-sm text-pretty">
+              Add a custom MCP server with this address and OAuth authentication. Add the exact callback address shown by ChatGPT under Other apps,
+              then connect and allow HireMe. A cloud client needs a public HTTPS address.
+            </p>
+            <h3 className="text-control font-medium">With DeepSeek</h3>
+            <p className="text-sm text-pretty">
+              Use DeepSeek in an MCP-capable client, such as OpenBot. Connect HireMe in that client; a model API alone does not run MCP tools.
+            </p>
             <h3 className="text-control font-medium">In Claude</h3>
             <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm text-pretty">
               <li>
                 Open <strong>Settings → Connectors</strong> and choose <strong>Add custom connector</strong>.
               </li>
               <li>
-                Name it <strong>Dossier</strong>, paste the address and press <strong>Add</strong>, then <strong>Connect</strong>.
+                Name it <strong>HireMe</strong>, paste the address and press <strong>Add</strong>, then <strong>Connect</strong>.
               </li>
               <li>
-                Claude opens Dossier: sign in if it asks, check what Claude may do, and press <strong>Allow</strong>.
+                Claude opens HireMe: sign in if it asks, check what Claude may do, and press <strong>Allow</strong>.
               </li>
             </ol>
             <p className="text-meta text-muted">
-              In Claude&apos;s command-line app: <code className="font-mono text-label">claude mcp add --transport http dossier {address}</code>, then{" "}
+              In Claude&apos;s command-line app: <code className="font-mono text-label">claude mcp add --transport http hireme {address}</code>, then{" "}
               <code className="font-mono text-label">/mcp</code> to sign in.
             </p>
             {!publicHttps && (
               <p role="note" className="rounded-card bg-warning-surface px-4 py-3 text-meta text-warning">
                 {local ? "This is a local address. " : "This address isn't HTTPS. "}
-                Claude on the web, Desktop and mobile, and apps in the cloud such as n8n Cloud, reach Dossier from their own servers, so they need a public HTTPS
-                address (set <code className="font-mono text-label">DOSSIER_PUBLIC_URL</code> if Dossier is reached at another one). Claude&apos;s command-line
-                app on the computer Dossier runs on can use this one.
+                Claude on the web, Desktop and mobile, and apps in the cloud such as n8n Cloud, reach HireMe from their own servers, so they need a public HTTPS
+                address (set <code className="font-mono text-label">HIREME_PUBLIC_URL</code> if HireMe is reached at another one). Claude&apos;s command-line
+                app on the computer HireMe runs on can use this one.
               </p>
             )}
           </Card>
@@ -131,8 +151,8 @@ export function ConnectorSection({
             <div className="flex flex-col gap-1.5">
               <h3 className="text-control font-medium">Other apps</h3>
               <p className="text-sm text-pretty text-muted">
-                After you allow an app, Dossier sends you back to the app&apos;s own address. Claude&apos;s are known; for any other app, add its address here
-                exactly as the app shows it (n8n calls it the OAuth Redirect URL). Whoever uses an app you add can read and change your Dossier through it.
+                After you allow an app, HireMe sends you back to the app&apos;s own callback address. Claude&apos;s are known; for OpenBot, Cursor, ChatGPT or another app, add its address here
+                exactly as the app shows it (n8n calls it the OAuth Redirect URL). Whoever uses an app you add can read and change your HireMe through it.
               </p>
             </div>
             {redirects.length > 0 && (
@@ -173,22 +193,22 @@ export function ConnectorSection({
           <Card className="flex flex-col gap-3 text-sm text-pretty">
             <p>
               What an app reads through the connector goes to whoever runs it. For Claude, that&apos;s Anthropic, with your Claude account, as anything in a chat:
-              your profile without its contact details, the postings and applications it works on, and your searches. Private notes and the letter&apos;s sender
-              and signature stay out.{" "}
-              <a href="https://github.com/AienTech/dossier/wiki/Connecting-Claude" target="_blank" rel="noopener noreferrer" className={LINK}>
+              your profile without its contact details, the postings and applications it works on, and your searches. Private notes, contacts and the letter&apos;s sender
+              and signature stay out of baseline reads. You can explicitly enable private reads for an app in Manage app permissions.{" "}
+              <a href="https://github.com/shahzadafridi/HireMe/wiki/Connecting-Claude" target="_blank" rel="noopener noreferrer" className={LINK}>
                 Connecting Claude
               </a>{" "}
               has the details.
             </p>
             <p className="text-muted">
-              Without an AI model of Dossier&apos;s own, New application and Score in Find jobs hand the work to a new Claude chat, which saves it here through the
+              Without an AI model of HireMe&apos;s own, New application and Score in Find jobs hand the work to a new Claude chat, which saves it here through the
               connector.
             </p>
             <div>
               <Button variant="secondary" onClick={() => void track(disconnectApps({})).then(toastResult)}>
                 Disconnect all apps
               </Button>
-              <p className="mt-2 text-meta text-muted">Signs Claude and every other app out. Changing your password or DOSSIER_SECRET does too.</p>
+              <p className="mt-2 text-meta text-muted">Signs Claude and every other app out. Changing your password or HIREME_SECRET does too.</p>
             </div>
           </Card>
         </>

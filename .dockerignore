@@ -18,3 +18,10 @@ playwright-report
 test-results
 e2e/.auth
 data
+apply
+apply.zip
+dist
+job-shortlist-*.md
+*.dmg
+*.zip
+.vercel

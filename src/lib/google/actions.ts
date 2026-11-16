@@ -18,11 +18,13 @@ import { applyStatusChange } from "@/lib/status-changes";
 import { disconnectGoogle, googleConnection } from "./account";
 import { proposeSlots, scheduleInterview } from "./availability";
 import { GoogleError } from "./errors";
-import { worthSuggesting } from "./matching";
 import { loadGoogleClientConfig } from "./oauth";
 import { sendApplicationEmail, sendReply } from "./send";
 import { formatSlot } from "./slots";
-import { checkInboxNow, readReply } from "./sync";
+import { readReply } from "./sync";
+import { checkInboxJob, INBOX_JOB_KEY } from "@/lib/jobs/check-inbox";
+import { cloudRuntime } from "@/lib/runtime";
+import { wakeCloudWorker } from "@/lib/worker-scaling";
 
 // Gmail and Calendar from the app (E15). Google's failures reach the user as
 // their own message; every send is a separate, confirmed request.
@@ -112,7 +114,7 @@ export const saveGoogleClient = action(
   },
 );
 
-/** "Disconnect": revokes Dossier's access at Google. Mail already in Dossier stays. */
+/** "Disconnect": revokes HireMe's access at Google. Mail already in HireMe stays. */
 export const disconnectGoogleAccount = action(z.object({}), async (_, { toast }) => {
   await google(disconnectGoogle);
   revalidatePath("/settings");
@@ -122,14 +124,27 @@ export const disconnectGoogleAccount = action(z.object({}), async (_, { toast })
 
 /** "Check now" in the inbox and Settings. */
 export const checkInbox = action(z.object({}), async (_, { toast }) => {
-  const result = await google(checkInboxNow);
-  refreshEverything();
-  if (!result) toast("Already checking. It'll be done in a moment.");
-  else {
-    const news = result.kept === 0 ? "Nothing new about your applications." : `${result.kept} new ${result.kept === 1 ? "email" : "emails"} about your applications.`;
-    toast(result.unread ? `${news} ${result.unread} couldn't be read from Gmail; the next check tries again.` : news);
+  const connection = await googleConnection();
+  if (connection.status !== "connected" || !connection.canRead) throw new ActionError("Allow reading email in Settings → Google before checking replies.");
+  // Serialize starts across web instances, so repeated clicks reuse one job.
+  const id = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${INBOX_JOB_KEY}, 0))::text`;
+    const existing = await tx.job.findFirst({ where: { key: INBOX_JOB_KEY, status: { in: ["QUEUED", "RUNNING"] } }, select: { id: true } });
+    if (existing) return existing.id;
+    // Insert in this transaction; startJob would use a separate connection.
+    const job = await tx.job.create({ data: { type: checkInboxJob.type, key: INBOX_JOB_KEY, input: { days: 30, applyUpdates: true } }, select: { id: true } });
+    return job.id;
+  });
+  if (cloudRuntime()) {
+    const awake = await wakeCloudWorker();
+    if (!awake) await prisma.job.updateMany({ where: { id, status: "QUEUED" }, data: { status: "FAILED", error: "The cloud worker could not start. Check worker settings, then retry the email check.", finishedAt: new Date() } });
   }
-  return result;
+  else {
+    const { pollDatabaseQueue } = await import("@/lib/jobs/runner");
+    await pollDatabaseQueue();
+  }
+  refreshEverything(); toast("Queued one job-related email check. Clear matches update the board; ambiguous matches wait for review.");
+  return { jobId: id };
 });
 
 /** "Send with Gmail" on the Email tab, after the confirmation. */
@@ -145,7 +160,7 @@ export const startDraftingReply = action(
   z.object({ emailId: z.string().min(1), note: z.string().max(2000).default(""), slots: z.array(z.iso.datetime({ offset: true })).max(8).nullable().default(null) }),
   async ({ emailId, note, slots }) => {
     const email = await prisma.emailMessage.findUnique({ where: { id: emailId }, select: { applicationId: true } });
-    if (!email) throw new ActionError("That email is no longer in Dossier.");
+    if (!email) throw new ActionError("That email is no longer in HireMe.");
     if (!(await isAiConfigured())) throw new ActionError("That needs an AI provider. Choose one in Settings → AI provider.");
     const [running] = await findUnfinishedJobs(replyJobKey(emailId));
     // Linked to its application, so deleting that deletes the job too.
@@ -156,7 +171,7 @@ export const startDraftingReply = action(
 /** Saves the answer as edited by hand. */
 export const saveReplyDraft = action(z.object({ emailId: z.string().min(1), body: z.string().max(20_000) }), async ({ emailId, body }) => {
   const { count } = await prisma.emailMessage.updateMany({ where: { id: emailId }, data: { replyDraft: body } });
-  if (count === 0) throw new ActionError("That email is no longer in Dossier.");
+  if (count === 0) throw new ActionError("That email is no longer in HireMe.");
   return null;
 });
 
@@ -178,7 +193,7 @@ export const markHandled = action(z.object({ emailId: z.string().min(1), handled
 /** Links a mail to an application ("Needs a look"), with the rest of its thread. Null unlinks. */
 export const linkEmail = action(z.object({ emailId: z.string().min(1), applicationId: z.string().min(1).nullable() }), async ({ emailId, applicationId }, { toast }) => {
   const email = await prisma.emailMessage.findUnique({ where: { id: emailId }, select: { threadId: true } });
-  if (!email) throw new ActionError("That email is no longer in Dossier.");
+  if (!email) throw new ActionError("That email is no longer in HireMe.");
   if (applicationId && !(await prisma.application.count({ where: { id: applicationId } }))) throw new ActionError("That application no longer exists.");
   // Mail dismissed before has nothing left to show, so it stays dismissed.
   await prisma.emailMessage.updateMany({ where: { threadId: email.threadId, dismissedAt: null }, data: { applicationId } });
@@ -230,16 +245,10 @@ export const rereadEmail = action(z.object({ emailId: z.string().min(1) }), asyn
 
 /** Takes up a reply's suggested status (or turns it down), through the status module. */
 export const applySuggestedStatus = action(z.object({ emailId: z.string().min(1), accept: z.boolean() }), async ({ emailId, accept }, { toast }) => {
-  const email = await prisma.emailMessage.findUnique({
-    where: { id: emailId },
-    select: { applicationId: true, suggestedStatus: true, application: { select: { status: true } } },
-  });
-  if (!email) throw new ActionError("That email is no longer in Dossier.");
+  const email = await prisma.emailMessage.findUnique({ where: { id: emailId }, select: { applicationId: true, suggestedStatus: true } });
+  if (!email) throw new ActionError("That email is no longer in HireMe.");
   await prisma.emailMessage.update({ where: { id: emailId }, data: { suggestedStatus: null } });
-  // Checked again against where the application is now, so a suggestion made
-  // before it moved on never takes it backwards (#141).
-  if (!accept || !email.applicationId || !email.suggestedStatus || !email.application) return { eventId: null };
-  if (!worthSuggesting(email.application.status, email.suggestedStatus)) return { eventId: null };
+  if (!accept || !email.applicationId || !email.suggestedStatus) return { eventId: null };
   const result = await applyStatusChange(prisma, email.applicationId, email.suggestedStatus);
   refreshEverything();
   if (result.outcome !== "changed") return { eventId: null };

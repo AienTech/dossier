@@ -1,0 +1,42 @@
+HireMe is a modified fork of Dossier.
+
+Original work
+-------------
+Dossier — https://github.com/AienTech/dossier
+Copyright (C) the Dossier project authors.
+Licensed under the GNU Affero General Public License, version 3. The full
+licence text is in LICENSE and applies to this repository unchanged.
+
+Modifications
+-------------
+HireMe continues from Dossier 1.14.0 (November 2026) and changes it as follows:
+
+- The product, its identifiers, environment variables, database and Docker
+  names, URL scheme, documentation and desktop app naming say HireMe instead
+  of Dossier.
+- Added a private cloud worker so background jobs, backups and inbox checks
+  survive a request ending or a container sleeping.
+- Added application packets: one folder or ZIP per application, served from
+  private storage, plus a dated Google Drive history with optional per-snapshot
+  link sharing.
+- Added per-app MCP permissions and single-use owner reviews for email,
+  deletion and external submission handoff.
+- Added several application bots with a shared prompt template and a macOS
+  helper that fills a bot's composer without ever sending.
+- Added a Setup & health page and a bound on import expansion size.
+- Removed the upstream usage ping's default destination. It now runs only when
+  an operator configures HIREME_TELEMETRY_HOST.
+
+HireMe is not affiliated with, sponsored by, or endorsed by the Dossier
+project. Dossier is a separate project with its own maintainers and roadmap.
+
+Source
+------
+The GNU Affero General Public License requires that people who use this
+software over a network can obtain its source. The complete corresponding
+source is published at:
+
+    https://github.com/shahzadafridi/HireMe
+
+If you run a modified HireMe as a network service, section 13 of the licence
+applies to your version too.

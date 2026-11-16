@@ -6,15 +6,18 @@ import { Prisma } from "@/generated/prisma/client";
 import { JobStatus } from "@/generated/prisma/enums";
 import { loadAiConfig } from "@/lib/ai/config";
 import { AiError } from "@/lib/ai/errors";
+import { GoogleError } from "@/lib/google/errors";
 import { providerOption } from "@/lib/ai/provider-options";
 import { logServerError, logServerWarning } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { withoutNul } from "@/lib/without-nul";
+import { cloudRuntime, webRuntime } from "@/lib/runtime";
+import { wakeCloudWorker } from "@/lib/worker-scaling";
 
 // Long AI tasks run as background jobs (E6-7): the request that starts one
 // returns at once with its id, the work goes on in this process, and the
 // page follows its named steps (/api/jobs/[id]/events). Progress lives in
-// the Job table, so a reloaded page can pick the job up again. Dossier runs
+// the Job table, so a reloaded page can pick the job up again. HireMe runs
 // as a single instance, so an in-process queue is enough.
 
 export type JobContext = {
@@ -49,7 +52,7 @@ export type JobView<R = unknown> = {
 
 export const JOB_MESSAGES = {
   failed: "Something went wrong while working on this. Try again.",
-  interrupted: "Dossier restarted before this finished. Try again.",
+  interrupted: "HireMe restarted before this finished. Try again.",
   cancelled: "Cancelled.",
 } as const;
 
@@ -126,8 +129,16 @@ export async function startJob<I, R>(
     },
     select: { id: true },
   });
-  enqueue(job.id);
+  await dispatchJob(job.id);
   return job.id;
+}
+
+/** Dispatch a job already committed by a transactional producer. */
+export async function dispatchJob(id: string): Promise<void> {
+  if (webRuntime()) {
+    const awake = await wakeCloudWorker();
+    await prisma.job.updateMany({ where: { id: id, status: JobStatus.QUEUED }, data: awake ? { step: "Starting the cloud worker…" } : { status: JobStatus.FAILED, error: "The cloud worker could not start. Check worker settings, then Retry. Your input is saved.", finishedAt: new Date() } });
+  } else if (!cloudRuntime()) enqueue(id);
 }
 
 /** Runs a failed job again, as the same job with the same input. */
@@ -138,12 +149,23 @@ export async function retryJob(id: string): Promise<boolean> {
   });
   if (count === 0) return false;
   await notify(id);
-  enqueue(id);
+  if (webRuntime()) {
+    const awake = await wakeCloudWorker();
+    await prisma.job.updateMany({ where: { id, status: JobStatus.QUEUED }, data: awake ? { step: "Starting the cloud worker…" } : { status: JobStatus.FAILED, error: "The cloud worker could not start. Check worker settings, then Retry. Your input is saved.", finishedAt: new Date() } });
+  } else if (!cloudRuntime()) enqueue(id);
   return true;
 }
 
 /** Stops a queued or running job; it ends as failed with "Cancelled.". */
 export async function cancelJob(id: string): Promise<void> {
+  if (cloudRuntime()) {
+    await prisma.job.updateMany({
+      where: { id, status: { in: [JobStatus.QUEUED, JobStatus.RUNNING] } },
+      data: { status: JobStatus.FAILED, error: JOB_MESSAGES.cancelled, finishedAt: new Date() },
+    });
+    state.running.get(id)?.abort();
+    return;
+  }
   const queued = state.queue.indexOf(id);
   if (queued >= 0) {
     state.queue.splice(queued, 1);
@@ -185,7 +207,10 @@ async function finish(
   id: string,
   data: { status: JobStatus; result?: Prisma.InputJsonValue; error?: string },
 ): Promise<void> {
-  const { count } = await prisma.job.updateMany({ where: { id }, data: { ...data, finishedAt: new Date() } });
+  const { count } = await prisma.job.updateMany({
+    where: { id, ...(cloudRuntime() ? { status: JobStatus.RUNNING } : {}) },
+    data: { ...data, finishedAt: new Date() },
+  });
   if (count > 0) await notify(id);
 }
 
@@ -224,12 +249,14 @@ async function pump(): Promise<void> {
 async function execute(id: string, controller: AbortController): Promise<void> {
   let type: string | undefined;
   try {
-    const job = await prisma.job.update({
-      where: { id },
+    // A cancelled job, or one already claimed, must never run again.
+    const claimed = await prisma.job.updateMany({
+      where: { id, status: JobStatus.QUEUED },
       data: { status: JobStatus.RUNNING, startedAt: new Date() },
-      select: { type: true, input: true },
     });
-    type = job.type;
+    if (!claimed.count) return;
+    const job = await prisma.job.findUnique({ where: { id }, select: { type: true, input: true } });
+    if (!job) return;
     await notify(id);
     // Job types register when their module loads; make sure they all have.
     await import("./definitions");
@@ -241,9 +268,10 @@ async function execute(id: string, controller: AbortController): Promise<void> {
       signal: controller.signal,
       step: async (name) => {
         // Deleted meanwhile: there's no one left to do it for.
-        const { count } = await prisma.job.updateMany({ where: { id }, data: { step: name } });
+        const { count } = await prisma.job.updateMany({ where: { id, ...(cloudRuntime() ? { status: JobStatus.RUNNING } : {}) }, data: { step: name } });
         if (count === 0) controller.abort();
         else await notify(id);
+        controller.signal.throwIfAborted();
       },
     });
     // A NUL character can't be saved; the schema checks the result without them, as it will be saved.
@@ -252,7 +280,7 @@ async function execute(id: string, controller: AbortController): Promise<void> {
     // AI failures already say what to do; anything else is logged and kept vague.
     const message = controller.signal.aborted
       ? JOB_MESSAGES.cancelled
-      : error instanceof AiError
+      : error instanceof AiError || error instanceof GoogleError
         ? error.message
         : JOB_MESSAGES.failed;
     if (!(error instanceof AiError) && !controller.signal.aborted) logServerError(`job ${id}`, error);
@@ -270,8 +298,22 @@ async function execute(id: string, controller: AbortController): Promise<void> {
  */
 export async function recoverInterruptedJobs(): Promise<number> {
   const { count } = await prisma.job.updateMany({
-    where: { status: { in: [JobStatus.QUEUED, JobStatus.RUNNING] } },
+    // Cloud queues are durable: only an interrupted running job needs Retry.
+    where: { status: cloudRuntime() ? JobStatus.RUNNING : { in: [JobStatus.QUEUED, JobStatus.RUNNING] } },
     data: { status: JobStatus.FAILED, error: JOB_MESSAGES.interrupted, finishedAt: new Date() },
   });
   return count;
+}
+
+/** One pass by the elected cloud worker. Web processes only enqueue in SQL. */
+export async function pollDatabaseQueue(): Promise<void> {
+  if (webRuntime()) throw new Error("A web instance cannot run background jobs.");
+  const active = [...state.running.keys()];
+  if (active.length) {
+    const live = await prisma.job.findMany({ where: { id: { in: active }, status: JobStatus.RUNNING }, select: { id: true } });
+    const ids = new Set(live.map((job) => job.id));
+    for (const id of active) if (!ids.has(id)) state.running.get(id)?.abort();
+  }
+  const jobs = await prisma.job.findMany({ where: { status: JobStatus.QUEUED }, select: { id: true }, orderBy: { createdAt: "asc" }, take: 20 });
+  for (const job of jobs) if (!state.running.has(job.id)) enqueue(job.id);
 }

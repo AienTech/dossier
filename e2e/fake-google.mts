@@ -1,6 +1,6 @@
 // A stand-in for Google (E15), started by playwright.config.ts. The app sends
 // its sign-in, Gmail and Calendar requests to http://localhost:<port>/<host>
-// (DOSSIER_GOOGLE_TEST_BASE_URL), and this answers in Google's own shapes, so
+// (HIREME_GOOGLE_TEST_BASE_URL), and this answers in Google's own shapes, so
 // the app's real OAuth, MIME and sync code runs end to end. The consent page
 // agrees at once. The first application sent gets a reply in its thread, from
 // the address it went to.

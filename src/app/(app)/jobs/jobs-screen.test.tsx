@@ -323,7 +323,7 @@ describe("the results", () => {
   });
 
   it("labels each of Adzuna's postings with a link to its site for the posting's country, as its terms ask", () => {
-    const url = "https://www.adzuna.de/land/ad/4721394012?se=abc&utm_medium=api&utm_source=dossier&v=1";
+    const url = "https://www.adzuna.de/land/ad/4721394012?se=abc&utm_medium=api&utm_source=hireme&v=1";
     renderScreen({ source: "ADZUNA", search: stored([posting("a", { source: "ADZUNA", url }), posting("b", { source: "ADZUNA", url })]) });
     const labels = screen.getAllByRole("link", { name: "Jobs by Adzuna (opens in a new tab)" });
     // One on each card and one on the posting shown.

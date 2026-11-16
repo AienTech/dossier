@@ -1,19 +1,16 @@
 import "server-only";
 
-import { stat, unlink } from "node:fs/promises";
-import path from "node:path";
-
-import { backupsDir, listBackups, writeBackup } from "@/lib/backups";
+import { deleteBackup, listBackups, writeBackup } from "@/lib/backups";
 import { env } from "@/lib/env";
 import { logServerError } from "@/lib/log";
 import { loadSettings, saveSettings } from "@/lib/settings-data";
 
 // Nightly backups (E10-7, SET-10): while "Nightly backups" is on, an export
 // is written at 03:00 server time, and backups older than
-// DOSSIER_BACKUP_RETENTION_DAYS are removed. A plain timer in this process,
+// HIREME_BACKUP_RETENTION_DAYS are removed. A plain timer in this process,
 // so it's only safe with a single instance of the app (E12-5). A computer
 // that's off at 03:00, as the desktop app's often is, gets the backup soon
-// after Dossier starts, once the last one is over a day old (#325).
+// after HireMe starts, once the last one is over a day old (#325).
 
 const HOUR = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -29,10 +26,10 @@ export function nextRun(now: Date): Date {
 }
 
 /** Deletes backups older than the retention; returns how many went. */
-export async function pruneBackups(now: Date, days = env.DOSSIER_BACKUP_RETENTION_DAYS): Promise<number> {
+export async function pruneBackups(now: Date, days = env.HIREME_BACKUP_RETENTION_DAYS): Promise<number> {
   const cutoff = now.getTime() - days * DAY_MS;
   const old = (await listBackups()).filter((backup) => backup.modified.getTime() < cutoff);
-  await Promise.all(old.map((backup) => unlink(path.join(backupsDir(), backup.name)).catch(() => {})));
+  await Promise.all(old.map((backup) => deleteBackup(backup.name)));
   return old.length;
 }
 
@@ -56,9 +53,18 @@ export async function runNightlyBackup(now = new Date()): Promise<"written" | "o
 
 /** When the newest nightly backup was written, if any. */
 export async function lastNightlyBackup(): Promise<Date | null> {
-  const [latest] = (await listBackups()).filter((backup) => backup.name.startsWith("dossier-backup-nightly-"));
+  const [latest] = (await listBackups()).filter((backup) => backup.name.startsWith("hireme-backup-nightly-"));
   if (!latest) return null;
-  return (await stat(path.join(backupsDir(), latest.name)).catch(() => null))?.mtime ?? null;
+  return latest.modified;
+}
+
+/** A worker that was stopped at 03:00 catches up when it next starts. */
+export async function catchUpNightlyBackup(now = new Date()): Promise<void> {
+  const due = new Date(now);
+  due.setHours(HOUR, 0, 0, 0);
+  if (due > now) due.setDate(due.getDate() - 1);
+  const latest = await lastNightlyBackup();
+  if (!latest || latest < due) await runNightlyBackup(now);
 }
 
 /** At the start: the backup the last night missed, when the newest is over a day old or there's none. */

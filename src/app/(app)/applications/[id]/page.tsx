@@ -1,3 +1,7 @@
+import { applicationPacketName } from "@/lib/application-packet-name";
+import { driveSourceHash, parseDriveSync } from "@/lib/google/drive-sync";
+import { applicationBotNotes } from "@/lib/application-bots";
+import { SubmissionRecord } from "@/components/documents/submission-record";
 import type { Metadata } from "next";
 import { cache } from "react";
 
@@ -63,6 +67,9 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       findUnfinishedJobs(scoreResumeJobKey(id)),
     ]);
 
+  const driveKey = driveSourceHash({ application, profile, settings, resume, letter, includeReferences, letterDate });
+  const driveState = parseDriveSync(application.driveSync);
+  const initialDriveSnapshot = google.status === "connected" && google.email === driveState.account && !driveState.error && !driveState.jobId && driveState.sourceHash === driveKey ? driveState.url : undefined;
   const match = readJson(matchSchema, application.match);
   const messages = application.messages
     .map((message, index) => ({
@@ -77,7 +84,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     }))
     // Settings → "Show what changed" off hides the list of what was tailored (SET-5).
     .filter((message) => settings.showDiff || !message.opening);
-  const { title, company, location, status, tone, language, followThemeLayout, showPhoto, nextInterviewAt } = application;
+  const { title, company, role, location, status, tone, language, followThemeLayout, showPhoto, nextInterviewAt } = application;
   // Units still being rewritten, so a reload keeps showing it.
   const rewriting = unitJobs.flatMap((job) => {
     const input = regenerateUnitJob.input.safeParse(job.input);
@@ -88,12 +95,16 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
     resolveFileName(settings.fileNamePattern, { name: profile.basics.name, company: application.company, role: application.role, doc, date: new Date() });
 
   return (
+    <>
+    <SubmissionRecord id={id} value={application.submission} />
     <ApplicationView
       application={{
         id,
         title,
         company,
+        role,
         location,
+        salary: application.salary,
         status,
         tone,
         language,
@@ -110,6 +121,16 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
         url: /^https?:\/\//i.test(application.postingUrl) ? application.postingUrl : "",
         pasted: formatShortDate(application.createdAt),
       }}
+      applyBot={settings.applyBot}
+      botNotes={applicationBotNotes(settings)}
+      botPromptTemplate={settings.applyBotPromptTemplate}
+      openbotLaunchMode={settings.openbotLaunchMode}
+      openbotAgentName={settings.openbotAgentName} openbotAppName={settings.openbotAppName} grokLaunchMode={settings.grokLaunchMode} grokAgentName={settings.grokAgentName} grokAppName={settings.grokAppName}
+      packetFolderName={applicationPacketName(application.company, application.role || application.title, application.createdAt)}
+      driveAutoSave={settings.driveAutoSave}
+      driveSyncKey={driveKey}
+      initialDriveSnapshot={initialDriveSnapshot}
+      grokBotId={settings.grokBotId}
       match={match}
       requirements={extracted?.requirements ?? []}
       facts={application.facts}
@@ -173,5 +194,6 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
         hasSummary: Boolean(resume?.units.some((unit) => unit.id === "summary" && unit.text.trim())),
       })}
     />
+    </>
   );
 }

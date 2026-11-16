@@ -8,14 +8,14 @@ import { appVersion } from "@/lib/version";
 
 // Requests for Startups (#222). Everything goes out under one user agent that
 // says what it is and links to the page explaining it, so a site can tell
-// Dossier apart and opt out in robots.txt ("User-agent: Dossier"). In the
+// HireMe apart and opt out in robots.txt ("User-agent: HireMe"). In the
 // end-to-end tests every request goes to the fake server instead
-// (DOSSIER_JOBS_TEST_BASE_URL/startups/<host>/<path>).
+// (HIREME_JOBS_TEST_BASE_URL/startups/<host>/<path>).
 
-export const STARTUPS_INFO_URL = "https://github.com/AienTech/dossier/blob/main/PRIVACY.md#startups";
-export const STARTUPS_USER_AGENT = `Mozilla/5.0 (compatible; Dossier/${appVersion}; +${STARTUPS_INFO_URL})`;
+export const STARTUPS_INFO_URL = "https://github.com/shahzadafridi/HireMe/blob/main/PRIVACY.md#startups";
+export const STARTUPS_USER_AGENT = `Mozilla/5.0 (compatible; HireMe/${appVersion}; +${STARTUPS_INFO_URL})`;
 /** The product token robots.txt rules name. */
-export const ROBOTS_TOKEN = "dossier";
+export const ROBOTS_TOKEN = "hireme";
 
 const TIMEOUT_MS = 20_000;
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -25,7 +25,7 @@ export class SourceError extends Error {
 }
 
 /** Where a request really goes: the address itself, or the fake server's copy of it in the end-to-end tests. */
-export function testAddress(url: string, base = env.DOSSIER_JOBS_TEST_BASE_URL): string {
+export function testAddress(url: string, base = env.HIREME_JOBS_TEST_BASE_URL): string {
   if (!base) return url;
   const { host, pathname, search } = new URL(url);
   return `${base.replace(/\/+$/, "")}/startups/${host}${pathname}${search}`;
@@ -68,7 +68,7 @@ export async function getJson(url: string, options: { signal?: AbortSignal } = {
  * ended up after redirects, as the real address even in the tests.
  */
 export async function getSitePage(url: string, { timeoutMs }: { timeoutMs?: number } = {}): Promise<FetchedPage> {
-  const base = env.DOSSIER_JOBS_TEST_BASE_URL;
+  const base = env.HIREME_JOBS_TEST_BASE_URL;
   if (!base) return fetchHtml(url, { timeoutMs, userAgent: STARTUPS_USER_AGENT });
   const page = await fetchHtml(testAddress(url, base), { timeoutMs, userAgent: STARTUPS_USER_AGENT, lookup: dnsLookup });
   if (!page.ok) return page;

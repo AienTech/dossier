@@ -11,7 +11,7 @@ import { UpdateNotice } from "./update-notice";
 vi.mock("@/lib/update-actions", () => ({ dismissUpdate: vi.fn(async () => ({ ok: true, data: null })) }));
 vi.mock("@/components/toast", () => ({ toast: vi.fn() }));
 
-const release = { version: "1.6.0", url: "https://github.com/AienTech/dossier/releases/tag/v1.6.0" };
+const release = { version: "1.6.0", url: "https://github.com/shahzadafridi/HireMe/releases/tag/v1.6.0" };
 const renderNotice = () =>
   render(
     <aside>
@@ -27,15 +27,15 @@ beforeEach(() => vi.clearAllMocks());
 describe("UpdateNotice", () => {
   it("says a newer release is out, with what's new and how to update", () => {
     renderNotice();
-    const notice = screen.getByRole("region", { name: "Dossier 1.6.0 is out" });
+    const notice = screen.getByRole("region", { name: "HireMe 1.6.0 is out" });
     expect(notice).toHaveTextContent("You have 1.5.0. Update to get its fixes and features.");
     expect(screen.getByRole("link", { name: "What's new (opens in a new tab)" })).toHaveAttribute("href", release.url);
-    expect(screen.getByRole("link", { name: "How to update (opens in a new tab)" })).toHaveAttribute("href", "https://github.com/AienTech/dossier/wiki/Upgrading");
+    expect(screen.getByRole("link", { name: "How to update (opens in a new tab)" })).toHaveAttribute("href", "https://github.com/shahzadafridi/HireMe/wiki/Upgrading");
   });
 
   it("offers the download in the desktop app on this computer, and no server guide (#326)", () => {
     render(<UpdateNotice release={release} currentVersion="1.5.0" desktop />);
-    const notice = screen.getByRole("region", { name: "Dossier 1.6.0 is out" });
+    const notice = screen.getByRole("region", { name: "HireMe 1.6.0 is out" });
     expect(notice).toHaveTextContent("You have 1.5.0. Download the new one and install it over this one: your data stays as it is.");
     expect(screen.getByRole("link", { name: "Download 1.6.0 (opens in your browser)" })).toHaveAttribute("href", release.url);
     expect(screen.queryByRole("link", { name: /How to update/ })).toBeNull();
@@ -57,22 +57,22 @@ describe("UpdateNotice", () => {
     renderNotice();
     await user.click(screen.getByRole("button", { name: "Not now" }));
     expect(toast).toHaveBeenCalledWith("You seem to be offline.");
-    expect(screen.getByRole("region", { name: "Dossier 1.6.0 is out" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "HireMe 1.6.0 is out" })).toBeInTheDocument();
   });
 
   it("is an icon with a dot in the collapsed sidebar, which opens it on the notice", async () => {
     const user = userEvent.setup();
     render(
-      <SidebarFrame initialCollapsed brand={<span>Dossier</span>}>
+      <SidebarFrame initialCollapsed brand={<span>HireMe</span>}>
         <UpdateNotice release={release} currentVersion="1.5.0" />
       </SidebarFrame>,
     );
     expect(screen.queryByRole("region")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Dossier 1.6.0 is out" }));
+    await user.click(screen.getByRole("button", { name: "HireMe 1.6.0 is out" }));
     expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Dossier 1.6.0 is out" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "HireMe 1.6.0 is out" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "What's new (opens in a new tab)" })).toHaveFocus();
-    expect(document.cookie).toContain("dossier_sidebar=expanded");
-    document.cookie = "dossier_sidebar=; max-age=0; path=/";
+    expect(document.cookie).toContain("hireme_sidebar=expanded");
+    document.cookie = "hireme_sidebar=; max-age=0; path=/";
   });
 });

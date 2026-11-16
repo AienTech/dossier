@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { PRINT_TOKEN_LIFETIME_SECONDS, signPrintToken, verifyPrintToken } from "./print-token";
 
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 
 describe("print tokens", () => {
   it("open the page they were made for", async () => {

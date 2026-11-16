@@ -29,7 +29,7 @@ The first five were downloaded on 27 September 2026, the script fonts on 28 Sept
 
 ## Static faces, not variable fonts
 
-Most of these are variable fonts at Google Fonts, and until 1.12.0 Dossier shipped them that way. Chromium's PDF printer can't embed a variable font: it draws each glyph as a Type 3 outline instead, with the font switched glyph by glyph, and while browsers show that fine, other viewers and the parsers behind job portals read it wrongly (text pasted backwards, letters in the wrong case; public issues 64 and 67). A face that Chromium has to embolden ends up as Type 3 too, which is why Plex Mono has a real SemiBold. So each family is shipped as static instances at the weights documents use, 400 to 700, with every other axis (optical size, width, Fraunces's softness) at its default, made with [fontTools](https://fonttools.readthedocs.io) from the variable TTF:
+Most of these are variable fonts at Google Fonts, and until 1.12.0 HireMe shipped them that way. Chromium's PDF printer can't embed a variable font: it draws each glyph as a Type 3 outline instead, with the font switched glyph by glyph, and while browsers show that fine, other viewers and the parsers behind job portals read it wrongly (text pasted backwards, letters in the wrong case; public issues 64 and 67). A face that Chromium has to embolden ends up as Type 3 too, which is why Plex Mono has a real SemiBold. So each family is shipped as static instances at the weights documents use, 400 to 700, with every other axis (optical size, width, Fraunces's softness) at its default, made with [fontTools](https://fonttools.readthedocs.io) from the variable TTF:
 
 ```bash
 docker run --rm -v "$PWD":/fonts python:3.13-slim sh -c 'pip install -q fonttools brotli && python - <<EOF

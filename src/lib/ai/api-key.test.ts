@@ -9,7 +9,7 @@ import {
   encryptApiKey,
 } from "./api-key";
 
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 
 const KEY = "sk-ant-api03-example-key";
 

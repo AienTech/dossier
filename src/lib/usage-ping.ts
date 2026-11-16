@@ -13,10 +13,10 @@ import { appVersion } from "@/lib/version";
 // can count the installs in use and how often they're used. Nothing else is
 // sent. It's opt-in (#172): nothing goes until the operator says yes, in the
 // question shown after sign-in or in Settings → About, or with
-// DOSSIER_TELEMETRY=on. DOSSIER_TELEMETRY wins while it's set. The receiving
+// HIREME_TELEMETRY=on. HIREME_TELEMETRY wins while it's set. The receiving
 // end runs on the project's own server and isn't published with the app.
 
-export const USAGE_PING_HOST = "telemetry.dossier.aien.me";
+export const USAGE_PING_HOST = "telemetry.hireme.example";
 export const USAGE_PING_URL = `https://${USAGE_PING_HOST}/ping`;
 
 /** The UTC day this process last checked for, so later page loads that day skip the database. */
@@ -31,20 +31,20 @@ export const USAGE_PING_TEXT_VERSION = 1;
 
 /** Logged once at startup while the ping is on. */
 export const USAGE_PING_NOTICE =
-  `Usage ping: on each day Dossier is used, it sends ${USAGE_PING_HOST} a random install ID and its version number, once, ` +
-  "to count the installs in use. Nothing else is sent. Turn it off in Settings → About, or set DOSSIER_TELEMETRY=off.";
+  `Usage ping: on each day HireMe is used, it sends ${USAGE_PING_HOST} a random install ID and its version number, once, ` +
+  "to count the installs in use. Nothing else is sent. Turn it off in Settings → About, or set HIREME_TELEMETRY=off.";
 
 /** Logged once at startup while nobody has answered yet. */
 export const USAGE_PING_QUESTION_NOTICE =
-  "Usage ping: off until someone signs in and answers whether to send it, or DOSSIER_TELEMETRY is set to on or off.";
+  "Usage ping: off until someone signs in and answers whether to send it, or HIREME_TELEMETRY is set to on or off.";
 
 /** Whether the ping is wanted, and who said so: the environment, an answer in the app, or nobody yet. */
 export type UsagePingChoice = { choice: "on" | "off"; source: "env" | "app" } | { choice: null; source: null };
 
-/** DOSSIER_TELEMETRY while it's set, else the answer to the current question; null until there is one. */
+/** HIREME_TELEMETRY while it's set, else the answer to the current question; null until there is one. */
 export function usagePingChoice(
   settings: Pick<SettingsData, "usagePingChoice" | "usagePingChoiceText">,
-  fromEnv: "on" | "off" | undefined = env.DOSSIER_TELEMETRY,
+  fromEnv: "on" | "off" | undefined = env.HIREME_TELEMETRY,
 ): UsagePingChoice {
   if (fromEnv) return { choice: fromEnv, source: "env" };
   if (settings.usagePingChoice && settings.usagePingChoiceText === USAGE_PING_TEXT_VERSION) {
@@ -61,7 +61,7 @@ export function usagePingEnabled(settings: Pick<SettingsData, "usagePingChoice" 
   return sendsFromHere() && usagePingChoice(settings).choice === "on";
 }
 
-/** Whether to ask after sign-in: in production, while nobody has answered and DOSSIER_TELEMETRY isn't set. */
+/** Whether to ask after sign-in: in production, while nobody has answered and HIREME_TELEMETRY isn't set. */
 export function askForUsagePing(settings: Pick<SettingsData, "usagePingChoice" | "usagePingChoiceText">): boolean {
   return sendsFromHere() && usagePingChoice(settings).choice === null;
 }
@@ -83,10 +83,10 @@ export async function saveUsagePingChoice(choice: "on" | "off", now = new Date()
 }
 
 /**
- * At startup, records DOSSIER_TELEMETRY as the stored answer when it's set and
+ * At startup, records HIREME_TELEMETRY as the stored answer when it's set and
  * differs, so the answer in effect is on record; off forgets the ID too.
  */
-export async function recordEnvChoice(fromEnv: "on" | "off" | undefined = env.DOSSIER_TELEMETRY, now = new Date()): Promise<void> {
+export async function recordEnvChoice(fromEnv: "on" | "off" | undefined = env.HIREME_TELEMETRY, now = new Date()): Promise<void> {
   if (!fromEnv) return;
   const settings = await loadSettings();
   const recorded = settings.usagePingChoice === fromEnv && settings.usagePingChoiceText === USAGE_PING_TEXT_VERSION;
@@ -114,7 +114,7 @@ type PingOptions = { now?: Date; production?: boolean; fetchImpl?: typeof fetch 
  * tried again until the next day.
  */
 export async function pingIfNewDay({ now = new Date(), production = sendsFromHere(), fetchImpl = fetch }: PingOptions = {}): Promise<"sent" | "failed" | "skipped"> {
-  if (!production || env.DOSSIER_TELEMETRY === "off") return "skipped";
+  if (!production || env.HIREME_TELEMETRY === "off") return "skipped";
   const day = utcDay(now);
   // Set before anything async, so pages loading together don't send it twice.
   // An answer clears it (saveUsagePingChoice), so a yes sends on the next page.
@@ -130,7 +130,7 @@ export async function pingIfNewDay({ now = new Date(), production = sendsFromHer
 }
 
 /** One request with the ID and the version; false if it doesn't arrive. Never throws. */
-export async function sendPing(id: string, fetchImpl: typeof fetch = fetch, url = env.DOSSIER_USAGE_PING_TEST_URL ?? USAGE_PING_URL): Promise<boolean> {
+export async function sendPing(id: string, fetchImpl: typeof fetch = fetch, url = env.HIREME_USAGE_PING_TEST_URL ?? USAGE_PING_URL): Promise<boolean> {
   try {
     const response = await fetchImpl(url, {
       method: "POST",

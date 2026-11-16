@@ -51,14 +51,14 @@ test("shows interviews and Google's events, and keeps interviews in step both wa
   await connectFakeGoogle(page);
   const dentist = await inFakeCalendar("POST", undefined, { summary: "Dentist", start: { dateTime: `${day}T11:00:00Z` }, end: { dateTime: `${day}T11:30:00Z` } });
 
-  // Setting the interview's time in Dossier adds it to Google.
+  // Setting the interview's time in HireMe adds it to Google.
   await page.goto(`/applications/${northstar.id}`);
   await page.getByRole("button", { name: /^Next interview: .*\. Change$/ }).click();
   await page.getByRole("dialog").getByLabel("Date and time").fill(`${day}T14:00`);
   await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Interview date saved, in your calendar too.")).toBeVisible();
   await expect.poll(async () => (await interview()).interviewEventId).not.toBeNull();
-  const added = (await fakeGoogle()).events.find((event) => event.extendedProperties?.private?.dossierApplication === northstar.id)!;
+  const added = (await fakeGoogle()).events.find((event) => event.extendedProperties?.private?.hiremeApplication === northstar.id)!;
   expect(added.summary).toBe("Interview · Lead Product Designer · Northstar Health");
   expect(new Date(added.start.dateTime!).getTime()).toBe((await interview()).nextInterviewAt!.getTime());
 
@@ -69,12 +69,12 @@ test("shows interviews and Google's events, and keeps interviews in step both wa
   await expect(calendar.getByRole("link", { name: /^14:00–\d\d:\d\d Interview · Lead Product Designer · Northstar Health$/ })).toHaveAttribute("href", `/applications/${northstar.id}`);
   await expectAccessible(page);
 
-  // Moved in Google: Dossier follows when the dashboard opens.
+  // Moved in Google: HireMe follows when the dashboard opens.
   await inFakeCalendar("PATCH", added.id, { start: { dateTime: `${day}T15:00:00Z` }, end: { dateTime: `${day}T15:45:00Z` } });
   await page.goto(onDay);
   await expect.poll(async () => (await interview()).nextInterviewAt?.toISOString()).toBe(new Date(`${day}T15:00:00Z`).toISOString());
 
-  // Removing the date in Dossier deletes the event.
+  // Removing the date in HireMe deletes the event.
   await page.goto(`/applications/${northstar.id}`);
   await page.getByRole("button", { name: /^Next interview: .*\. Change$/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Remove" }).click();

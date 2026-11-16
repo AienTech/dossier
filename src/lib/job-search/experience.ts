@@ -2,7 +2,7 @@ import { experienceAskedFor, type ExperienceLevel, type SearchQuery } from "./se
 
 // The experience level a posting is for (public issue 59), read from its
 // title and the years it asks for, so a search for one level leaves out the
-// postings clearly for another. No source filters by level the way Dossier
+// postings clearly for another. No source filters by level the way HireMe
 // means it, and a posting that doesn't say stays in.
 
 type Level = Exclude<ExperienceLevel, "any">;

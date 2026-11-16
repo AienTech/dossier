@@ -1,0 +1,20 @@
+# Never upload local personal files, credentials, desktop packages, or data.
+.git
+.env*
+!.env.example
+node_modules
+.next
+.vercel
+data
+apply
+apply.zip
+dist
+docs
+job-shortlist-*.md
+coverage
+test-results
+playwright-report
+e2e/.auth
+*.dmg
+*.zip
+*.log

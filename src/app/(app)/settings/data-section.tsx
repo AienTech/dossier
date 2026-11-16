@@ -26,7 +26,7 @@ type ZipResult = { file: string; fileName: string; documents: number };
 export type BackupStatus = {
   on: boolean;
   retentionDays: number;
-  /** DOSSIER_DATA_DIR/backups */
+  /** HIREME_DATA_DIR/backups */
   dir: string;
   /** "today at 03:00", or null before the first one. */
   lastRun: string | null;
@@ -50,10 +50,16 @@ function describe({ applications, roles, skills, themes }: Summary): string {
 /** An import request's answer: the JSON, or a plain error. */
 async function send(file: File, preview: boolean): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
   try {
+    // Hosted ingress limits can be smaller than a valid export. Compression
+    // keeps all the data; the server still limits the expanded JSON to 10 MB.
+    const compress = file.size > 1024 * 1024 && typeof CompressionStream !== "undefined";
+    const upload = compress
+      ? await new Response(file.stream().pipeThrough(new CompressionStream("gzip"))).blob()
+      : file;
     const response = await fetch(`/api/import${preview ? "?preview=1" : ""}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: file,
+      headers: { "content-type": "application/json", ...(compress ? { "content-encoding": "gzip" } : {}) },
+      body: upload,
     });
     const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
     if (response.status === 413) return { ok: false, error: typeof body?.error === "string" ? body.error : "That file is too big for this server to accept." };
@@ -256,7 +262,7 @@ export function DataSection({
               nightly
                 ? `Kept for ${backups.retentionDays} days in ${backups.dir}. ${
                     backups.lastRun ? `Last one ran ${backups.lastRun}.` : "The first one runs tonight at 03:00."
-                  }${backups.onlyWhileOpen ? " On this computer, they only run while Dossier is open: a night it was closed is made up soon after you open it." : ""}`
+                  }${backups.onlyWhileOpen ? " On this computer, they only run while HireMe is open: a night it was closed is made up soon after you open it." : ""}`
                 : "Off. You'll only have what you export yourself."
             }
             checked={nightly}

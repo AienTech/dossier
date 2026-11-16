@@ -4,7 +4,7 @@
 export const SCORERS = ["AI", "JEV"] as const;
 export type Scorer = (typeof SCORERS)[number];
 
-/** Like the job sources' keys: saved here, from DOSSIER_TYPESAFE_KEY, missing, or saved under another DOSSIER_SECRET. */
+/** Like the job sources' keys: saved here, from HIREME_TYPESAFE_KEY, missing, or saved under another HIREME_SECRET. */
 export type ScoringKeyState = "none" | "set" | "unreadable" | "env";
 
 /** What Settings → Scoring shows: the choice and the key's state, never the key. */
@@ -18,7 +18,7 @@ export const SCORER_INFO: Record<Scorer, { name: string; description: string; ta
   },
   JEV: {
     name: "Jev by TypeSafe",
-    description: "A model made for quick judgments. It answers questions about the posting, and Dossier builds the score and the reasons from the posting's own lines.",
+    description: "A model made for quick judgments. It answers questions about the posting, and HireMe builds the score and the reasons from the posting's own lines.",
     tag: "Needs a TypeSafe key",
   },
 };

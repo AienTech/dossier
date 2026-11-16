@@ -31,7 +31,10 @@ export default async function InboxPage() {
   return (
     <InboxScreen
       inbox={inbox}
-      connected={connection.status === "connected" && connection.canRead && settings.gmailRead}
+      connected={connection.status === "connected" && connection.canRead}
+      googleEmail={connection.status === "connected" ? connection.email : undefined}
+      gmailPermissionMissing={connection.status === "connected" && !connection.canRead}
+      automaticSync={settings.gmailRead}
       configured={connection.status !== "not-configured"}
       lastSync={connection.status === "connected" ? connection.lastSyncAt : null}
       problem={connection.status === "connected" ? connection.syncProblem : null}

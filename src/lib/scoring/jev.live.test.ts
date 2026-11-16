@@ -12,7 +12,7 @@ import { askJev } from "./typesafe";
 //   docker compose exec -e JEV_LIVE=check app yarn vitest run src/lib/scoring/jev.live.test.ts
 //   docker compose exec -e JEV_LIVE=compare app yarn vitest run src/lib/scoring/jev.live.test.ts
 //
-// The key is DOSSIER_TYPESAFE_KEY when that's set, or else the one saved in
+// The key is HIREME_TYPESAFE_KEY when that's set, or else the one saved in
 // Settings → Scoring. `check` scores two postings against the demo profile:
 // one it fits, one it doesn't. `compare` scores the job agent's latest
 // candidates again with Jev, against the profile in the database, and prints
@@ -23,12 +23,12 @@ import { askJev } from "./typesafe";
 const live = new Set((process.env.JEV_LIVE ?? "").split(",").map((name) => name.trim()));
 const COMPARED = 40;
 
-/** The key the app would use: `.env` (DOSSIER_SECRET decrypts a saved key), then the database. */
+/** The key the app would use: `.env` (HIREME_SECRET decrypts a saved key), then the database. */
 async function liveKey(): Promise<string> {
   process.loadEnvFile(".env");
   const { jevKey, loadScoringConfig } = await import("./config");
   const jev = jevKey(await loadScoringConfig());
-  if (jev.problem !== null) throw new Error(`${jev.problem} Or set DOSSIER_TYPESAFE_KEY.`);
+  if (jev.problem !== null) throw new Error(`${jev.problem} Or set HIREME_TYPESAFE_KEY.`);
   return jev.key;
 }
 

@@ -17,8 +17,8 @@ vi.mock("./scan-lock", async (original) => {
   const { testDatabaseUrl } = await import("@/test/db");
   return { ...actual, withAgentScanLock: <T>(work: (signal: AbortSignal) => Promise<T>) => actual.withAgentScanLock(work, testDatabaseUrl()) };
 });
-// Settings → Scoring reads DOSSIER_SCORER (#274).
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+// Settings → Scoring reads HIREME_SCORER (#274).
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 vi.mock("@/lib/time-zone", () => ({ lastKnownTimeZone: async () => "Europe/Berlin" }));
 vi.mock("@/lib/ai/config", () => ({ isAiConfigured: async () => true }));
 vi.mock("@/lib/job-search/config", () => ({

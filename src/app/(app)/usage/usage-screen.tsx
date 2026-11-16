@@ -28,7 +28,7 @@ export function UsageScreen({
     <>
       <PageHeader
         title="Usage"
-        description="The tokens each kind of AI request used, as your AI provider and Jev counted them. Input is what Dossier sent, output what came back, thinking included."
+        description="The tokens each kind of AI request used, as your AI provider and Jev counted them. Input is what HireMe sent, output what came back, thinking included."
       />
       <PeriodFilter period={period} path="/usage" remember={false}>
         <PeriodScoped className="flex max-w-[960px] flex-col gap-3 px-10 pb-[72px]">

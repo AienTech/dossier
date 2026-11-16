@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-/** Saved here, from an environment variable, missing, or saved under another DOSSIER_SECRET. */
+/** Saved here, from an environment variable, missing, or saved under another HIREME_SECRET. */
 export type KeyState = "none" | "set" | "unreadable" | "env";
 
 export const KEY_UNREADABLE = "Your saved key can't be read. Please enter it again.";

@@ -6,7 +6,7 @@ import { WIKI, type Instruction } from "./instructions";
 
 export const GOOGLE_STEPS: readonly Instruction[] = [
   {
-    text: "Sign in to Google Cloud with your Google account and create a project. Name it **Dossier** and press **Create**.",
+    text: "Sign in to Google Cloud with your Google account and create a project. Name it **HireMe** and press **Create**.",
     link: { href: "https://console.cloud.google.com/projectcreate", label: "Google Cloud" },
   },
   {
@@ -18,7 +18,7 @@ export const GOOGLE_STEPS: readonly Instruction[] = [
     link: { href: "https://console.cloud.google.com/apis/enableflow;apiid=calendar-json.googleapis.com", label: "the Google Calendar API" },
   },
   {
-    text: "Set up the sign-in screen: press **Get started**, enter **Dossier** as the app name and your email, choose **External**, enter your email again, agree to the policy and press **Create**.",
+    text: "Set up the sign-in screen: press **Get started**, enter **HireMe** as the app name and your email, choose **External**, enter your email again, agree to the policy and press **Create**.",
     link: { href: "https://console.developers.google.com/auth/branding", label: "Branding" },
   },
   {
@@ -26,12 +26,12 @@ export const GOOGLE_STEPS: readonly Instruction[] = [
     link: { href: "https://console.developers.google.com/auth/audience", label: "Audience" },
   },
   {
-    text: "Open **Clients** and press **Create client**. Choose **Web application** and name it Dossier. Under **Authorized redirect URIs**, press **Add URI** and paste the address below. Leave **Use this client for an AI-powered agent** unticked, and press **Create**.",
+    text: "Open **Clients** and press **Create client**. Choose **Web application** and name it HireMe. Under **Authorized redirect URIs**, press **Add URI** and paste the address below. Leave **Use this client for an AI-powered agent** unticked, and press **Create**.",
     link: { href: "https://console.developers.google.com/auth/clients", label: "Clients" },
   },
   { text: "Copy the **Client ID** and the **Client secret** into the fields below. Google shows the secret only once, so copy it before you close that window." },
   {
-    text: "Press **Connect Google**. Google warns that the app isn't verified: it's your own, so press **Advanced**, then **Go to Dossier (unsafe)**, and allow what it asks for.",
+    text: "Press **Connect Google**. Google warns that the app isn't verified: it's your own, so press **Advanced**, then **Go to HireMe (unsafe)**, and allow what it asks for.",
   },
 ];
 

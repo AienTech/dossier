@@ -9,11 +9,11 @@ import { appVersion } from "@/lib/version";
 import { parseAnnouncements, type Announcement, type AnnouncementFeed } from "./contract";
 
 // Asks the project's backend for its current notices, on page load while
-// someone is using Dossier, as update-check.ts does with GitHub. The request
+// someone is using HireMe, as update-check.ts does with GitHub. The request
 // says nothing about this install: the notices that apply are chosen here. A
 // backend that's down, slow or wrong changes nothing: the last good answer stays.
 
-const API_URL = "https://api.dossier.aien.me/v1";
+const API_URL = "https://api.hireme.example/v1";
 const TIMEOUT_MS = 10_000;
 /** Far more than a full answer, so a wrong one can't use up the server's memory. */
 const MAX_BYTES = 1024 * 1024;
@@ -45,7 +45,7 @@ export function checkDue(feed: AnnouncementFeed | null, now: Date, development =
 
 /** Production servers ask; development servers only when pointed at a backend, and tests never do. */
 export function checkRuns(): boolean {
-  return process.env.NODE_ENV === "production" || env.DOSSIER_API_URL !== undefined;
+  return process.env.NODE_ENV === "production" || env.HIREME_API_URL !== undefined;
 }
 
 type Answer =
@@ -62,10 +62,10 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 /** One request, which carries nothing about this install. Never throws. */
-export async function askBackend(etag: string | null, fetchImpl: typeof fetch = fetch, base = env.DOSSIER_API_URL ?? API_URL): Promise<Answer> {
+export async function askBackend(etag: string | null, fetchImpl: typeof fetch = fetch, base = env.HIREME_API_URL ?? API_URL): Promise<Answer> {
   try {
     const response = await fetchImpl(`${base}/announcements`, {
-      headers: { accept: "application/json", "user-agent": "Dossier", ...(etag ? { "if-none-match": etag } : {}) },
+      headers: { accept: "application/json", "user-agent": "HireMe", ...(etag ? { "if-none-match": etag } : {}) },
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: "no-store",
     });

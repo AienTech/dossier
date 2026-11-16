@@ -13,6 +13,12 @@ import { clearJobSearchCache } from "@/lib/job-search/cache";
 import { jsearchV2LastPage } from "@/test/job-search-fixtures";
 
 import {
+  saveApplyBot,
+  saveApplyBotNotes,
+  saveApplyBotPromptTemplate,
+  saveOpenbotLaunchMode,
+  saveOpenbotAgentName,
+  saveGrokBotId,
   addDocumentLanguage,
   addConnectorRedirect,
   disconnectApps,
@@ -40,10 +46,11 @@ vi.mock("@/lib/prisma", async () => {
   db.client = createTestClient();
   return { prisma: db.client };
 });
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({
   getSession: async () => ({ persistent: false, issuedAt: new Date(), expiresAt: new Date(Date.now() + 60_000) }),
 }));
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 // The real config and key handling, with a mock model behind them.
 const provider = vi.hoisted(() => ({ current: undefined as unknown }));
 vi.mock("@/lib/ai", async (importOriginal) => ({
@@ -310,7 +317,7 @@ describe("the MCP connector (#221, #281)", () => {
 
     // Disconnect all apps: a new time, so every token stops working.
     await new Promise((resolve) => setTimeout(resolve, 5));
-    expect(await disconnectApps({})).toMatchObject({ ok: true, toast: "Every app is disconnected. Connect again from an app to use Dossier there." });
+    expect(await disconnectApps({})).toMatchObject({ ok: true, toast: "Every app is disconnected. Connect again from an app to use HireMe there." });
     expect((await settings()).connectorEnabledAt).not.toBe(since);
 
     await setConnector({ on: false });
@@ -328,5 +335,48 @@ describe("the MCP connector (#221, #281)", () => {
     expect(await addConnectorRedirect({ uri: "http://localhost:5678/callback" })).toMatchObject({ ok: true, data: { redirects: [n8n, "http://localhost:5678/callback"] } });
     expect((await settings()).connectorRedirects).toEqual([n8n, "http://localhost:5678/callback"]);
     expect(await removeConnectorRedirect({ uri: n8n })).toEqual({ ok: true, data: { redirects: ["http://localhost:5678/callback"] } });
+  });
+});
+
+describe("application bot settings", () => {
+  it("saves a named OpenBot composer target and rejects control characters", async () => {
+    expect((await saveOpenbotAgentName({ value: " My Job Agent " })).ok).toBe(true);
+    expect((await settings()).openbotAgentName).toBe("My Job Agent");
+    expect((await saveOpenbotAgentName({ value: "Bad\nName" })).ok).toBe(false);
+  });
+  it("requires an explicit OpenBot helper mode and rejects unknown launch modes", async () => {
+    expect((await settings()).openbotLaunchMode).toBe("clipboard");
+    expect((await saveOpenbotLaunchMode({ value: "mac-helper" })).ok).toBe(true);
+    expect((await settings()).openbotLaunchMode).toBe("mac-helper");
+    expect((await saveOpenbotLaunchMode({ value: "run-shell" } as never)).ok).toBe(false);
+  });
+
+  it("persists and clears the shared bot prompt template, enforcing its size limit", async () => {
+    expect(await saveApplyBotPromptTemplate({ value: " Apply for {{role}} at {{company}} " })).toMatchObject({ ok: true });
+    expect((await settings()).applyBotPromptTemplate).toBe("Apply for {{role}} at {{company}}");
+    expect((await saveApplyBotPromptTemplate({ value: "x".repeat(10001) })).ok).toBe(false);
+    expect(await saveApplyBotPromptTemplate({ value: "" })).toMatchObject({ ok: true });
+    expect((await settings()).applyBotPromptTemplate).toBe("");
+  });
+
+  it("saves a new default without replacing the saved Grok Bot ID or connector permissions", async () => {
+    await saveGrokBotId({ value: "existing-grok-bot" });
+    expect(await saveApplyBot({ value: "openbot" })).toMatchObject({ ok: true, data: { applyBot: "openbot" } });
+    expect(await settings()).toMatchObject({ applyBot: "openbot", grokBotId: "existing-grok-bot", connectorEnabledAt: null });
+  });
+
+  it("persists each bot's preferences independently", async () => {
+    const results = await Promise.all([
+      saveApplyBotNotes({ bot: "openbot", value: "OpenBot table preference" }),
+      saveApplyBotNotes({ bot: "grok", value: "Grok concise review" }),
+    ]);
+    expect(results.every(result => result.ok)).toBe(true);
+    expect(await settings()).toMatchObject({ applyBotOpenbotNotes: "OpenBot table preference", applyBotGrokNotes: "Grok concise review", applyBotClaudeNotes: "" });
+  });
+
+  it("rejects unsupported bots and oversized preferences without changing saved settings", async () => {
+    expect((await saveApplyBot({ value: "unknown-bot" })).ok).toBe(false);
+    expect((await saveApplyBotNotes({ bot: "openbot", value: "x".repeat(2001) })).ok).toBe(false);
+    expect(await settings()).toMatchObject({ applyBot: "grok", applyBotOpenbotNotes: "" });
   });
 });

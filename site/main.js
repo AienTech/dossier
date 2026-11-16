@@ -1,4 +1,4 @@
-// Dossier's website: theme switch, tabs, copy buttons, scroll effects, the tour
+// HireMe's website: theme switch, tabs, copy buttons, scroll effects, the tour
 // video, and the star count and latest version from GitHub. The page works
 // without it.
 
@@ -151,7 +151,7 @@ const showVideo = (start) => {
   let video = player.querySelector("iframe");
   if (!video) {
     video = document.createElement("iframe");
-    video.title = "Dossier: tailored resumes and cover letters, self-hosted (install + tour)";
+    video.title = "HireMe: tailored resumes and cover letters, self-hosted (install + tour)";
     video.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
     video.allowFullscreen = true;
     // YouTube refuses to play an embed that sends no referrer.
@@ -177,7 +177,7 @@ for (const link of playLinks) {
 }
 
 // Stars and the latest release, from GitHub's API. Left out if it doesn't answer.
-const repo = "https://api.github.com/repos/AienTech/dossier";
+const repo = "https://api.github.com/repos/shahzadafridi/HireMe";
 const getJson = (url) => fetch(url, { headers: { Accept: "application/vnd.github+json" } }).then((r) => (r.ok ? r.json() : null));
 
 getJson(repo)

@@ -9,7 +9,7 @@ import { defineConfig } from "prisma/config";
 process.env["CHECKPOINT_DISABLE"] ??= "1";
 
 // DATABASE_URL picks the database: a PostgreSQL server, or an SQLite file
-// ("file:/data/dossier.db"), whose schema and migrations are in prisma/sqlite.
+// ("file:/data/hireme.db"), whose schema and migrations are in prisma/sqlite.
 const sqlite = process.env["DATABASE_URL"]?.startsWith("file:");
 
 export default defineConfig({

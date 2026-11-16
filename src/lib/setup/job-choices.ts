@@ -34,7 +34,7 @@ export const JOB_CHOICES: readonly JobChoice[] = [
     source: "ADZUNA",
     kind: "any",
     name: "Adzuna",
-    about: "Adzuna's own job index in 19 countries. It shares the start of each posting, and Dossier reads the rest from the posting's page.",
+    about: "Adzuna's own job index in 19 countries. It shares the start of each posting, and HireMe reads the rest from the posting's page.",
     cost: "A free key, with no card. Your account shows how many searches it allows.",
     steps: [
       {

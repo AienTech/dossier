@@ -34,16 +34,16 @@ vi.mock("next/navigation", () => ({
   },
 }));
 const dataDir = vi.hoisted(() => ({ path: "" }));
-vi.mock("@/lib/env", () => ({ env: { get DOSSIER_DATA_DIR() { return dataDir.path; }, DOSSIER_SECRET: "s".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { get HIREME_DATA_DIR() { return dataDir.path; }, HIREME_SECRET: "s".repeat(32) } }));
 
 const prisma = () => db.client!;
 const now = new Date(2026, 8, 28, 12);
 const snapshot = async () => JSON.stringify({ ...(await buildExport(prisma(), { now })), exportedAt: null });
 
 beforeEach(async () => {
-  dataDir.path = await mkdtemp(path.join(tmpdir(), "dossier-delete-"));
+  dataDir.path = await mkdtemp(path.join(tmpdir(), "hireme-delete-"));
   await mkdir(path.join(dataDir.path, "backups"));
-  await writeFile(path.join(dataDir.path, "backups", "dossier-backup-nightly-2026-09-27-030000.json"), "{}");
+  await writeFile(path.join(dataDir.path, "backups", "hireme-backup-nightly-2026-09-27-030000.json"), "{}");
   redirected.to = "";
   await resetDatabase(prisma());
   await seedBuiltIns(prisma());

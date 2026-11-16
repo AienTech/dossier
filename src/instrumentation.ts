@@ -7,6 +7,15 @@ export async function register() {
 
     const { logServerError } = await import("@/lib/log");
 
+    // A hosted install may run several web containers. Only the elected private
+    // worker owns recovery, timers and the queue; a single-process install keeps
+    // its original path.
+    if (process.env.HIREME_RUNTIME === "web") return;
+    if (process.env.HIREME_RUNTIME === "worker") {
+      const { acquireWorkerLeadership } = await import("@/lib/cloud-worker");
+      await acquireWorkerLeadership();
+    }
+
     // A restart lifts a block on sign-ins from new browsers (#334).
     const { liftBlockOnEveryone } = await import("@/lib/auth/login-throttle");
     const { prisma } = await import("@/lib/prisma");
@@ -25,8 +34,11 @@ export async function register() {
     startJobSweep();
 
     // Nightly backups at 03:00, while they're switched on (E10-7).
-    const { startBackupSchedule } = await import("@/lib/backup-schedule");
+    const { startBackupSchedule, catchUpNightlyBackup } = await import("@/lib/backup-schedule");
     startBackupSchedule();
+    if (process.env.HIREME_RUNTIME === "worker") {
+      await catchUpNightlyBackup().catch((error: unknown) => logServerError("backup catch-up", error));
+    }
 
     // The inbox check, while a Google account is connected (E15-3).
     const { startInboxSchedule } = await import("@/lib/google/sync");
@@ -40,7 +52,7 @@ export async function register() {
     const { startStartupsSchedule } = await import("@/lib/startups/schedule");
     startStartupsSchedule();
 
-    // DOSSIER_JOBS_SOURCE=arbeitsagentur: the log says what that choice means (#223).
+    // HIREME_JOBS_SOURCE=arbeitsagentur: the log says what that choice means (#223).
     const { arbeitsagenturStartupNotice, loadJobSearchConfig } = await import("@/lib/job-search/config");
     try {
       const notice = arbeitsagenturStartupNotice(await loadJobSearchConfig());
@@ -49,7 +61,7 @@ export async function register() {
       logServerError("job search", error);
     }
 
-    // DOSSIER_TELEMETRY, when set, is the usage ping's answer on record (#172).
+    // HIREME_TELEMETRY, when set, is the usage ping's answer on record (#172).
     // Then the log says what the ping sends while it's on, or how to answer
     // while nobody has.
     const { recordEnvChoice, usagePingNotice } = await import("@/lib/usage-ping");

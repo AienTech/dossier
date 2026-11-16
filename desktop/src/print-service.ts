@@ -11,8 +11,8 @@ import { BrowserWindow, session } from "electron";
 
 const PARTITION = "print";
 const MAX_AT_ONCE = 2;
-const PRINT_TOKEN_HEADER = "x-dossier-print-token";
-const DESKTOP_TOKEN_HEADER = "x-dossier-desktop-token";
+const PRINT_TOKEN_HEADER = "x-hireme-print-token";
+const DESKTOP_TOKEN_HEADER = "x-hireme-desktop-token";
 const NAVIGATION_TIMEOUT_MS = 20_000;
 
 async function printPage(origin: string, page: string, printToken: string): Promise<Buffer> {

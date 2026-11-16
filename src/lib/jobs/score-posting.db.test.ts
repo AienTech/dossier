@@ -14,8 +14,8 @@ vi.mock("@/lib/prisma", async () => {
   db.client = createTestClient();
   return { prisma: db.client };
 });
-// Settings → Scoring reads DOSSIER_SCORER, and the AI model scores until Jev is chosen (#274).
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+// Settings → Scoring reads HIREME_SCORER, and the AI model scores until Jev is chosen (#274).
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 vi.mock("@/lib/ai/config", () => ({ isAiConfigured: async () => true }));
 vi.mock("@/lib/profile-data", async () => {
   const { demoProfile } = await import("@/lib/demo-profile");

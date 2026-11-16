@@ -146,10 +146,10 @@ describe("AiProviderSection", () => {
     expect(field).toHaveAttribute("placeholder", "120");
   });
 
-  it("says when DOSSIER_AI_TIMEOUT_SECONDS sets the default", () => {
+  it("says when HIREME_AI_TIMEOUT_SECONDS sets the default", () => {
     render(<AiProviderSection initial={{ ...local, timeoutSeconds: 600, envTimeoutSeconds: 900 }} />);
     expect(screen.getByLabelText("Timeout, in seconds")).toHaveValue("600");
-    expect(screen.getByText(/Empty uses 900, from DOSSIER_AI_TIMEOUT_SECONDS\./)).toBeInTheDocument();
+    expect(screen.getByText(/Empty uses 900, from HIREME_AI_TIMEOUT_SECONDS\./)).toBeInTheDocument();
   });
 
   it("lets you type a model that isn't listed", async () => {

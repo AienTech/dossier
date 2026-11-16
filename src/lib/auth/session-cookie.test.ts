@@ -22,11 +22,12 @@ vi.mock("next/navigation", () => ({
     throw new Error(`redirect ${to}`);
   },
 }));
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "s".repeat(32), DOSSIER_PASSWORD: "correct horse" } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "s".repeat(32), HIREME_PASSWORD: "correct horse" } }));
 // React's per-request cache would keep the first answer across tests.
 vi.mock("react", async (importOriginal) => ({ ...(await importOriginal<typeof import("react")>()), cache: <T,>(fn: T) => fn }));
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
   jar.values.clear();
   jar.set.mockClear();
   jar.remove.mockClear();
@@ -44,6 +45,18 @@ describe("the session cookie (E3-1)", () => {
     jar.proto = "https, http";
     await startSession({ persistent: true });
     expect(jar.set).toHaveBeenCalledWith(SESSION_COOKIE, expect.any(String), expect.objectContaining({ secure: true, maxAge: SESSION_LIFETIME.persistent }));
+  });
+
+  it("always uses a secure cookie on Vercel, even without a forwarded protocol", async () => {
+    vi.stubEnv("VERCEL", "1");
+    await startSession({ persistent: false });
+    expect(jar.set).toHaveBeenCalledWith(SESSION_COOKIE, expect.any(String), expect.objectContaining({ secure: true, httpOnly: true, sameSite: "lax" }));
+  });
+
+  it("keeps cloud container cookies secure even without Vercel's system flag", async () => {
+    vi.stubEnv("HIREME_RUNTIME", "web");
+    await startSession({ persistent: false });
+    expect(jar.set).toHaveBeenCalledWith(SESSION_COOKIE, expect.any(String), expect.objectContaining({ secure: true }));
   });
 
   it("reads no session from a missing or forged cookie", async () => {

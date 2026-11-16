@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The Mac app's window loads the local server as 127.0.0.1. Next only allows
+  // localhost for /_next/hmr until that host is listed here (yarn dev).
+  allowedDevOrigins: ["127.0.0.1"],
   // The production image runs .next/standalone: the server and only the files
   // it needs (E12-1).
   output: "standalone",
@@ -53,7 +56,10 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         has: [{ type: "header", key: "x-forwarded-proto", value: "https" }],
-        headers: [{ key: "Cross-Origin-Opener-Policy", value: "same-origin" }],
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+        ],
       },
     ];
   },

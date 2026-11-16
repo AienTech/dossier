@@ -42,14 +42,16 @@ import { appVersion } from "@/lib/version";
 
 import { connectorDraftJob } from "./draft";
 import { readPastedPosting } from "./handoff";
-import { saveWrittenApplication, WRITTEN_IN_CLAUDE, writtenDetailsSchema, writtenLetterSchema, writtenMatchSchema, writtenResumeSchema } from "./write";
+import { registerManagementTools } from "./manage";
+import { registerDelegationTools } from "./operations";
+import { saveWrittenApplication, WRITTEN_VIA_MCP, writtenDetailsSchema, writtenLetterSchema, writtenMatchSchema, writtenResumeSchema } from "./write";
 
 // The Claude connector's tools (#221, src/app/api/mcp), adapted from Anirudh
-// Sharma's fork of Dossier: search for jobs, read the profile and the
+// Sharma's fork of HireMe: search for jobs, read the profile and the
 // applications, save applications and fit scores, and move applications
-// along. Like the AI features, they never send anything, and no tool
-// deletes or archives. Contact details, private notes and the letter's
-// sender and signature stay out of what Claude is given.
+// along. Direct sending/deletion is never exposed as an MCP tool; authenticated
+// owner reviews execute those actions. Baseline reads omit contacts/private
+// notes; extended private reads require a separate per-app owner grant.
 
 const text = (value: unknown): CallToolResult => ({ content: [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] });
 const failure = (message: string): CallToolResult => ({ content: [{ type: "text", text: message }], isError: true });
@@ -95,8 +97,8 @@ function documentText(units: unknown): string {
 
 /** Where a posting comes from, in a tool's input. */
 const postingSource = {
-  posting_id: z.string().max(100).optional().describe("A posting Dossier handed over, by its posting_id"),
-  paste_id: z.string().max(100).optional().describe("A pasted posting Dossier handed over, by its paste_id"),
+  posting_id: z.string().max(100).optional().describe("A posting HireMe handed over, by its posting_id"),
+  paste_id: z.string().max(100).optional().describe("A pasted posting HireMe handed over, by its paste_id"),
   search_id: z.string().max(100).optional().describe("A search from search_jobs"),
   number: z.number().int().min(1).optional().describe("The posting's number in that search"),
   posting_url: z.url({ protocol: /^https?$/ }).max(2000).optional().describe("The posting's web address"),
@@ -110,7 +112,7 @@ type ResolvedPosting = { text: string; url: string; postingId: string | null; ti
 async function resolvePosting(source: PostingSource): Promise<ResolvedPosting | { error: string }> {
   if (source.posting_id) {
     const row = await prisma.posting.findUnique({ where: { id: source.posting_id } });
-    if (!row) return { error: "That posting is no longer in Dossier. Open it again from Find jobs." };
+    if (!row) return { error: "That posting is no longer in HireMe. Open it again from Find jobs." };
     const found = foundFromPosting(row);
     const description = found.complete ? found.description : ((await fullText(found)) ?? found.description);
     if (!description.trim()) return { error: "That posting has no text to write from. Give its link as posting_url instead." };
@@ -137,7 +139,7 @@ async function resolvePosting(source: PostingSource): Promise<ResolvedPosting | 
       place: found.place,
     };
   }
-  // Pasted text is used as it is, with its link kept: a page Dossier can't read, such as one behind a sign-in, mustn't fail it.
+  // Pasted text is used as it is, with its link kept: a page HireMe can't read, such as one behind a sign-in, mustn't fail it.
   if (source.posting_text?.trim()) return { text: source.posting_text.trim(), url: source.posting_url ?? "", postingId: null };
   if (source.posting_url) {
     const fetched = await fetchPosting(source.posting_url);
@@ -147,20 +149,23 @@ async function resolvePosting(source: PostingSource): Promise<ResolvedPosting | 
   return { error: "Give posting_id, paste_id, search_id and number, posting_url, or posting_text." };
 }
 
-/** Dossier as an MCP server, for one request; `origin` is the address links in answers point to. */
-export function createDossierServer(origin: string): McpServer {
+/** HireMe as an MCP server, for one request; `origin` is the address links in answers point to. */
+export function createHireMeServer(origin: string, clientId = ""): McpServer {
   const linkTo = (path: string) => `${origin}${path}`;
   const server = new McpServer(
-    { name: "dossier", title: "Dossier", version: appVersion },
+    { name: "hireme", title: "HireMe", version: appVersion },
     {
       instructions:
-        "Dossier is the user's own job search app: one profile, tailored resumes and cover letters, and every application tracked. " +
+        "HireMe is the user's own job search app: one profile, tailored resumes and cover letters, and every application tracked. " +
         "Search jobs with search_jobs (in the profile's city and country unless the user says otherwise), " +
         "and when the user wants to know which fit best, score them against the profile and save the scores with save_job_scores. " +
         "To draft an application, you write it yourself: call get_profile and get_posting, write a tailored resume and cover letter " +
         "from facts in the profile only (never invent experience, employers, numbers or degrees; say what's missing instead), " +
         "show the user a short summary, then save it with save_application. Read or update applications with the other tools. " +
-        "Nothing is ever sent for the user: drafts wait in Dossier for them to review and download as PDFs.",
+        "Use track_application for applications already made elsewhere; reuse its idempotency_key on retries. " +
+        "Use list_jobs and list_job_searches to pull saved work, set_job_state to save or dismiss postings, " +
+        "get_dashboard for totals and follow-ups, and update_application or set_application_archived to manage board cards. " +
+        "SENT records that the user already applied; REJECTED records a rejection. Baseline tools never send or delete. Extended tools are controlled per connected app in /delegations; request_delegation cannot grant itself access. Use record_external_application to retain actual manual/bot submissions when permitted. request_application_email, request_application_deletion and request_external_submission only create owner reviews; no tool can approve them. A browser agent must retrieve the exact approved handoff before final submission and record the actual result afterward. Never present a newly generated document as one previously submitted.",
     },
   );
 
@@ -169,7 +174,7 @@ export function createDossierServer(origin: string): McpServer {
     {
       title: "Read the profile",
       description:
-        "The user's profile in Dossier: headline, summary, facts about them, skills, languages, experience, projects, education, certifications, publications and sections they made, with the ids save_application uses. Contact details and links are left out.",
+        "The user's profile in HireMe: headline, summary, facts about them, skills, languages, experience, projects, education, certifications, publications and sections they made, with the ids save_application uses. Contact details and links are left out.",
       annotations: { readOnlyHint: true },
     },
     async () => {
@@ -183,7 +188,7 @@ export function createDossierServer(origin: string): McpServer {
     {
       title: "Search for jobs",
       description:
-        "Searches the job source set up in Dossier's settings and keeps the search in Find jobs → Past searches. Each search uses one search from the user's plan with that source. " +
+        "Searches the job source set up in HireMe's settings and keeps the search in Find jobs → Past searches. Each search uses one search from the user's plan with that source. " +
         "Returns a search_id and numbered postings; pass both to get_posting, save_job_scores or save_application, or the search_id to more_jobs.",
       inputSchema: z.object({
         keywords: z.string().trim().min(1).max(200).describe("Job title, skill or company, e.g. 'product designer'"),
@@ -271,7 +276,7 @@ export function createDossierServer(origin: string): McpServer {
           .array(
             z.object({
               number: z.number().int().min(1).optional().describe("The posting's number in the search"),
-              posting_id: z.string().max(100).optional().describe("Instead of a number: a posting Dossier handed over"),
+              posting_id: z.string().max(100).optional().describe("Instead of a number: a posting HireMe handed over"),
               score: z.number().int().min(0).max(100),
               reasons: z.array(z.string().max(300)).min(1).max(4),
               red_flags: z.array(z.string().max(300)).max(3).default([]),
@@ -296,7 +301,7 @@ export function createDossierServer(origin: string): McpServer {
           continue;
         }
         const fit = scoreFrom({ score: entry.score, reasons: entry.reasons, redFlags: entry.red_flags });
-        await saveScore(posting, fit, WRITTEN_IN_CLAUDE);
+        await saveScore(posting, fit, WRITTEN_VIA_MCP);
         saved.push({ number: entry.number, posting_id: entry.posting_id, title: posting.title, score: fit.score, band: fitBand(fit.score) });
       }
       return text({ saved, not_found: missing.length > 0 ? missing : undefined, link: linkTo(search_id ? `/jobs?search=${search_id}` : "/jobs?view=saved") });
@@ -307,20 +312,23 @@ export function createDossierServer(origin: string): McpServer {
     "list_applications",
     {
       title: "List applications",
-      description: "The user's applications in Dossier, newest activity first, with their status. Optionally only one status.",
+      description: "The user's applications in HireMe, newest activity first, with their status. Optionally only one status.",
       inputSchema: z.object({
+        query: z.string().trim().max(200).optional().describe("Search company, role or title"),
+        offset: z.number().int().min(0).default(0),
         status: z.enum(ApplicationStatus).optional().describe("DRAFT, SENT, SCREENING, INTERVIEW, OFFER, ACCEPTED, REJECTED or DECLINED"),
         include_archived: z.boolean().optional(),
         limit: z.number().int().min(1).max(100).optional(),
       }),
       annotations: { readOnlyHint: true },
     },
-    async ({ status, include_archived, limit }) => {
+    async ({ status, include_archived, limit, offset, query }) => {
       const rows = await prisma.application.findMany({
-        where: { awaitingReview: false, ...(status ? { status } : {}), ...(include_archived ? {} : { archivedAt: null }) },
-        orderBy: { updatedAt: "desc" },
+        where: { awaitingReview: false, ...(query ? { OR: ["company", "role", "title"].map((field) => ({ [field]: { contains: query, mode: "insensitive" as const } })) } : {}), ...(status ? { status } : {}), ...(include_archived ? {} : { archivedAt: null }) },
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        skip: offset,
         take: limit ?? 30,
-        select: { id: true, title: true, company: true, role: true, location: true, status: true, updatedAt: true, postingUrl: true },
+        select: { id: true, title: true, company: true, role: true, location: true, status: true, archivedAt: true, sentAt: true, nextInterviewAt: true, updatedAt: true, postingUrl: true },
       });
       return text(
         rows.map((row) => ({
@@ -330,6 +338,10 @@ export function createDossierServer(origin: string): McpServer {
           role: row.role,
           location: row.location,
           status: statusInfo(row.status).label,
+          status_code: row.status,
+          archived: row.archivedAt !== null,
+          sent_at: row.sentAt,
+          next_interview_at: row.nextInterviewAt,
           updated: row.updatedAt.toISOString().slice(0, 10),
           posting: row.postingUrl || undefined,
           link: linkTo(`/applications/${row.id}`),
@@ -390,7 +402,7 @@ export function createDossierServer(origin: string): McpServer {
     {
       title: "Read a posting",
       description:
-        "The whole text of a job posting, from a search (search_id and number), one Dossier handed over (posting_id or paste_id) or a link (posting_url), to write an application from or score.",
+        "The whole text of a job posting, from a search (search_id and number), one HireMe handed over (posting_id or paste_id) or a link (posting_url), to write an application from or score.",
       inputSchema: z.object({
         posting_id: postingSource.posting_id,
         paste_id: postingSource.paste_id,
@@ -412,15 +424,15 @@ export function createDossierServer(origin: string): McpServer {
     {
       title: "Save an application you wrote",
       description:
-        "Saves a tailored resume and cover letter you wrote as a Draft application in Dossier, where the user can review, edit and download them as PDFs. " +
-        "Give the posting (posting_id or paste_id when Dossier handed it over, search_id and number, posting_url or posting_text), its details, the resume (by the ids from get_profile) and the letter. " +
+        "Saves a tailored resume and cover letter you wrote as a Draft application in HireMe, where the user can review, edit and download them as PDFs. " +
+        "Give the posting (posting_id or paste_id when HireMe handed it over, search_id and number, posting_url or posting_text), its details, the resume (by the ids from get_profile) and the letter. " +
         "Only use facts from the profile. Nothing is sent.",
       inputSchema: z.object({
         ...postingSource,
         details: writtenDetailsSchema,
         resume: writtenResumeSchema,
         cover_letter: writtenLetterSchema,
-        match: writtenMatchSchema.describe("What the posting asks for and whether the profile covers it, partly covers it, or has a gap; Dossier shows it as the application's match"),
+        match: writtenMatchSchema.describe("What the posting asks for and whether the profile covers it, partly covers it, or has a gap; HireMe shows it as the application's match"),
         note: z.string().max(2000).optional().describe("What the user asked to stress, kept with the application"),
       }),
       annotations: { readOnlyHint: false, openWorldHint: true },
@@ -443,7 +455,7 @@ export function createDossierServer(origin: string): McpServer {
         status: "Draft",
         link: linkTo(`/applications/${saved.applicationId}`),
         check_these: saved.unverified.length > 0 ? saved.unverified : undefined,
-        next: saved.unverified.length > 0 ? "Dossier marked names or numbers it couldn't find in the profile or posting; tell the user to check them." : undefined,
+        next: saved.unverified.length > 0 ? "HireMe marked names or numbers it couldn't find in the profile or posting; tell the user to check them." : undefined,
       });
     },
   );
@@ -451,16 +463,16 @@ export function createDossierServer(origin: string): McpServer {
   server.registerTool(
     "draft_application",
     {
-      title: "Have Dossier draft an application",
+      title: "Have HireMe draft an application",
       description:
-        "Has Dossier's own AI model draft the application, only when an AI provider is set up in Dossier's settings. " +
+        "Has HireMe's own AI model draft the application, only when an AI provider is set up in HireMe's settings. " +
         "Without one, write it yourself with get_profile, get_posting and save_application. Takes one to three minutes: follow it with check_draft.",
       inputSchema: z.object({ ...postingSource, note: z.string().max(2000).optional().describe("Anything the documents should stress, in the user's words") }),
       annotations: { readOnlyHint: false, openWorldHint: true },
     },
     async ({ note, ...source }) => {
       if (!(await isAiUsable())) {
-        return failure("Dossier has no AI model of its own set up. Write the application yourself: get_profile, get_posting, then save_application.");
+        return failure("HireMe has no AI model of its own set up. Write the application yourself: get_profile, get_posting, then save_application.");
       }
       const posting = await resolvePosting(source);
       if ("error" in posting) return failure(posting.error);
@@ -508,5 +520,30 @@ export function createDossierServer(origin: string): McpServer {
     },
   );
 
+  // Tracking from an apply bot: notes stay on this server and are never fed back
+  // into get_application (private). The bot writes them so HireMe can show follow-ups.
+  server.registerTool(
+    "add_application_note",
+    {
+      title: "Add a private note",
+      description:
+        "Adds a private note on an application for tracking — e.g. applied via the bot, recruiter reply, interview time, or rejection reason. " +
+        "Notes stay in HireMe and are not returned by get_application. Nothing is sent externally.",
+      inputSchema: z.object({
+        id: z.string().min(1).max(100).describe("The application id from get_application or list_applications"),
+        body: z.string().trim().min(1).max(5000).describe("What happened, in the user's words or a short factual summary"),
+      }),
+      annotations: { readOnlyHint: false },
+    },
+    async ({ id, body }) => {
+      const application = await prisma.application.findUnique({ where: { id, awaitingReview: false }, select: { id: true } });
+      if (!application) return failure("That application no longer exists.");
+      const note = await prisma.note.create({ data: { applicationId: id, body }, select: { id: true, createdAt: true } });
+      return text({ id, note_id: note.id, added: note.createdAt.toISOString(), link: linkTo(`/applications/${id}`) });
+    },
+  );
+
+  registerManagementTools(server, origin);
+  registerDelegationTools(server, origin, clientId);
   return server;
 }

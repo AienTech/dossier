@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32), DOSSIER_DESKTOP_TOKEN: "launch-token" } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32), HIREME_DESKTOP_TOKEN: "launch-token" } }));
 
 const { printWithDesktopApp } = await import("./desktop-print");
 const { verifyPrintToken } = await import("./print-token");
@@ -12,7 +12,7 @@ describe("printWithDesktopApp", () => {
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe("http://127.0.0.1:5000");
     expect(init?.method).toBe("POST");
-    expect(init?.headers).toMatchObject({ "x-dossier-desktop-token": "launch-token" });
+    expect(init?.headers).toMatchObject({ "x-hireme-desktop-token": "launch-token" });
     const { page, printToken } = JSON.parse(init?.body as string) as { page: string; printToken: string };
     expect(page).toBe("/print/base?fit=1");
     expect(await verifyPrintToken(printToken, "/print/base?fit=1")).toBe(true);

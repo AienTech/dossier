@@ -1,5 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("node:timers/promises", () => ({ setTimeout: vi.fn(async () => {}) }));
+
 import { MockProvider } from "@/lib/ai/providers/mock";
 import { createTestClient, resetDatabase } from "@/test/db";
 
@@ -13,7 +15,7 @@ vi.mock("@/lib/prisma", async () => {
   return { prisma: db.client };
 });
 vi.mock("@/lib/env", () => ({
-  env: { DOSSIER_SECRET: "s".repeat(40), DOSSIER_GOOGLE_CLIENT_ID: "client", DOSSIER_GOOGLE_CLIENT_SECRET: "secret", DOSSIER_DATA_DIR: "/tmp" },
+  env: { HIREME_SECRET: "s".repeat(40), HIREME_GOOGLE_CLIENT_ID: "client", HIREME_GOOGLE_CLIENT_SECRET: "secret", HIREME_DATA_DIR: "/tmp" },
 }));
 const provider = vi.hoisted(() => ({ current: undefined as unknown }));
 vi.mock("@/lib/ai", () => ({ getAiProvider: async () => provider.current }));
@@ -211,20 +213,20 @@ describe("the inbox check (E15-3)", () => {
         return new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 });
       }),
     );
-    await expect(syncInbox()).rejects.toThrow("Google no longer accepts Dossier's access.");
+    await expect(syncInbox()).rejects.toThrow("Google no longer accepts HireMe's access.");
     expect(await googleConnection()).toMatchObject({ status: "connected", signInProblem: expect.stringContaining("Connect your Google account again") });
-    await expect(syncInbox()).rejects.toThrow("Google no longer accepts Dossier's access.");
+    await expect(syncInbox()).rejects.toThrow("Google no longer accepts HireMe's access.");
     expect(tokenCalls).toBe(1);
 
     await saveGoogleAccount({ email: "jane@gmail.com", refreshToken: "new-refresh", scopes });
     expect(await googleConnection()).toMatchObject({ signInProblem: null, syncProblem: null });
   });
 
-  it("pauses, but keeps, saved access it can't read, since the old DOSSIER_SECRET reads it again (#136)", async () => {
+  it("pauses, but keeps, saved access it can't read, since the old HIREME_SECRET reads it again (#136)", async () => {
     forgetAccessTokens();
     const other = encryptSecret(GOOGLE_TOKEN, "refresh", "o".repeat(40));
     await prisma().googleAccount.update({ where: { id: "google" }, data: { refreshTokenEnc: other } });
-    expect(await googleConnection()).toMatchObject({ signInProblem: expect.stringContaining("DOSSIER_SECRET changed") });
+    expect(await googleConnection()).toMatchObject({ signInProblem: expect.stringContaining("HIREME_SECRET changed") });
     await expect(syncInbox()).rejects.toThrow("can't be read");
     expect(await prisma().googleAccount.findUniqueOrThrow({ where: { id: "google" } })).toMatchObject({ refreshTokenEnc: other });
   });
@@ -245,7 +247,7 @@ describe("the inbox check (E15-3)", () => {
     expect(await syncInbox()).toEqual({ fetched: 3, kept: 3, read: 3, unread: 0 });
     const kept = await prisma().emailMessage.findMany({ where: { direction: "INCOMING" }, orderBy: { gmailId: "asc" } });
     expect(kept.map((email) => [email.gmailId, email.applicationId, email.kind, email.suggestedStatus])).toEqual([
-      // In the thread Dossier wrote in: linked whatever it says.
+      // In the thread HireMe wrote in: linked whatever it says.
       ["m1", "nw", "REJECTION", "REJECTED"],
       // By the domain only, and about another role: waits for a look, with the rest of its thread.
       ["m2", null, "REJECTION", null],
@@ -280,5 +282,32 @@ describe("the inbox check (E15-3)", () => {
     expect(raw).toContain("Subject: Re: Application");
     expect(raw).toContain("In-Reply-To: <m1@mail.example>");
     expect(await prisma().emailMessage.findUniqueOrThrow({ where: { id: reply.id } })).toMatchObject({ handledAt: expect.any(Date) });
+  });
+});
+
+describe("one-time job-mail scan", () => {
+  it("fetches bodies only for relevant mail and updates a clearly linked application's board status", async () => {
+    await prisma().application.update({ where: { id: "nw" }, data: { status: "SENT", emailThreadId: "known-thread" } });
+    mailbox = [
+      { id: "job-reply", threadId: "known-thread", from: "HR <hr@northwind.example>", subject: "Application interview", text: "Please attend your interview." },
+      { id: "personal", threadId: "private-thread", from: "Friend <friend@gmail.com>", subject: "Lunch", text: "Personal email must not be sent to the AI." },
+    ];
+    const result = await syncInbox({ jobOnly: true, lookbackDays: 30, applyUpdates: true });
+    expect(result).toMatchObject({ fetched: 2, kept: 1, read: 1, updated: 1, reviewNeeded: 0 });
+    expect((await prisma().application.findUniqueOrThrow({ where: { id: "nw" } })).status).toBe("INTERVIEW");
+    expect(await prisma().statusEvent.count({ where: { applicationId: "nw", to: "INTERVIEW" } })).toBe(1);
+    const calls = vi.mocked(fetch).mock.calls.map(([url]) => String(url));
+    expect(calls.some(url => url.includes("messages/personal?format=metadata"))).toBe(true);
+    expect(calls.some(url => url.includes("messages/personal?format=full"))).toBe(false);
+    expect(calls.some(url => url.includes("messages/job-reply?format=full"))).toBe(true);
+    expect(await prisma().emailMessage.count({ where: { gmailId: "personal" } })).toBe(0);
+  });
+  it("leaves ambiguous matches for review instead of updating the wrong role", async () => {
+    await prisma().application.update({ where: { id: "nw" }, data: { status: "SENT" } });
+    await prisma().application.create({ data: { id: "other-role", company: "Northwind Logistics", role: "Engineer", status: "SENT", postingText: "careers@northwind.example" } });
+    mailbox = [{ id: "ambiguous", threadId: "unknown-thread", from: "HR <hr@northwind.example>", subject: "Your interview", text: "An interview invitation without a role." }];
+    const result = await syncInbox({ jobOnly: true, lookbackDays: 30, applyUpdates: true });
+    expect(result).toMatchObject({ updated: 0, reviewNeeded: 1 });
+    expect(await prisma().application.count({ where: { status: "SENT" } })).toBe(2);
   });
 });

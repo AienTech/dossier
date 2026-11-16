@@ -60,7 +60,7 @@ jobs:
           object=$(gh api "repos/$GH_REPO/git/ref/tags/$GITHUB_REF_NAME" --jq 'select(.object.type == "tag") | .object.sha')
           notes=""
           if [ -n "$object" ]; then notes=$(gh api "repos/$GH_REPO/git/tags/$object" --jq .message); fi
-          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "Dossier ${GITHUB_REF_NAME#v}" --notes "${notes:-Dossier ${GITHUB_REF_NAME#v}}"
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "HireMe ${GITHUB_REF_NAME#v}" --notes "${notes:-HireMe ${GITHUB_REF_NAME#v}}"
 
   # The downloads, and then the release is published (desktop.yml). If this
   # fails, start Desktop app by hand for the tag: no new tag needed.

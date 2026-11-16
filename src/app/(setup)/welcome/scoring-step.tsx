@@ -26,7 +26,7 @@ const OPTIONS: readonly { value: Scorer; name: string; description: string; tag:
   {
     value: "JEV",
     name: "Jev by TypeSafe",
-    description: "A model made for quick yes-or-no judgments. Dossier builds the score from its answers, and the reasons quote the posting's own lines.",
+    description: "A model made for quick yes-or-no judgments. HireMe builds the score from its answers, and the reasons quote the posting's own lines.",
     tag: "Needs a TypeSafe key · in early access",
   },
 ];

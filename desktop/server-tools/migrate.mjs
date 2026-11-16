@@ -1,6 +1,6 @@
 // Brings the app's SQLite database up to date, without Prisma's command-line
 // tools, which are most of the image's size. It keeps Prisma's own table, in
-// Prisma's own format, so the file stays a normal Dossier database.
+// Prisma's own format, so the file stays a normal HireMe database.
 //
 // Each file runs as it is and NOT in a transaction. The migrations turn foreign
 // keys off to rebuild a table, SQLite ignores that inside a transaction, and then
@@ -71,7 +71,7 @@ export function migrate({ file, migrations, version, Database }) {
   const unknown = applied.filter((name) => !known.includes(name));
   if (unknown.length > 0) {
     db.close();
-    throw new NewerDatabase(`This database was last used by a newer version of Dossier (it has ${unknown.join(", ")}).`);
+    throw new NewerDatabase(`This database was last used by a newer version of HireMe (it has ${unknown.join(", ")}).`);
   }
   const pending = known.filter((name) => !applied.includes(name));
   if (pending.length === 0) {
@@ -105,9 +105,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const here = path.dirname(process.argv[1]);
   try {
     const { applied, copy } = migrate({
-      file: process.env.DOSSIER_DATABASE_FILE,
+      file: process.env.HIREME_DATABASE_FILE,
       migrations: path.join(here, "migrations"),
-      version: process.env.DOSSIER_APP_VERSION ?? "unknown",
+      version: process.env.HIREME_APP_VERSION ?? "unknown",
       Database: require("better-sqlite3"),
     });
     console.log(applied.length ? `Applied ${applied.length} migrations${copy ? `; the old database is at ${copy}` : ""}.` : "The database is up to date.");

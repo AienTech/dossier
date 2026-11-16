@@ -7,8 +7,7 @@ import { googleUrl } from "./endpoints";
 import { isGone } from "./errors";
 import { buildMessage, decodeHeader, htmlToText, toBase64Url, type OutgoingMail } from "./mime";
 
-// The parts of the Gmail API Dossier uses (E15-2, E15-3). Reading asks again
-// when Google asks for a pause; sending never does, so nothing goes twice.
+// The parts of the Gmail API HireMe uses (E15-2, E15-3).
 
 const api = (path: string) => googleUrl("gmail", `/gmail/v1/users/me${path}`);
 
@@ -48,7 +47,7 @@ const messageSchema = z.object({
   payload: partSchema,
 });
 
-/** A Gmail message as Dossier reads it. */
+/** A Gmail message as HireMe reads it. */
 export type ReadMail = {
   id: string;
   threadId: string;
@@ -102,9 +101,9 @@ export function readMessage(json: unknown): ReadMail {
 }
 
 /** One message, or null when it was deleted after Gmail listed it. */
-export async function getMessage(id: string, signal?: AbortSignal): Promise<ReadMail | null> {
+export async function getMessage(id: string, signal?: AbortSignal, format: "full" | "metadata" = "full"): Promise<ReadMail | null> {
   try {
-    return readMessage(await googleFetch("read", api(`/messages/${encodeURIComponent(id)}?format=full`), { signal, retry: true }));
+    return readMessage(await googleFetch("read", api(`/messages/${encodeURIComponent(id)}?format=${format}${format === "metadata" ? "&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=Message-ID&metadataHeaders=References" : ""}`), { signal }));
   } catch (error) {
     if (isGone(error)) return null;
     throw error;
@@ -113,7 +112,7 @@ export async function getMessage(id: string, signal?: AbortSignal): Promise<Read
 
 /** Where the mailbox is now, to check from next time. */
 export async function currentHistoryId(signal?: AbortSignal): Promise<string> {
-  const profile = await googleFetch<{ historyId: string }>("read", api("/profile"), { signal, retry: true });
+  const profile = await googleFetch<{ historyId: string }>("read", api("/profile"), { signal });
   return profile.historyId;
 }
 
@@ -134,7 +133,7 @@ export async function messagesSince(historyId: string, signal?: AbortSignal): Pr
     if (pageToken) url.searchParams.set("pageToken", pageToken);
     let page: { history?: { messagesAdded?: { message: { id: string } }[] }[]; nextPageToken?: string; historyId: string };
     try {
-      page = await googleFetch("read", url, { signal, retry: true });
+      page = await googleFetch("read", url, { signal });
     } catch (error) {
       if (error instanceof Error && "detail" in error && String((error as { detail?: string }).detail).endsWith("404")) return null;
       throw error;
@@ -151,6 +150,6 @@ export async function searchMessages(query: string, { max = 100, signal }: { max
   const url = new URL(api("/messages"));
   url.searchParams.set("q", query);
   url.searchParams.set("maxResults", String(Math.min(max, 500)));
-  const page = await googleFetch<{ messages?: { id: string }[] }>("read", url, { signal, retry: true });
+  const page = await googleFetch<{ messages?: { id: string }[] }>("read", url, { signal });
   return (page.messages ?? []).map((message) => message.id);
 }

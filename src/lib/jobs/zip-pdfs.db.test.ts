@@ -17,7 +17,7 @@ vi.mock("@/lib/prisma", async () => {
   return { prisma: db.client };
 });
 const dataDir = vi.hoisted(() => ({ path: "" }));
-vi.mock("@/lib/env", () => ({ env: { get DOSSIER_DATA_DIR() { return dataDir.path; } } }));
+vi.mock("@/lib/env", () => ({ env: { get HIREME_DATA_DIR() { return dataDir.path; } } }));
 vi.mock("@/lib/pdf/render", () => ({ renderPdf: vi.fn(async (page: string) => new TextEncoder().encode(`%PDF ${page}`)) }));
 vi.mock("@/lib/profile-data", () => ({ loadProfileName: async () => "Jane Doe" }));
 vi.mock("./runner", () => ({ defineJob: <T,>(definition: T) => definition }));
@@ -27,7 +27,7 @@ const steps: string[] = [];
 const context = { id: "test-job", step: async (name: string) => void steps.push(name), signal: new AbortController().signal };
 
 beforeEach(async () => {
-  dataDir.path = await mkdtemp(path.join(tmpdir(), "dossier-zip-"));
+  dataDir.path = await mkdtemp(path.join(tmpdir(), "hireme-zip-"));
   steps.length = 0;
   vi.mocked(renderPdf).mockClear();
   await resetDatabase(prisma());
@@ -48,7 +48,7 @@ afterAll(async () => {
 describe("zipPdfsJob (E10-5)", () => {
   it("zips every tailored document into a folder per company", async () => {
     const result = await zipPdfsJob.run({}, context);
-    expect(result).toMatchObject({ documents: 5, fileName: expect.stringMatching(/^dossier-pdfs-\d{4}-\d{2}-\d{2}\.zip$/) });
+    expect(result).toMatchObject({ documents: 5, fileName: expect.stringMatching(/^hireme-pdfs-\d{4}-\d{2}-\d{2}\.zip$/) });
     expect(renderPdf).toHaveBeenCalledWith("/print/resume/a1");
     expect(renderPdf).toHaveBeenCalledWith("/print/letter/a3");
 

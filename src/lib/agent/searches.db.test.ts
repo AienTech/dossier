@@ -13,7 +13,7 @@ import { attributeAgentCandidates } from "./attribution";
 import { candidateData } from "./candidates";
 import { deleteAgentSearch, listAgentSearches, lockAgentSearches, saveAgentSearch, setAgentSearchEnabled } from "./searches";
 
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "s".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "s".repeat(32) } }));
 vi.mock("@/lib/prisma", () => ({ prisma: new Proxy({}, { get: (_, key) => Reflect.get(client, key) }) }));
 const client = createTestClient();
 const input = { name: "  Design  ", query: { ...EMPTY_QUERY, keywords: "  Designer  ", country: " DE ", place: " Berlin " } };

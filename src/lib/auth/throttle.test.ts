@@ -86,7 +86,7 @@ describe("message", () => {
 
   it("tells a new browser stopped by the limit on everyone how to get in anyway (#334)", () => {
     expect(pausedForNewBrowsersMessage(90 * S)).toBe(
-      "Too many wrong passwords were tried lately, so new browsers have to wait 90 seconds. A browser you've signed in with before can sign in now, and restarting Dossier ends the wait.",
+      "Too many wrong passwords were tried lately, so new browsers have to wait 90 seconds. A browser you've signed in with before can sign in now, and restarting HireMe ends the wait.",
     );
   });
 });

@@ -76,7 +76,7 @@ export function tooManyAttemptsMessage(ms: number): string {
  * here (#334): it isn't this browser's fault, and there are two ways round it.
  */
 export function pausedForNewBrowsersMessage(ms: number): string {
-  return `Too many wrong passwords were tried lately, so new browsers have to wait ${duration(ms)}. A browser you've signed in with before can sign in now, and restarting Dossier ends the wait.`;
+  return `Too many wrong passwords were tried lately, so new browsers have to wait ${duration(ms)}. A browser you've signed in with before can sign in now, and restarting HireMe ends the wait.`;
 }
 
 /** "30 seconds", or in minutes from two minutes on. */

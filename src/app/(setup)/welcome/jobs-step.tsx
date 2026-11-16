@@ -123,7 +123,7 @@ function SourcePanel({ choice, initial, onConnected }: { choice: JobChoice; init
         </Button>
       </form>
       <div role="status" className="text-sm empty:hidden">
-        {status.state === "connected" && <p className="text-success">It works: Dossier can search {choice.name}.</p>}
+        {status.state === "connected" && <p className="text-success">It works: HireMe can search {choice.name}.</p>}
         {status.state === "failed" && <p className="rounded-card bg-warning-surface px-4 py-3 font-medium text-warning">{status.message}</p>}
       </div>
       <a href={JOB_SOURCES_HELP} target="_blank" rel="noopener noreferrer" className="self-start text-meta text-muted underline underline-offset-2 hover:text-ink">

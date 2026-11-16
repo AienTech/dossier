@@ -1,3 +1,4 @@
+vi.mock("@/lib/google/drive-sync-actions", () => ({ startDriveAutoSync: vi.fn(), getDriveAutoSync: vi.fn() }));
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -96,6 +97,7 @@ const props: ApplicationViewProps = {
     id: "app-1",
     title: "Senior Product Designer · Ledgerly",
     company: "Ledgerly",
+    role: "Senior Product Designer",
     location: "Amsterdam",
     status: "DRAFT",
     tone: "WARM",
@@ -135,6 +137,8 @@ const props: ApplicationViewProps = {
   messages: [],
   refining: null,
   suggestions: { resume: ["Make the summary shorter"], letter: ["Make it more formal"], email: ["Shorter, under 100 words"] },
+  applyBot: "grok",
+  grokBotId: null,
 };
 
 beforeEach(() => {

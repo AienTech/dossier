@@ -187,5 +187,8 @@ export async function createApplicationFromDocuments({ reading, documents, match
     }
     return { id: application.id, isNew: true };
   });
+  // A new packet belongs in the Drive history, like any later edit.
+  const { scheduleDriveSyncQuietly } = await import("@/lib/google/drive-sync");
+  await scheduleDriveSyncQuietly(created.id);
   return created.id;
 }

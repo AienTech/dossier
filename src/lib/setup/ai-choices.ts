@@ -33,7 +33,7 @@ export type AiChoice = {
   provider: AiProvider;
   /** A hosted one's address; a local one is looked for on this computer instead (LOCAL_ADDRESSES). */
   baseUrl: string;
-  /** Models in the order Dossier would pick them; the first one the account has is used. Empty for a local one, whose models are the user's. */
+  /** Models in the order HireMe would pick them; the first one the account has is used. Empty for a local one, whose models are the user's. */
   models: readonly string[];
   cost: string;
   data: string;
@@ -63,7 +63,7 @@ export const AI_CHOICES: readonly AiChoice[] = [
       { text: "Download LM Studio and install it.", link: { href: "https://lmstudio.ai/download", label: "LM Studio's download page" } },
       { text: "Open its **Discover** tab, search for **Qwen**, and download a 7B model. It's a download of a few gigabytes." },
       { text: "Open the **Developer** tab and switch the server on at the top. Leave LM Studio open." },
-      { text: "If Dossier runs on another computer in your home, turn on **Serve on Local Network** in the server's settings." },
+      { text: "If HireMe runs on another computer in your home, turn on **Serve on Local Network** in the server's settings." },
       { text: "Press **Find LM Studio** below." },
     ],
     key: null,
@@ -179,12 +179,12 @@ export const AI_CHOICES: readonly AiChoice[] = [
     id: "openrouter",
     priority: "other",
     name: "OpenRouter",
-    about: "One key for many companies' models. Dossier starts on an OpenAI model.",
+    about: "One key for many companies' models. HireMe starts on an OpenAI model.",
     provider: AiProvider.OPENAI,
     baseUrl: "https://openrouter.ai/api/v1",
     models: ["openai/gpt-6.1-terra", "google/gemini-3.8-flash"],
     cost: "You buy credit first, at least $5, plus OpenRouter's fee of about 5.5%.",
-    data: "Your profile without your contact details, and the postings you add, go to OpenRouter and on to the model's company. Dossier asks OpenRouter to skip companies that train on what they're sent.",
+    data: "Your profile without your contact details, and the postings you add, go to OpenRouter and on to the model's company. HireMe asks OpenRouter to skip companies that train on what they're sent.",
     steps: [
       { text: "Sign up or sign in on OpenRouter.", link: { href: "https://openrouter.ai/", label: "OpenRouter" } },
       { text: "Buy at least $5 of credit.", link: { href: "https://openrouter.ai/settings/credits", label: "OpenRouter's credits" } },

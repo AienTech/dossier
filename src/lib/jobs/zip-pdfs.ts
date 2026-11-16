@@ -14,18 +14,20 @@ import { renderPdf } from "@/lib/pdf/render";
 import { prisma } from "@/lib/prisma";
 import { loadProfileName } from "@/lib/profile-data";
 import { loadSettings } from "@/lib/settings-data";
+import { cloudRuntime } from "@/lib/runtime";
+import { deleteStoredFiles, storeFile } from "@/lib/stored-files";
 
 import { defineJob } from "./runner";
 
-/** Where finished zips wait to be downloaded, in DOSSIER_DATA_DIR. */
-export const downloadsDir = () => path.join(env.DOSSIER_DATA_DIR, "downloads");
+/** Where finished zips wait to be downloaded, in HIREME_DATA_DIR. */
+export const downloadsDir = () => path.join(env.HIREME_DATA_DIR, "downloads");
 
 /** Zips nobody downloaded are removed after this long. */
 const KEEP_MS = 60 * 60 * 1000;
 
 const pad = (value: number) => String(value).padStart(2, "0");
-/** "dossier-pdfs-2026-09-28.zip" */
-export const zipFileName = (now: Date) => `dossier-pdfs-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.zip`;
+/** "hireme-pdfs-2026-09-28.zip" */
+export const zipFileName = (now: Date) => `hireme-pdfs-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.zip`;
 
 /** A company as a folder name: no characters a file system refuses. */
 function folderName(company: string): string {
@@ -43,6 +45,11 @@ function unique(name: string, taken: Set<string>): string {
 
 /** Removes zips nobody downloaded in time; the job sweep calls it too. */
 export async function removeOldZips(now: number): Promise<void> {
+  if (cloudRuntime()) {
+    await deleteStoredFiles("downloads", new Date(now - KEEP_MS));
+    await deleteStoredFiles("apply-packets", new Date(now - KEEP_MS));
+    return;
+  }
   const dir = downloadsDir();
   const names = await readdir(dir).catch(() => []);
   await Promise.all(
@@ -56,6 +63,11 @@ export async function removeOldZips(now: number): Promise<void> {
 
 /** Removes every zip waiting to be downloaded (Delete everything, E10-8). */
 export async function deleteAllDownloads(): Promise<void> {
+  if (cloudRuntime()) {
+    await deleteStoredFiles("downloads");
+    await deleteStoredFiles("apply-packets");
+    return;
+  }
   await rm(downloadsDir(), { recursive: true, force: true });
 }
 
@@ -70,7 +82,7 @@ export async function countTailoredDocuments(): Promise<number> {
 /**
  * "Download all PDFs" (E10-5, SET-10): renders every application's resume
  * and cover letter, named with the file-name pattern, into one folder per
- * company, and zips them into DOSSIER_DATA_DIR/downloads. The PDF service's
+ * company, and zips them into HIREME_DATA_DIR/downloads. The PDF service's
  * cap keeps it to two renders at a time.
  */
 export const zipPdfsJob = defineJob({
@@ -122,9 +134,12 @@ export const zipPdfsJob = defineJob({
       // PDFs are compressed already: store them as they are.
       files[`${folder}/${fileName}`] = [pdf, { level: 0 }];
     }
-    await mkdir(downloadsDir(), { recursive: true });
     const file = `${randomUUID()}.zip`;
-    await writeFile(path.join(downloadsDir(), file), zipSync(files));
+    if (cloudRuntime()) await storeFile("downloads", file, zipSync(files));
+    else {
+      await mkdir(downloadsDir(), { recursive: true });
+      await writeFile(path.join(downloadsDir(), file), zipSync(files));
+    }
     return { file, fileName: zipFileName(now), documents: documents.length };
   },
 });

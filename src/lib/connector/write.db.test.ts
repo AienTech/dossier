@@ -6,7 +6,7 @@ import { createTestClient, resetDatabase } from "@/test/db";
 
 import { seedBuiltIns } from "../../../prisma/seed/built-ins";
 
-import { saveWrittenApplication, WRITTEN_IN_CLAUDE, type WrittenApplication } from "./write";
+import { saveWrittenApplication, WRITTEN_VIA_MCP, type WrittenApplication } from "./write";
 
 const db = vi.hoisted(() => ({ client: undefined as ReturnType<typeof createTestClient> | undefined }));
 vi.mock("@/lib/prisma", async () => {
@@ -70,7 +70,7 @@ describe("an application written in Claude chat (#221)", () => {
 
     const resume = application.documents.find((document) => document.kind === "RESUME")!;
     const units = resume.units as { id: string; text: string }[];
-    expect(resume.writtenWith).toBe(WRITTEN_IN_CLAUDE);
+    expect(resume.writtenWith).toBe(WRITTEN_VIA_MCP);
     expect(units.find((unit) => unit.id === `experience:${role.id}`)?.text).toBe("Led the redesign of the payments flow");
     // Only the profile's own roles and skills, and its publications word for word.
     expect(units.some((unit) => unit.id === "experience:made-up")).toBe(false);

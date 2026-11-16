@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 
 // Building and reading email messages (RFC 5322, MIME) for Gmail (E15-2,
-// E15-3). Only what Dossier sends and reads: a plain text body with PDF
+// E15-3). Only what HireMe sends and reads: a plain text body with PDF
 // attachments, and the text of replies.
 
 export type Attachment = { fileName: string; contentType: string; data: Uint8Array };
@@ -54,7 +54,7 @@ function fileNameParameter(name: string): string {
 }
 
 /** The whole message, ready for Gmail's `raw` field after base64url. */
-export function buildMessage(mail: OutgoingMail, { boundary = `dossier-${randomBytes(12).toString("hex")}`, date = new Date() } = {}): string {
+export function buildMessage(mail: OutgoingMail, { boundary = `hireme-${randomBytes(12).toString("hex")}`, date = new Date() } = {}): string {
   const headers = [
     `From: ${encodeAddress(mail.from)}`,
     `To: ${mail.to.split(/[,;]/).map(encodeAddress).filter(Boolean).join(", ")}`,

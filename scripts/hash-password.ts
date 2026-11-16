@@ -1,6 +1,6 @@
-// Prints a hash of a password, for DOSSIER_PASSWORD. In the image:
+// Prints a hash of a password, for HIREME_PASSWORD. In the image:
 //
-//   docker run --rm -it ghcr.io/aientech/dossier hash-password
+//   docker run --rm -it ghcr.io/shahzadafridi/hireme hash-password
 //
 // and in development `docker/bin/yarn hash-password`. It asks for the
 // password twice without showing it. When stdin isn't a terminal, it reads
@@ -8,6 +8,7 @@
 // Only the hash goes to stdout; prompts and messages go to stderr.
 
 import { hashPassword } from "../src/lib/auth/password-hash";
+import { passwordProblem } from "../src/lib/auth/password-policy";
 
 class Cancelled extends Error {}
 
@@ -66,8 +67,11 @@ async function readPassword(): Promise<string> {
 
 async function main() {
   try {
-    const hash = await hashPassword(await readPassword());
-    process.stderr.write("Set DOSSIER_PASSWORD to this, then restart Dossier:\n");
+    const password = await readPassword();
+    const problem = passwordProblem(password);
+    if (problem) throw new Error(problem);
+    const hash = await hashPassword(password);
+    process.stderr.write("Set HIREME_PASSWORD to this, then restart HireMe:\n");
     process.stdout.write(`${hash}\n`);
   } catch (error) {
     if (!(error instanceof Cancelled)) process.stderr.write(`${(error as Error).message}\n`);

@@ -132,7 +132,7 @@ describe("the limit on everyone", () => {
     expect(await tryAt("198.51.100.2", 5)).toBe(0);
   });
 
-  it("is lifted when Dossier starts, while each IP's stays", async () => {
+  it("is lifted when HireMe starts, while each IP's stays", async () => {
     // A known browser, so these count for the IP only.
     await failTimes({ ip: "203.0.113.7", browser: "b-9" }, 5);
     await blockEveryone();

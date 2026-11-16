@@ -103,7 +103,7 @@ describe("Conversation (E15-3, E15-4)", () => {
 
   it("says so when the answer couldn't be saved", async () => {
     const user = userEvent.setup();
-    const failed = { ok: false as const, error: "That email is no longer in Dossier." };
+    const failed = { ok: false as const, error: "That email is no longer in HireMe." };
     vi.mocked(saveReplyDraft).mockResolvedValueOnce(failed);
     render(<Conversation emails={[email({ replyDraft: "Hi Anna," })]} aiReady timeZone="Europe/Berlin" />);
     await user.type(screen.getByRole("textbox", { name: "Your answer" }), " Tuesday works.");

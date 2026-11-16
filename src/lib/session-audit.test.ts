@@ -3,8 +3,9 @@ import { globSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 // E11-5: every way into the server checks the session itself, so a proxy
-// matcher mistake can't expose data. Server Actions go through action(),
-// route handlers through route(); these are the only exceptions.
+// matcher mistake can't expose data. Server Actions go through action(), or
+// formAction() when they are a plain <form> submit (it wraps action()); route
+// handlers go through route(); these are the only exceptions.
 const SIGNED_OUT_ACTIONS = new Map([
   // publicAction: signing in, and the same through the form's own submit (#187)
   ["src/app/login/actions.ts", ["signIn", "signInWithForm"]],
@@ -30,6 +31,9 @@ const OPEN_ROUTES = new Set([
   // has a session. Both answer 404 on a server the desktop app didn't start.
   "src/app/api/desktop/browser-link/route.ts",
   "src/app/api/desktop/browser-sign-in/route.ts",
+  // Vercel's own scheduler calls the worker schedule with CRON_SECRET; it has
+  // no browser session or origin, and it refuses everything else (401/503).
+  "src/app/api/worker-schedule/route.ts",
 ]);
 
 const sources = globSync("src/**/*.{ts,tsx}").filter((file) => !/\.test\.tsx?$/.test(file) && !file.startsWith("src/generated/"));
@@ -48,7 +52,7 @@ describe("session checks (E11-5)", () => {
   it("defines every Server Action with action()", () => {
     const unchecked = actionFiles.flatMap((file) =>
       exportsOf(read(file))
-        .filter(([, name, wrapper]) => wrapper !== "action" && !SIGNED_OUT_ACTIONS.get(file)?.includes(name))
+        .filter(([, name, wrapper]) => wrapper !== "action" && wrapper !== "formAction" && !SIGNED_OUT_ACTIONS.get(file)?.includes(name))
         .map(([line]) => `${file}: ${line}`),
     );
     expect(unchecked).toEqual([]);

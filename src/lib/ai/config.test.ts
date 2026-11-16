@@ -5,7 +5,7 @@ import { isAiUsable, resolveAiConfig, sameServer } from "./config";
 import { AiError } from "./errors";
 import { createProvider } from "./index";
 
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 const saved = vi.hoisted(() => ({ settings: { provider: null, baseUrl: null, model: null, apiKeyEnc: null } as Record<string, unknown> }));
 vi.mock("@/lib/settings-data", () => ({ loadSettings: async () => saved.settings }));
@@ -25,11 +25,11 @@ describe("resolveAiConfig", () => {
     });
   });
 
-  it("uses the DOSSIER_AI_* variables until a provider is saved", () => {
+  it("uses the HIREME_AI_* variables until a provider is saved", () => {
     const config = resolveAiConfig(nothingSaved, {
-      DOSSIER_AI_PROVIDER: "anthropic",
-      DOSSIER_AI_KEY: "sk-env",
-      DOSSIER_AI_TIMEOUT_SECONDS: 90,
+      HIREME_AI_PROVIDER: "anthropic",
+      HIREME_AI_KEY: "sk-env",
+      HIREME_AI_TIMEOUT_SECONDS: 90,
     });
     expect(config).toMatchObject({
       provider: "ANTHROPIC",
@@ -40,15 +40,15 @@ describe("resolveAiConfig", () => {
     });
   });
 
-  it("takes a timeout saved in Settings before DOSSIER_AI_TIMEOUT_SECONDS and the provider's own, for any provider (public issue 118)", () => {
-    const env = { DOSSIER_AI_PROVIDER: "anthropic", DOSSIER_AI_TIMEOUT_SECONDS: 90 } as Parameters<typeof resolveAiConfig>[1];
+  it("takes a timeout saved in Settings before HIREME_AI_TIMEOUT_SECONDS and the provider's own, for any provider (public issue 118)", () => {
+    const env = { HIREME_AI_PROVIDER: "anthropic", HIREME_AI_TIMEOUT_SECONDS: 90 } as Parameters<typeof resolveAiConfig>[1];
     expect(resolveAiConfig({ ...nothingSaved, aiTimeoutSeconds: 900 }, env).timeoutMs).toBe(900_000);
     expect(resolveAiConfig({ ...nothingSaved, provider: "LMSTUDIO", aiTimeoutSeconds: 1_200 }, noEnv).timeoutMs).toBe(1_200_000);
     expect(resolveAiConfig({ ...nothingSaved, aiTimeoutSeconds: null }, env).timeoutMs).toBe(90_000);
   });
 
   it("knows Mistral's address and a default model", () => {
-    expect(resolveAiConfig(nothingSaved, { DOSSIER_AI_PROVIDER: "mistral", DOSSIER_AI_KEY: "mk-env" })).toMatchObject({
+    expect(resolveAiConfig(nothingSaved, { HIREME_AI_PROVIDER: "mistral", HIREME_AI_KEY: "mk-env" })).toMatchObject({
       provider: "MISTRAL",
       baseUrl: "https://api.mistral.ai/v1",
       model: "mistral-small-2603",
@@ -58,7 +58,7 @@ describe("resolveAiConfig", () => {
   });
 
   it("finds LM Studio on the Docker host, as patient as a local model", () => {
-    expect(resolveAiConfig(nothingSaved, { DOSSIER_AI_PROVIDER: "lmstudio" })).toMatchObject({
+    expect(resolveAiConfig(nothingSaved, { HIREME_AI_PROVIDER: "lmstudio" })).toMatchObject({
       provider: "LMSTUDIO",
       baseUrl: "http://host.docker.internal:1234",
       model: null,
@@ -68,23 +68,23 @@ describe("resolveAiConfig", () => {
 
   it("prefers what's saved in Settings, with its own key", () => {
     const saved = { provider: "OPENAI" as const, baseUrl: "https://llm.example/v1", model: "gpt-x", apiKeyEnc: encryptApiKey("sk-saved") };
-    const config = resolveAiConfig(saved, { DOSSIER_AI_PROVIDER: "local", DOSSIER_AI_URL: "http://ollama:11434", DOSSIER_AI_KEY: "sk-env" });
+    const config = resolveAiConfig(saved, { HIREME_AI_PROVIDER: "local", HIREME_AI_URL: "http://ollama:11434", HIREME_AI_KEY: "sk-env" });
     expect(config).toMatchObject({ provider: "OPENAI", baseUrl: "https://llm.example/v1", model: "gpt-x", apiKey: "sk-saved", timeoutMs: 120_000 });
   });
 
   it("lends the env key only to a saved provider of the same kind", () => {
     const saved = { provider: "ANTHROPIC" as const, baseUrl: null, model: null, apiKeyEnc: null };
-    expect(resolveAiConfig(saved, { DOSSIER_AI_PROVIDER: "anthropic", DOSSIER_AI_KEY: "sk-env" }).apiKey).toBe("sk-env");
-    expect(resolveAiConfig(saved, { DOSSIER_AI_PROVIDER: "openai", DOSSIER_AI_KEY: "sk-env" }).apiKey).toBeNull();
+    expect(resolveAiConfig(saved, { HIREME_AI_PROVIDER: "anthropic", HIREME_AI_KEY: "sk-env" }).apiKey).toBe("sk-env");
+    expect(resolveAiConfig(saved, { HIREME_AI_PROVIDER: "openai", HIREME_AI_KEY: "sk-env" }).apiKey).toBeNull();
   });
 
   it("lends the env key only to the env's own server (public PR 107)", () => {
-    const source = { DOSSIER_AI_PROVIDER: "openai" as const, DOSSIER_AI_URL: "https://openrouter.ai/api/v1", DOSSIER_AI_KEY: "sk-or-env" };
+    const source = { HIREME_AI_PROVIDER: "openai" as const, HIREME_AI_URL: "https://openrouter.ai/api/v1", HIREME_AI_KEY: "sk-or-env" };
     const saved = { provider: "OPENAI" as const, baseUrl: "https://api.deepseek.com", model: null, apiKeyEnc: null };
     expect(resolveAiConfig(saved, source).apiKey).toBeNull();
     expect(resolveAiConfig({ ...saved, baseUrl: "https://openrouter.ai/v1" }, source).apiKey).toBe("sk-or-env");
     // Neither address set: both are the provider's default.
-    expect(resolveAiConfig({ ...saved, baseUrl: null }, { DOSSIER_AI_PROVIDER: "openai", DOSSIER_AI_KEY: "sk-env" }).apiKey).toBe("sk-env");
+    expect(resolveAiConfig({ ...saved, baseUrl: null }, { HIREME_AI_PROVIDER: "openai", HIREME_AI_KEY: "sk-env" }).apiKey).toBe("sk-env");
   });
 
   it("reports a saved key it can't read instead of failing", () => {

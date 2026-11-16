@@ -10,7 +10,8 @@ import { toastResult } from "@/components/toast";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { SelectControl } from "@/components/ui/select";
 import { StatusDot } from "@/components/ui/status-dot";
-import { checkInbox, dismissEmail, linkEmail } from "@/lib/google/actions";
+import { dismissEmail, linkEmail } from "@/lib/google/actions";
+import { CheckInboxButton } from "@/components/email/check-inbox-button";
 import type { EmailView, Inbox } from "@/lib/google/inbox-data";
 
 const card = "flex flex-col rounded-panel border border-line-card bg-card px-7 pt-[22px] pb-3";
@@ -20,6 +21,9 @@ export function InboxScreen({
   inbox,
   connected,
   configured,
+  googleEmail,
+  gmailPermissionMissing = false,
+  automaticSync = true,
   lastSync,
   problem,
   timeZone,
@@ -30,6 +34,9 @@ export function InboxScreen({
   connected: boolean;
   /** The server has a Google client. */
   configured: boolean;
+  googleEmail?: string;
+  gmailPermissionMissing?: boolean;
+  automaticSync?: boolean;
   lastSync: Date | null;
   problem: string | null;
   aiReady: boolean;
@@ -37,13 +44,6 @@ export function InboxScreen({
   /** For linking a mail by hand. */
   applications: { id: string; label: string }[];
 }) {
-  const router = useRouter();
-  const [checking, startChecking] = useTransition();
-  const check = () =>
-    startChecking(async () => {
-      toastResult(await checkInbox({}));
-      router.refresh();
-    });
   const empty = inbox.waiting.length + inbox.unmatched.length + inbox.updates.length === 0;
 
   return (
@@ -53,7 +53,9 @@ export function InboxScreen({
         description={
           connected
             ? "Employers' replies from your Gmail, linked to their applications. Open one to see what it asks and draft your answer."
-            : "Connect Gmail in Settings → Google, and employers' replies show up here, linked to their applications."
+            : gmailPermissionMissing
+              ? `Google is connected${googleEmail ? ` as ${googleEmail}` : ""}. Allow Gmail read access to check employer replies; your existing Drive and Calendar connection stays connected.`
+              : "Connect Gmail in Settings → Google, and employers' replies show up here, linked to their applications."
         }
         actions={
           connected ? (
@@ -61,18 +63,17 @@ export function InboxScreen({
               <span className={problem ? "text-meta text-error" : "text-meta text-muted"}>
                 {problem ?? (lastSync ? `Checked ${formatWhen(lastSync, timeZone)}` : "Not checked yet")}
               </span>
-              <Button variant="secondary" onClick={check} disabled={checking}>
-                {checking ? "Checking…" : "Check now"}
-              </Button>
+              <CheckInboxButton />
             </>
           ) : (
-            <Link href="/settings?section=google" className={buttonClassName("primary", "md", "hover:text-on-primary")}>
-              {configured ? "Connect Gmail" : "Set up Google"}
+            <Link href={gmailPermissionMissing ? "/api/google/connect?scopes=read" : "/settings?section=google"} className={buttonClassName("primary", "md", "hover:text-on-primary")}>
+              {gmailPermissionMissing ? "Allow Gmail read access" : configured ? "Connect Gmail" : "Set up Google"}
             </Link>
           )
         }
       />
       <div className="flex max-w-[860px] flex-col gap-5 px-10 pb-[72px]">
+        {connected && <p role="status" className="text-sm text-muted">Gmail connected{googleEmail ? ` as ${googleEmail}` : ""}. {automaticSync ? "Automatic inbox checks are enabled." : <>Automatic checks are off. You can still use Check now, or <Link href="/settings?section=google" className="underline">enable automatic checks</Link>.</>}</p>}
         {empty ? (
           <p className={`${card} py-6! text-sm text-muted`}>{connected ? "Nothing yet. Replies to your applications will show up here." : "Nothing here yet."}</p>
         ) : (

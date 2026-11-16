@@ -1,0 +1,46 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "container",
+  "regions": [
+    "fra1"
+  ],
+  "daemons": {
+    "hireme-worker": {
+      "root": ".",
+      "entrypoint": "Dockerfile.vercel",
+      "command": [
+        "sh",
+        "./start-vercel.sh",
+        "worker"
+      ],
+      "instances": {
+        "fra1": 1
+      },
+      "terminationGracePeriodSeconds": 300,
+      "livenessProbe": {
+        "httpGet": {
+          "port": 3000,
+          "path": "/api/health"
+        },
+        "initialDelaySeconds": 120,
+        "periodSeconds": 30,
+        "timeoutSeconds": 5,
+        "failureThreshold": 5
+      }
+    }
+  },
+  "schedules": {
+    "hireme-worker-start": {
+      "schedule": "0 16 * * *",
+      "timezone": "UTC",
+      "path": "/api/worker-schedule",
+      "requestMethod": "GET"
+    },
+    "hireme-worker-stop": {
+      "schedule": "0 22 * * *",
+      "timezone": "UTC",
+      "path": "/api/worker-schedule",
+      "requestMethod": "GET"
+    }
+  }
+}

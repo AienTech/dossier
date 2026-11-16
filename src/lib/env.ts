@@ -8,13 +8,13 @@ import { isPasswordHash } from "@/lib/auth/password-hash";
 
 const SECRET_MIN_LENGTH = 32;
 const GENERATE_SECRET = "for example the output of `openssl rand -base64 32`";
-const HASH_PASSWORD = "Make one with `docker run --rm -it ghcr.io/aientech/dossier hash-password`";
+const HASH_PASSWORD = "Make one with `docker run --rm -it ghcr.io/shahzadafridi/hireme hash-password`";
 
 export const AI_PROVIDERS = ["local", "openai", "anthropic", "mistral", "lmstudio"] as const;
 export const JOB_SOURCE_NAMES = ["jsearch", "adzuna", "arbeitsagentur", "freehire", "off"] as const;
 export const SCORER_NAMES = ["ai", "jev"] as const;
 
-// An empty value (`DOSSIER_AI_KEY=` in .env) counts as unset.
+// An empty value (`HIREME_AI_KEY=` in .env) counts as unset.
 const unsetIfEmpty = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
 
@@ -28,27 +28,31 @@ const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess(unsetIfEmpty, schema.optional());
 
 const schema = z.object({
+  HIREME_RUNTIME: optional(z.enum(["web", "worker"])),
+  // Direct URL for the worker's session-scoped leadership lock. Never use a
+  // transaction pooler here; DATABASE_URL stays pooled for application queries.
+  DATABASE_URL_UNPOOLED: optional(z.string().regex(/^postgres(ql)?:\/\//, { error: "DATABASE_URL_UNPOOLED must be a PostgreSQL connection string." })),
   // Never echo the value: it may be the password itself, set by mistake.
-  DOSSIER_PASSWORD: required(
-    "DOSSIER_PASSWORD",
+  HIREME_PASSWORD: required(
+    "HIREME_PASSWORD",
     `Set it to a hash of the password you want to sign in with. ${HASH_PASSWORD}.`,
   ).pipe(
     z.string().trim().refine(isPasswordHash, {
-      error: `DOSSIER_PASSWORD must be a hash of your password, not the password itself. ${HASH_PASSWORD} and set DOSSIER_PASSWORD to what it prints.`,
+      error: `HIREME_PASSWORD must be a hash of your password, not the password itself. ${HASH_PASSWORD} and set HIREME_PASSWORD to what it prints.`,
     }),
   ),
-  DOSSIER_SECRET: required(
-    "DOSSIER_SECRET",
+  HIREME_SECRET: required(
+    "HIREME_SECRET",
     `Set it to a random string of at least ${SECRET_MIN_LENGTH} characters, ${GENERATE_SECRET}.`,
   ).pipe(
     z.string().min(SECRET_MIN_LENGTH, {
       error: (issue) =>
-        `DOSSIER_SECRET is too short (${String(issue.input).length} characters). Use at least ${SECRET_MIN_LENGTH} random characters, ${GENERATE_SECRET}.`,
+        `HIREME_SECRET is too short (${String(issue.input).length} characters). Use at least ${SECRET_MIN_LENGTH} random characters, ${GENERATE_SECRET}.`,
     }),
   ),
   DATABASE_URL: required(
     "DATABASE_URL",
-    "Set it to your PostgreSQL connection string, e.g. postgresql://user:password@host:5432/dossier, or to an SQLite file, e.g. file:/data/dossier.db.",
+    "Set it to your PostgreSQL connection string, e.g. postgresql://user:password@host:5432/hireme, or to an SQLite file, e.g. file:/data/hireme.db.",
   ).pipe(
     // Never echo the value: it contains the database password.
     z
@@ -59,153 +63,153 @@ const schema = z.object({
       })
       // A relative path would mean another file to the migrations, which run in another folder.
       .refine((url) => !url.startsWith("file:") || path.isAbsolute(url.slice("file:".length)), {
-        error: "DATABASE_URL must give the SQLite file's full path, e.g. file:/data/dossier.db.",
+        error: "DATABASE_URL must give the SQLite file's full path, e.g. file:/data/hireme.db.",
       }),
   ),
-  DOSSIER_DATA_DIR: z
+  HIREME_DATA_DIR: z
     .preprocess(unsetIfEmpty, z.string().default("/data"))
     .transform((dir) => path.resolve(dir)),
-  DOSSIER_BACKUP_RETENTION_DAYS: z
+  HIREME_BACKUP_RETENTION_DAYS: z
     .preprocess(unsetIfEmpty, z.string().trim().default("14"))
     .pipe(
       z.string().regex(/^\d+$/, {
         error: (issue) =>
-          `DOSSIER_BACKUP_RETENTION_DAYS must be a whole number of days (got "${String(issue.input)}").`,
+          `HIREME_BACKUP_RETENTION_DAYS must be a whole number of days (got "${String(issue.input)}").`,
       }),
     )
     .transform(Number)
     .pipe(
       z.number().min(1, {
-        error: "DOSSIER_BACKUP_RETENTION_DAYS must be at least 1.",
+        error: "HIREME_BACKUP_RETENTION_DAYS must be at least 1.",
       }),
     ),
-  // The daily usage ping (usage-ping.ts): unset, Dossier asks after
+  // The daily usage ping (usage-ping.ts): unset, HireMe asks after
   // sign-in and sends nothing before a yes; on or off answers for good.
-  DOSSIER_TELEMETRY: optional(
+  HIREME_TELEMETRY: optional(
     z
       .string()
       .trim()
       .toLowerCase()
-      .pipe(z.enum(["on", "off"], { error: (issue) => `DOSSIER_TELEMETRY must be on or off (got "${String(issue.input)}").` })),
+      .pipe(z.enum(["on", "off"], { error: (issue) => `HIREME_TELEMETRY must be on or off (got "${String(issue.input)}").` })),
   ),
-  DOSSIER_AI_PROVIDER: optional(
+  HIREME_AI_PROVIDER: optional(
     z.enum(AI_PROVIDERS, {
       error: (issue) =>
-        `DOSSIER_AI_PROVIDER must be one of ${AI_PROVIDERS.join(", ")} (got "${String(issue.input)}").`,
+        `HIREME_AI_PROVIDER must be one of ${AI_PROVIDERS.join(", ")} (got "${String(issue.input)}").`,
     }),
   ),
-  DOSSIER_AI_URL: optional(
+  HIREME_AI_URL: optional(
     z.url({
       protocol: /^https?$/,
-      error: "DOSSIER_AI_URL must be an http:// or https:// URL.",
+      error: "HIREME_AI_URL must be an http:// or https:// URL.",
     }),
   ),
-  DOSSIER_AI_MODEL: optional(z.string()),
+  HIREME_AI_MODEL: optional(z.string()),
   // Never echo the value: it's an API key.
-  DOSSIER_AI_KEY: optional(z.string()),
-  DOSSIER_AI_TIMEOUT_SECONDS: optional(
+  HIREME_AI_KEY: optional(z.string()),
+  HIREME_AI_TIMEOUT_SECONDS: optional(
     z
       .string()
       .trim()
       .regex(/^\d+$/, {
         error: (issue) =>
-          `DOSSIER_AI_TIMEOUT_SECONDS must be a whole number of seconds (got "${String(issue.input)}").`,
+          `HIREME_AI_TIMEOUT_SECONDS must be a whole number of seconds (got "${String(issue.input)}").`,
       })
       .transform(Number)
-      .pipe(z.number().min(5, { error: "DOSSIER_AI_TIMEOUT_SECONDS must be at least 5." })),
+      .pipe(z.number().min(5, { error: "HIREME_AI_TIMEOUT_SECONDS must be at least 5." })),
   ),
   // Defaults for Settings → Job search (E14-4), until a choice is saved there.
-  DOSSIER_JOBS_SOURCE: optional(
+  HIREME_JOBS_SOURCE: optional(
     z.enum(JOB_SOURCE_NAMES, {
-      error: (issue) => `DOSSIER_JOBS_SOURCE must be one of ${JOB_SOURCE_NAMES.join(", ")} (got "${String(issue.input)}").`,
+      error: (issue) => `HIREME_JOBS_SOURCE must be one of ${JOB_SOURCE_NAMES.join(", ")} (got "${String(issue.input)}").`,
     }),
   ),
   // Never echo the values: they're API keys.
-  DOSSIER_JSEARCH_KEY: optional(z.string()),
-  DOSSIER_JSEARCH_HOST: optional(
+  HIREME_JSEARCH_KEY: optional(z.string()),
+  HIREME_JSEARCH_HOST: optional(
     z.enum(["openwebninja", "rapidapi"], {
-      error: (issue) => `DOSSIER_JSEARCH_HOST must be openwebninja or rapidapi (got "${String(issue.input)}").`,
+      error: (issue) => `HIREME_JSEARCH_HOST must be openwebninja or rapidapi (got "${String(issue.input)}").`,
     }),
   ),
-  DOSSIER_ADZUNA_APP_ID: optional(z.string()),
-  DOSSIER_ADZUNA_KEY: optional(z.string()),
+  HIREME_ADZUNA_APP_ID: optional(z.string()),
+  HIREME_ADZUNA_KEY: optional(z.string()),
   // FreeHire origin; unset uses https://freehire.me. Point at a self-hosted
   // FreeHire, or leave unset for the public catalogue.
-  DOSSIER_FREEHIRE_URL: optional(
-    z.url({ protocol: /^https?$/, error: "DOSSIER_FREEHIRE_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
+  HIREME_FREEHIRE_URL: optional(
+    z.url({ protocol: /^https?$/, error: "HIREME_FREEHIRE_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
   ),
   // Off takes the Bundesagentur für Arbeit out everywhere (#223): it isn't an
   // official API, so a server can choose not to offer it. Unset means on.
-  DOSSIER_JOBS_ARBEITSAGENTUR: optional(
+  HIREME_JOBS_ARBEITSAGENTUR: optional(
     z
       .string()
       .trim()
       .toLowerCase()
-      .pipe(z.enum(["on", "off"], { error: (issue) => `DOSSIER_JOBS_ARBEITSAGENTUR must be on or off (got "${String(issue.input)}").` })),
+      .pipe(z.enum(["on", "off"], { error: (issue) => `HIREME_JOBS_ARBEITSAGENTUR must be on or off (got "${String(issue.input)}").` })),
   ),
   // Defaults for Settings → Scoring (#274), until a choice is saved there:
   // ai scores postings with the AI provider, jev with TypeSafe's Jev.
-  DOSSIER_SCORER: optional(
+  HIREME_SCORER: optional(
     z
       .string()
       .trim()
       .toLowerCase()
-      .pipe(z.enum(SCORER_NAMES, { error: (issue) => `DOSSIER_SCORER must be one of ${SCORER_NAMES.join(", ")} (got "${String(issue.input)}").` })),
+      .pipe(z.enum(SCORER_NAMES, { error: (issue) => `HIREME_SCORER must be one of ${SCORER_NAMES.join(", ")} (got "${String(issue.input)}").` })),
   ),
   // Never echo the value: it's an API key.
-  DOSSIER_TYPESAFE_KEY: optional(z.string().trim()),
+  HIREME_TYPESAFE_KEY: optional(z.string().trim()),
   // Google sign-in for Gmail and Calendar (E15-1): an OAuth client of type
   // "Web application". Settings → Google can save one instead, which wins.
   // Never echo the secret.
-  DOSSIER_GOOGLE_CLIENT_ID: optional(z.string().trim()),
-  DOSSIER_GOOGLE_CLIENT_SECRET: optional(z.string().trim()),
-  // The address Dossier is reached at, e.g. https://dossier.example.com, for
+  HIREME_GOOGLE_CLIENT_ID: optional(z.string().trim()),
+  HIREME_GOOGLE_CLIENT_SECRET: optional(z.string().trim()),
+  // The address HireMe is reached at, e.g. https://hireme.example.com, for
   // Google's redirect. Defaults to the address of the request that connects.
-  DOSSIER_PUBLIC_URL: optional(
-    z.url({ protocol: /^https?$/, error: "DOSSIER_PUBLIC_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
+  HIREME_PUBLIC_URL: optional(
+    z.url({ protocol: /^https?$/, error: "HIREME_PUBLIC_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
   ),
   // For the end-to-end tests only: sends every job source's requests to
   // <url>/<source> instead, where a fake source answers (e2e/fake-jobs.mts).
-  DOSSIER_JOBS_TEST_BASE_URL: optional(
-    z.url({ protocol: /^https?$/, error: "DOSSIER_JOBS_TEST_BASE_URL must be an http:// or https:// URL." }),
+  HIREME_JOBS_TEST_BASE_URL: optional(
+    z.url({ protocol: /^https?$/, error: "HIREME_JOBS_TEST_BASE_URL must be an http:// or https:// URL." }),
   ),
   // For the end-to-end tests only: sends Google's sign-in, Gmail and Calendar
   // requests to <url>/<host> instead, where a fake Google answers
   // (e2e/fake-google.mts).
-  DOSSIER_GOOGLE_TEST_BASE_URL: optional(
-    z.url({ protocol: /^https?$/, error: "DOSSIER_GOOGLE_TEST_BASE_URL must be an http:// or https:// URL." }),
+  HIREME_GOOGLE_TEST_BASE_URL: optional(
+    z.url({ protocol: /^https?$/, error: "HIREME_GOOGLE_TEST_BASE_URL must be an http:// or https:// URL." }),
   ),
   // For the end-to-end tests only: sends the usage ping to <url> instead of
   // the project's receiver (e2e/fake-jobs.mts answers).
-  DOSSIER_USAGE_PING_TEST_URL: optional(
-    z.url({ protocol: /^https?$/, error: "DOSSIER_USAGE_PING_TEST_URL must be an http:// or https:// URL." }),
+  HIREME_USAGE_PING_TEST_URL: optional(
+    z.url({ protocol: /^https?$/, error: "HIREME_USAGE_PING_TEST_URL must be an http:// or https:// URL." }),
   ),
   // Where the project's backend is (announcements/check.ts), when it isn't
   // the real one: for development against a local copy, and the end-to-end tests.
-  DOSSIER_API_URL: optional(
-    z.url({ protocol: /^https?$/, error: "DOSSIER_API_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
+  HIREME_API_URL: optional(
+    z.url({ protocol: /^https?$/, error: "HIREME_API_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
   ),
   // Set by the desktop app on a server it starts: the token it signs in with
   // for this launch (desktop.ts). Never set on a server otherwise.
-  DOSSIER_DESKTOP_TOKEN: optional(z.string()),
+  HIREME_DESKTOP_TOKEN: optional(z.string()),
   // And where it prints PDFs (pdf/desktop-print.ts), with its own Chromium.
-  DOSSIER_DESKTOP_PRINT_URL: optional(z.url({ protocol: /^https?$/, error: "DOSSIER_DESKTOP_PRINT_URL must be an http:// or https:// URL." })),
+  HIREME_DESKTOP_PRINT_URL: optional(z.url({ protocol: /^https?$/, error: "HIREME_DESKTOP_PRINT_URL must be an http:// or https:// URL." })),
   // For the end-to-end tests only: asks <url> for the latest release instead
   // of GitHub's API (e2e/fake-jobs.mts answers).
-  DOSSIER_UPDATES_TEST_BASE_URL: optional(
-    z.url({ protocol: /^https?$/, error: "DOSSIER_UPDATES_TEST_BASE_URL must be an http:// or https:// URL." }),
+  HIREME_UPDATES_TEST_BASE_URL: optional(
+    z.url({ protocol: /^https?$/, error: "HIREME_UPDATES_TEST_BASE_URL must be an http:// or https:// URL." }),
   ),
   // For the end-to-end tests only: sends Jev's requests to <url> instead of
   // TypeSafe's API (e2e/fake-jobs.mts answers).
-  DOSSIER_TYPESAFE_TEST_BASE_URL: optional(
-    z.url({ protocol: /^https?$/, error: "DOSSIER_TYPESAFE_TEST_BASE_URL must be an http:// or https:// URL." }),
+  HIREME_TYPESAFE_TEST_BASE_URL: optional(
+    z.url({ protocol: /^https?$/, error: "HIREME_TYPESAFE_TEST_BASE_URL must be an http:// or https:// URL." }),
   ),
 }).check((context) => {
-  if (context.value.DOSSIER_JOBS_SOURCE === "arbeitsagentur" && context.value.DOSSIER_JOBS_ARBEITSAGENTUR === "off") {
+  if (context.value.HIREME_JOBS_SOURCE === "arbeitsagentur" && context.value.HIREME_JOBS_ARBEITSAGENTUR === "off") {
     context.issues.push({
       code: "custom",
       input: context.value,
-      message: "DOSSIER_JOBS_SOURCE is arbeitsagentur, but DOSSIER_JOBS_ARBEITSAGENTUR is off. Choose another source, or remove one of the two.",
+      message: "HIREME_JOBS_SOURCE is arbeitsagentur, but HIREME_JOBS_ARBEITSAGENTUR is off. Choose another source, or remove one of the two.",
     });
   }
 });
@@ -225,6 +229,12 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   const result = schema.safeParse(source);
   if (!result.success) {
     throw new EnvError(result.error.issues.map((issue) => issue.message));
+  }
+  if (source.VERCEL === "1" && !result.data.HIREME_RUNTIME) {
+    throw new EnvError(["Vercel requires HIREME_RUNTIME=web or worker. Use the cloud container deployment configuration."]);
+  }
+  if (result.data.HIREME_RUNTIME === "worker" && !result.data.DATABASE_URL_UNPOOLED) {
+    throw new EnvError(["The cloud worker requires DATABASE_URL_UNPOOLED, a direct PostgreSQL connection for its leadership lock."]);
   }
   return result.data;
 }
@@ -252,7 +262,7 @@ export function checkEnvOnStartup(): void {
   } catch (error) {
     if (!(error instanceof EnvError)) throw error;
     for (const problem of error.problems) {
-      console.error(`Dossier can't start: ${problem}`);
+      console.error(`HireMe can't start: ${problem}`);
     }
     process.exit(1);
   }

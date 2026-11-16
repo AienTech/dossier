@@ -23,7 +23,7 @@ import { lockAgentSearches } from "./searches";
 
 // A candidate's draft (E16-5): written the way New application writes one,
 // kept off Applications until it's approved (#195), and never sent.
-// Adapted from avinashbatchala's fork of Dossier.
+// Adapted from avinashbatchala's fork of HireMe.
 
 /** The key of a candidate's draft job, so a second click finds the one under way. */
 export const draftJobKey = (candidateId: string) => `agent-candidate:${candidateId}`;

@@ -1,5 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("node:timers/promises", () => ({ setTimeout: vi.fn(async () => {}) }));
+
 import { MockProvider } from "@/lib/ai/providers/mock";
 import { createTestClient, resetDatabase } from "@/test/db";
 
@@ -15,9 +17,10 @@ vi.mock("@/lib/prisma", async () => {
 vi.mock("@/lib/auth/session", () => ({
   getSession: async () => ({ persistent: false, issuedAt: new Date(), expiresAt: new Date(Date.now() + 60_000) }),
 }));
+vi.mock("@/lib/worker-scaling", () => ({ wakeCloudWorker: vi.fn(async () => true) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("@/lib/env", () => ({
-  env: { DOSSIER_SECRET: "s".repeat(40), DOSSIER_GOOGLE_CLIENT_ID: "client", DOSSIER_GOOGLE_CLIENT_SECRET: "secret", DOSSIER_DATA_DIR: "/tmp" },
+  env: { HIREME_SECRET: "s".repeat(40), HIREME_GOOGLE_CLIENT_ID: "client", HIREME_GOOGLE_CLIENT_SECRET: "secret", HIREME_DATA_DIR: "/tmp" },
 }));
 const ai = vi.hoisted(() => ({ provider: undefined as unknown, ready: true }));
 vi.mock("@/lib/ai", () => ({ getAiProvider: async () => ai.provider }));
@@ -35,6 +38,7 @@ import { encryptSecret, GOOGLE_TOKEN } from "@/lib/secrets";
 import { googleConnection } from "./account";
 import {
   applySuggestedStatus,
+  checkInbox,
   confirmInterview,
   disconnectGoogleAccount,
   dismissEmail,
@@ -241,7 +245,21 @@ describe("Settings → Google (E15-1)", () => {
     expect(await disconnectGoogleAccount({})).toMatchObject({ ok: true, toast: "Disconnected from Google." });
     expect(calls.find((call) => call.url.includes("/revoke"))?.body).toBe("token=refresh");
     expect(await googleConnection()).toEqual({ status: "disconnected" });
-    // Mail already in Dossier stays.
+    // Mail already in HireMe stays.
     expect(await prisma().emailMessage.count()).toBe(3);
+  });
+});
+
+
+describe("one-time inbox job starts", () => {
+  it("deduplicates repeated clicks across requests", async () => {
+    vi.stubEnv("HIREME_RUNTIME", "web");
+    try {
+      const first = await checkInbox({}); const second = await checkInbox({});
+      expect(first.ok).toBe(true); expect(second).toEqual(first);
+      expect(await prisma().job.count({ where: { type: "check-job-email" } })).toBe(1);
+      const job = await prisma().job.findFirstOrThrow({ where: { type: "check-job-email" } });
+      expect(job.input).toMatchObject({ days: 30, applyUpdates: true });
+    } finally { vi.unstubAllEnvs(); }
   });
 });

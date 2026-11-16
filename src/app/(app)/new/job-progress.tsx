@@ -17,6 +17,7 @@ export function jobStep(steps: readonly string[], job: Pick<JobView, "status" | 
  */
 export function JobProgress({
   title,
+  waiting,
   steps,
   current,
   error,
@@ -25,6 +26,7 @@ export function JobProgress({
   backLabel = "← Back to the posting",
 }: {
   title: string;
+  waiting?: string | null;
   steps: readonly string[];
   current: number;
   /** Why it stopped, if it did. */
@@ -37,9 +39,9 @@ export function JobProgress({
     <Card className="flex flex-col gap-[22px] px-9 py-10">
       {/* Takes focus when its step starts (E11-3). */}
       <h2 tabIndex={-1} className="font-serif text-section">
-        {title}
+        {waiting ? "Waiting for the cloud worker…" : title}
       </h2>
-      <ProgressSteps steps={steps} current={current} />
+      {waiting ? <p role="status" className="text-control text-muted">{waiting} A cold start can take a minute or two. Your job is saved.</p> : <ProgressSteps steps={steps} current={current} />}
       {error ? (
         <div role="alert" className="flex flex-col gap-3.5">
           <p className="text-control text-error">{error}</p>
@@ -51,7 +53,7 @@ export function JobProgress({
           </div>
         </div>
       ) : (
-        <p className="text-meta text-muted">This can take a little longer on a local model.</p>
+        <p className="text-meta text-muted">The page will update as each step finishes.</p>
       )}
     </Card>
   );

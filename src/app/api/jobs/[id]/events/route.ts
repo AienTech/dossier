@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getJob, isFinished, subscribeJob, type JobView } from "@/lib/jobs/runner";
 import { route } from "@/lib/route";
+import { cloudRuntime } from "@/lib/runtime";
 
 /** Keeps proxies from closing a quiet stream while a local model thinks. */
 const HEARTBEAT_MS = 15_000;
@@ -12,7 +13,15 @@ const HEARTBEAT_MS = 15_000;
  */
 export const GET = route<RouteContext<"/api/jobs/[id]/events">>(async (request, { params }) => {
   const { id } = await params;
-  if (!(await getJob(id))) return NextResponse.json({ error: "That job doesn't exist." }, { status: 404 });
+  const current = await getJob(id);
+  if (!current) return NextResponse.json({ error: "That job doesn't exist." }, { status: 404 });
+  if (cloudRuntime()) {
+    // Listeners belong to the worker, not this HTTP process. Send the current
+    // snapshot, then useJob's existing polling fallback follows SQL progress.
+    return new Response(`data: ${JSON.stringify(current)}\n\n`, {
+      headers: { "content-type": "text/event-stream; charset=utf-8", "cache-control": "private, no-store" },
+    });
+  }
   const encoder = new TextEncoder();
   let stop = () => {};
 

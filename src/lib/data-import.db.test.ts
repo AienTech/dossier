@@ -10,7 +10,7 @@ import { seedDemo } from "../../prisma/seed/demo";
 import { buildExport, EXPORT_SCHEMA_VERSION, exportSchema } from "./data-export";
 import { currentSummary, importExport, parseExport } from "./data-import";
 
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "s".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "s".repeat(32) } }));
 
 const client = createTestClient();
 const prisma = () => client;
@@ -449,14 +449,35 @@ describe("importExport (E10-6)", () => {
 describe("parseExport (E10-6)", () => {
   it("explains what's wrong with a file", async () => {
     const good = JSON.parse(JSON.stringify(await buildExport(prisma(), { now })));
-    expect(parseExport("not json")).toEqual({ ok: false, error: "That file isn't a Dossier export: it isn't JSON." });
-    expect(parseExport(JSON.stringify({ hello: "world" }))).toEqual({ ok: false, error: "That file isn't a Dossier export." });
+    expect(parseExport("not json")).toEqual({ ok: false, error: "That file isn't a HireMe export: it isn't JSON." });
+    expect(parseExport(JSON.stringify({ hello: "world" }))).toEqual({ ok: false, error: "That file isn't a HireMe export." });
     expect(parseExport(JSON.stringify({ ...good, schemaVersion: EXPORT_SCHEMA_VERSION + 1 }))).toEqual({
       ok: false,
-      error: `That export comes from a newer version of Dossier (schema ${EXPORT_SCHEMA_VERSION + 1}). Update this server first.`,
+      error: `That export comes from a newer version of HireMe (schema ${EXPORT_SCHEMA_VERSION + 1}). Update this server first.`,
     });
     expect(parseExport(JSON.stringify({ ...good, schemaVersion: 0 }))).toMatchObject({ ok: false, error: expect.stringMatching(/isn't one this version/) });
     const damaged = { ...good, applications: [{ ...good.applications[0], status: "MAYBE" }] };
     expect(parseExport(JSON.stringify(damaged))).toMatchObject({ ok: false, error: expect.stringMatching(/^That export is damaged or incomplete \(applications\.0\.status/) });
+  });
+});
+
+describe("actual submitted originals", () => {
+  it("round trips the original bytes and rejects damaged files atomically", async () => {
+    const { createHash } = await import("node:crypto");
+    const app = await prisma().application.findFirstOrThrow();
+    const bytes = Buffer.from("%PDF-the-original-submitted-file");
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    await prisma().storedFile.create({ data: { key: "submission-files/original-resume", data: bytes } });
+    await prisma().application.update({ where: { id: app.id }, data: { submission: { source: "manual", confirmed: true, submitted_at: "2026-11-12T08:00:00Z", documents: [{ kind: "resume", text: "Exact submitted text", file_key: "original-resume", filename: "actual.pdf", content_type: "application/pdf", sha256 }] } } });
+    const file = await asFile();
+    expect(file.applications.find(item => item.id === app.id)?.submission?.documents?.[0].original_base64).toBe(bytes.toString("base64"));
+    await prisma().storedFile.deleteMany();
+    await importExport(prisma(), file);
+    expect(Buffer.from((await prisma().storedFile.findUniqueOrThrow({ where: { key: "submission-files/original-resume" } })).data)).toEqual(bytes);
+    expect((await prisma().application.findUniqueOrThrow({ where: { id: app.id } })).submission).toMatchObject({ documents: [{ text: "Exact submitted text", filename: "actual.pdf" }] });
+    const before = await snapshot();
+    file.applications.find(item => item.id === app.id)!.submission!.documents![0].original_base64 = Buffer.from("corrupted").toString("base64");
+    await expect(importExport(prisma(), file)).rejects.toThrow("damaged");
+    expect(await snapshot()).toBe(before);
   });
 });

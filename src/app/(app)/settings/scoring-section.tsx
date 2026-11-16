@@ -104,7 +104,7 @@ export function ScoringSection({ initial }: { initial: ScoringView }) {
             <KeyField
               label="TypeSafe key"
               keyState={view.keyState}
-              envName="DOSSIER_TYPESAFE_KEY"
+              envName="HIREME_TYPESAFE_KEY"
               getKey={{ href: TYPESAFE_KEY_URL, text: "the TypeSafe console" }}
               onSave={saveKey}
             />

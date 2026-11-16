@@ -1,6 +1,6 @@
 import "server-only";
 
-import { unstable_rethrow } from "next/navigation";
+import { unstable_rethrow, redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getSession, type Session } from "@/lib/auth/session";
@@ -65,6 +65,26 @@ export function publicAction<S extends z.ZodType, T>(
   handler: (input: z.output<S>, context: Omit<ActionContext, "session">) => Promise<T>,
 ): (input: z.input<S>) => Promise<ActionResult<T>> {
   return async (input) => run(schema, input, (data, toast) => handler(data, { toast }));
+}
+
+/**
+ * Like `action()`, for the few forms that post without the page's scripts. It
+ * returns `void` so it can be given to `<form action={…}>`, and a rejected
+ * submit (signed out, or input that fails `schema`) sends the browser to
+ * `problemPath?problem=…`, where the page can show the reason.
+ *
+ *     export const rename = formAction(z.instanceof(FormData), handle, "/settings");
+ */
+export function formAction<S extends z.ZodType, T>(
+  schema: S,
+  handler: (input: z.output<S>, context: ActionContext) => Promise<T>,
+  problemPath: string,
+): (form: FormData) => Promise<void> {
+  const run = action(schema, handler);
+  return async (form) => {
+    const result = await run(form as z.input<S>);
+    if (!result.ok) redirect(`${problemPath}${problemPath.includes("?") ? "&" : "?"}problem=${encodeURIComponent(result.error)}`);
+  };
 }
 
 async function run<S extends z.ZodType, T>(

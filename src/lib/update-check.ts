@@ -8,7 +8,7 @@ import { appVersion } from "@/lib/version";
 import { isNewer, RELEASES_REPOSITORY, type Release } from "@/lib/releases";
 
 // The update check (E10-9, SET-12, PRD §11): "Check for updates" in
-// Settings → About, and once on each day Dossier is used while "Check for
+// Settings → About, and once on each day HireMe is used while "Check for
 // updates daily" is on. All it sends is a request for the project's latest
 // GitHub release. The newest release it has seen is kept in Settings, and the
 // sidebar tells the user about it while it's newer than this version.
@@ -25,10 +25,10 @@ const isReleasePage = (url: string) => url.startsWith(`https://github.com/${RELE
  * Asks GitHub for the latest release; null when it can't tell (offline,
  * slow, or an answer that doesn't look like a release).
  */
-export async function latestRelease(fetchImpl: typeof fetch = fetch, base = env.DOSSIER_UPDATES_TEST_BASE_URL): Promise<Release | null> {
+export async function latestRelease(fetchImpl: typeof fetch = fetch, base = env.HIREME_UPDATES_TEST_BASE_URL): Promise<Release | null> {
   try {
     const response = await fetchImpl(`${base ?? "https://api.github.com"}/repos/${RELEASES_REPOSITORY}/releases/latest`, {
-      headers: { accept: "application/vnd.github+json", "user-agent": "Dossier" },
+      headers: { accept: "application/vnd.github+json", "user-agent": "HireMe" },
       signal: AbortSignal.timeout(10_000),
       cache: "no-store",
     });

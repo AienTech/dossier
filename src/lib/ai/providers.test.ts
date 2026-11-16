@@ -214,7 +214,7 @@ describe("OpenAICompatibleProvider", () => {
     expect(requests[0].url.href).toBe("https://opencode.ai/inference/go/v1/models");
     expect(requests[0].headers.get("authorization")).toBeNull();
     expect(requests[0].headers.get("x-opencode-session")).toMatch(/^ses_[0-9a-f-]{36}$/);
-    expect(requests[0].headers.get("user-agent")).toMatch(/^Dossier\/\d/);
+    expect(requests[0].headers.get("user-agent")).toMatch(/^HireMe\/\d/);
 
     const router = new OpenAICompatibleProvider("OPENAI", "https://openrouter.ai/v1", "sk-or", "openrouter/auto", 60_000);
     expect(await router.complete(ask)).toBe("Hello!");
@@ -545,7 +545,7 @@ describe("LmStudioProvider", () => {
     ]);
     await make("roomy/model").complete(ask);
     const error = await failure(make("tight/model").complete(ask));
-    expect(error).toMatchObject({ kind: "config", message: expect.stringContaining("loaded with 4,096 tokens of context, and Dossier needs 16,384") });
+    expect(error).toMatchObject({ kind: "config", message: expect.stringContaining("loaded with 4,096 tokens of context, and HireMe needs 16,384") });
     expect(requests.some((request) => request.url.pathname === "/api/v1/models/load")).toBe(false);
     expect(requests.filter((request) => request.url.pathname === "/v1/chat/completions")).toHaveLength(1);
   });

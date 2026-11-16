@@ -31,7 +31,7 @@ import { agentSearchSetupProblem, type SavedAgentSearch } from "./search";
 
 // One run: collect every enabled recurring search, then fairly evaluate
 // new postings under shared score/draft limits. It never sends anything.
-// Adapted from avinashbatchala's fork of Dossier.
+// Adapted from avinashbatchala's fork of HireMe.
 
 export const agentScanResultSchema = z.object({
   /** Postings the source returned. */

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const added = await addedRedirects();
   if (body.data.redirect_uris.some((uri) => !allowedRedirect(uri, added))) {
     return Response.json(
-      { error: "invalid_redirect_uri", error_description: "Only Claude's callback addresses and those added in Dossier's Settings → MCP connector are allowed." },
+      { error: "invalid_redirect_uri", error_description: "This callback is not allowed yet. Add the app’s exact callback address in HireMe’s Settings → MCP connector → Other apps." },
       { status: 400 },
     );
   }

@@ -4,24 +4,24 @@ import { encryptSecret, JOB_SOURCE_KEY, TYPESAFE_KEY } from "@/lib/secrets";
 
 import { jevKey, resolveScoringConfig, scoringView } from "./config";
 
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 
 const nothingSaved = { scorer: null, typesafeKeyEnc: null };
 
 describe("resolveScoringConfig (#274)", () => {
   it("scores with the AI model until something chooses Jev", () => {
     expect(resolveScoringConfig(nothingSaved, {})).toEqual({ scorer: "AI", saved: false, key: null, keyState: "none" });
-    expect(resolveScoringConfig(nothingSaved, { DOSSIER_SCORER: "jev", DOSSIER_TYPESAFE_KEY: "ts_env" })).toEqual({ scorer: "JEV", saved: false, key: "ts_env", keyState: "env" });
+    expect(resolveScoringConfig(nothingSaved, { HIREME_SCORER: "jev", HIREME_TYPESAFE_KEY: "ts_env" })).toEqual({ scorer: "JEV", saved: false, key: "ts_env", keyState: "env" });
   });
 
-  it("prefers what's saved in Settings to DOSSIER_SCORER and DOSSIER_TYPESAFE_KEY", () => {
+  it("prefers what's saved in Settings to HIREME_SCORER and HIREME_TYPESAFE_KEY", () => {
     const saved = { scorer: "AI" as const, typesafeKeyEnc: encryptSecret(TYPESAFE_KEY, "ts_saved") };
-    expect(resolveScoringConfig(saved, { DOSSIER_SCORER: "jev", DOSSIER_TYPESAFE_KEY: "ts_env" })).toEqual({ scorer: "AI", saved: true, key: "ts_saved", keyState: "set" });
+    expect(resolveScoringConfig(saved, { HIREME_SCORER: "jev", HIREME_TYPESAFE_KEY: "ts_env" })).toEqual({ scorer: "AI", saved: true, key: "ts_saved", keyState: "set" });
   });
 
   it("calls a key saved under another secret, or for something else, unreadable rather than using the environment's", () => {
     for (const typesafeKeyEnc of [encryptSecret(TYPESAFE_KEY, "ts", "b".repeat(32)), encryptSecret(JOB_SOURCE_KEY, "ak")]) {
-      expect(resolveScoringConfig({ scorer: "JEV", typesafeKeyEnc }, { DOSSIER_TYPESAFE_KEY: "ts_env" })).toEqual({ scorer: "JEV", saved: true, key: null, keyState: "unreadable" });
+      expect(resolveScoringConfig({ scorer: "JEV", typesafeKeyEnc }, { HIREME_TYPESAFE_KEY: "ts_env" })).toEqual({ scorer: "JEV", saved: true, key: null, keyState: "unreadable" });
     }
   });
 });

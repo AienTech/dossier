@@ -4,7 +4,7 @@ import { z } from "zod";
 import { AiError } from "@/lib/ai/errors";
 import { createTestClient, resetDatabase } from "@/test/db";
 
-import { cancelApplicationJobs, cancelJob, defineJob, getJob, recoverInterruptedJobs, retryJob, startJob, subscribeJob } from "./runner";
+import { cancelApplicationJobs, cancelJob, defineJob, getJob, pollDatabaseQueue, recoverInterruptedJobs, retryJob, startJob, subscribeJob } from "./runner";
 
 const db = vi.hoisted(() => ({ client: undefined as ReturnType<typeof createTestClient> | undefined }));
 vi.mock("@/lib/prisma", async () => {
@@ -12,6 +12,7 @@ vi.mock("@/lib/prisma", async () => {
   db.client = createTestClient();
   return { prisma: db.client };
 });
+vi.mock("@/lib/worker-scaling", () => ({ wakeCloudWorker: vi.fn(async () => true) }));
 const ai = vi.hoisted(() => ({ provider: "LOCAL" }));
 vi.mock("@/lib/ai/config", () => ({ loadAiConfig: async () => ({ provider: ai.provider }) }));
 vi.spyOn(console, "error").mockImplementation(() => {});
@@ -61,12 +62,38 @@ const release = (name: string) => eventually(async () => {
 });
 
 beforeEach(async () => {
+  vi.unstubAllEnvs();
   await resetDatabase(prisma());
   ai.provider = "LOCAL";
 });
 afterAll(() => prisma().$disconnect());
 
 describe("the job runner", () => {
+  it("keeps cloud jobs queued until a worker picks them up, including across startup recovery", async () => {
+    vi.stubEnv("HIREME_RUNTIME", "web");
+    const id = await startJob(gated, { name: "Cloud", fail: "no" });
+    (await status(id)).toBe("QUEUED");
+    await expect(pollDatabaseQueue()).rejects.toThrow(/web instance/);
+    vi.stubEnv("HIREME_RUNTIME", "worker");
+    expect(await recoverInterruptedJobs()).toBe(0);
+    await pollDatabaseQueue();
+    await eventually(async () => (await status(id)).toBe("RUNNING"));
+    // Repeated polls never execute a second copy of this running job.
+    await Promise.all([pollDatabaseQueue(), pollDatabaseQueue()]);
+    await release("Cloud");
+    await eventually(async () => (await status(id)).toBe("DONE"));
+    expect(await prisma().job.count()).toBe(1);
+  });
+
+  it("does not execute a cloud job cancelled from another HTTP instance", async () => {
+    vi.stubEnv("HIREME_RUNTIME", "web");
+    const id = await startJob(gated, { name: "Never run", fail: "no" });
+    await cancelJob(id);
+    vi.stubEnv("HIREME_RUNTIME", "worker");
+    await pollDatabaseQueue();
+    expect(await getJob(id)).toMatchObject({ status: "FAILED", error: "Cancelled." });
+    expect(gates.has("Never run")).toBe(false);
+  });
   it("runs a job in the background with named steps and keeps its result (E6-7)", async () => {
     const seen: string[] = [];
     const id = await startJob(gated, { name: "Jane", fail: "no" }, { key: "application:1" });
@@ -188,6 +215,7 @@ describe("the job runner", () => {
   it("ends a job deleted while it runs without an error", async () => {
     const id = await startJob(gated, { name: "Deleted", fail: "no" });
     await eventually(async () => (await status(id)).toBe("RUNNING"));
+    await eventually(async () => { expect(gates.has("Deleted")).toBe(true); });
     vi.mocked(console.error).mockClear();
     await prisma().job.delete({ where: { id } });
     await release("Deleted");
@@ -216,6 +244,6 @@ describe("the job runner", () => {
       ],
     });
     expect(await recoverInterruptedJobs()).toBe(2);
-    expect(await prisma().job.count({ where: { status: "FAILED", error: "Dossier restarted before this finished. Try again." } })).toBe(2);
+    expect(await prisma().job.count({ where: { status: "FAILED", error: "HireMe restarted before this finished. Try again." } })).toBe(2);
   });
 });

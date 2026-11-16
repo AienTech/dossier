@@ -116,7 +116,7 @@ export type AskOptions = {
  */
 export async function askJev(
   request: { state: unknown; questions: Record<string, Question> },
-  { key, signal, fetchImpl = fetch, baseUrl = env.DOSSIER_TYPESAFE_TEST_BASE_URL ?? TYPESAFE_URL, timeoutMs = TIMEOUT_MS, retryDelaysMs = RETRY_DELAYS_MS }: AskOptions,
+  { key, signal, fetchImpl = fetch, baseUrl = env.HIREME_TYPESAFE_TEST_BASE_URL ?? TYPESAFE_URL, timeoutMs = TIMEOUT_MS, retryDelaysMs = RETRY_DELAYS_MS }: AskOptions,
 ): Promise<SystemOneResult> {
   const timeout = AbortSignal.timeout(timeoutMs);
   const both = signal ? AbortSignal.any([signal, timeout]) : timeout;
@@ -127,7 +127,7 @@ export async function askJev(
     try {
       response = await fetchImpl(`${baseUrl}/v1/systemone`, {
         method: "POST",
-        headers: { authorization: `Bearer ${key}`, "content-type": "application/json", accept: "application/json", "user-agent": "Dossier" },
+        headers: { authorization: `Bearer ${key}`, "content-type": "application/json", accept: "application/json", "user-agent": "HireMe" },
         body,
         signal: both,
         redirect: "error",

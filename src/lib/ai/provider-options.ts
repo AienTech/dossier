@@ -29,7 +29,7 @@ export const PROVIDER_OPTIONS: readonly {
     defaultUrl: "http://localhost:11434",
     urlPlaceholder: "http://localhost:11434",
     urlHint:
-      "Dossier in Docker? There, localhost is Dossier's own container: use http://host.docker.internal:11434 for Ollama on this computer, or http://ollama:11434 for the Compose service.",
+      "HireMe in Docker? There, localhost is HireMe's own container: use http://host.docker.internal:11434 for Ollama on this computer, or http://ollama:11434 for the Compose service.",
     defaultModel: "",
     apiKey: null,
   },
@@ -40,11 +40,11 @@ export const PROVIDER_OPTIONS: readonly {
     description: "Models you run in LM Studio, on this computer or your network.",
     tag: "Private · free · your hardware",
     local: true,
-    // Dossier runs in Docker, where localhost is its own container.
+    // HireMe runs in Docker, where localhost is its own container.
     defaultUrl: "http://host.docker.internal:1234",
     urlPlaceholder: "http://host.docker.internal:1234",
     urlHint:
-      "That's LM Studio on the computer Dossier's Docker runs on; without Docker, use http://localhost:1234. Can't connect? Start the server in LM Studio's Developer tab, and turn on Serve on Local Network there.",
+      "That's LM Studio on the computer HireMe's Docker runs on; without Docker, use http://localhost:1234. Can't connect? Start the server in LM Studio's Developer tab, and turn on Serve on Local Network there.",
     defaultModel: "",
     apiKey: { label: "API token", hint: "Only needed if you've turned on authentication in LM Studio's server settings." },
   },
@@ -90,7 +90,7 @@ export function providerOption(provider: AiProvider) {
   return PROVIDER_OPTIONS.find((option) => option.value === provider)!;
 }
 
-/** What one AI request may take, in seconds, unless Settings or DOSSIER_AI_TIMEOUT_SECONDS says otherwise. */
+/** What one AI request may take, in seconds, unless Settings or HIREME_AI_TIMEOUT_SECONDS says otherwise. */
 export const DEFAULT_TIMEOUT_SECONDS = {
   // Generous: a local model on a laptop can take minutes for a cover letter, and loading one a while too.
   local: 300,
@@ -104,7 +104,7 @@ export const AI_TIMEOUT_LIMITS = { min: 5, max: 3_600 } as const;
 export const defaultTimeoutSeconds = (provider: AiProvider): number =>
   providerOption(provider).local ? DEFAULT_TIMEOUT_SECONDS.local : DEFAULT_TIMEOUT_SECONDS.hosted;
 
-/** What people see when a saved key can't be decrypted, e.g. after DOSSIER_SECRET changed. */
+/** What people see when a saved key can't be decrypted, e.g. after HIREME_SECRET changed. */
 export const API_KEY_UNREADABLE = "Your saved API key can't be read. Please enter it again.";
 
 /** What Settings may know about the API key: never the key itself. */
@@ -116,8 +116,8 @@ export type AiSettingsView = {
   baseUrl: string;
   model: string;
   keyState: KeyState;
-  /** Saved in Settings; null for DOSSIER_AI_TIMEOUT_SECONDS's, or the provider's own. */
+  /** Saved in Settings; null for HIREME_AI_TIMEOUT_SECONDS's, or the provider's own. */
   timeoutSeconds: number | null;
-  /** DOSSIER_AI_TIMEOUT_SECONDS, if it's set. */
+  /** HIREME_AI_TIMEOUT_SECONDS, if it's set. */
   envTimeoutSeconds: number | null;
 };

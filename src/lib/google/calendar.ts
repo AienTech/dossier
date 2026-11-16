@@ -7,15 +7,15 @@ import { googleUrl } from "./endpoints";
 import { isGone } from "./errors";
 import type { Interval } from "./slots";
 
-// The parts of the Calendar API Dossier uses (E15-5): free/busy for times to
+// The parts of the Calendar API HireMe uses (E15-5): free/busy for times to
 // offer, and events for interviews and the dashboard's calendar.
 
 const api = (path: string) => googleUrl("www", `/calendar/v3${path}`);
 const eventPath = (calendarId: string, eventId?: string) =>
   `/calendars/${encodeURIComponent(calendarId)}/events${eventId ? `/${encodeURIComponent(eventId)}` : ""}`;
 
-/** The private property that ties an event Dossier added to its application. */
-const APPLICATION_PROPERTY = "dossierApplication";
+/** The private property that ties an event HireMe added to its application. */
+const APPLICATION_PROPERTY = "hiremeApplication";
 
 /** Busy times in the calendar between `from` and `to`. */
 export async function busyTimes(calendarId: string, from: Date, to: Date, signal?: AbortSignal): Promise<Interval[]> {
@@ -65,7 +65,7 @@ const eventSchema = z.object({
   extendedProperties: z.object({ private: z.record(z.string(), z.string()).optional() }).optional(),
 });
 
-/** An event as Dossier reads it. All-day events have dates ("2026-10-20", the end one day after the last) instead of times. */
+/** An event as HireMe reads it. All-day events have dates ("2026-10-20", the end one day after the last) instead of times. */
 export type CalendarEvent = {
   id: string;
   title: string;
@@ -76,7 +76,7 @@ export type CalendarEvent = {
   startDate: string | null;
   endDate: string | null;
   link: string;
-  /** The application of an interview Dossier added. */
+  /** The application of an interview HireMe added. */
   applicationId: string | null;
 };
 

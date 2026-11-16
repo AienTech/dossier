@@ -72,6 +72,14 @@ describe("signIn", () => {
     expect(startSession).not.toHaveBeenCalled();
   });
 
+  it("throttles oversized guesses without performing password hashing", async () => {
+    await expect(signIn({ password: "x".repeat(1025), remember: false })).resolves.toEqual({ ok: false, error: loginMessages.wrong });
+    expect(passwordMatches).not.toHaveBeenCalled();
+    // The attempt is counted before the password check, so nothing else records it.
+    expect(startLoginAttempt).toHaveBeenCalledOnce();
+    expect(startSession).not.toHaveBeenCalled();
+  });
+
   it("starts a session, resets the IP's counter and welcomes the user by first name", async () => {
     await expect(
       signIn({ password: "correct horse", remember: true, next: "/applications/abc" }),
@@ -96,7 +104,7 @@ describe("signIn", () => {
     await expect(signIn({ password: "correct horse", remember: false })).resolves.toEqual({
       ok: false,
       error:
-        "Too many wrong passwords were tried lately, so new browsers have to wait 15 minutes. A browser you've signed in with before can sign in now, and restarting Dossier ends the wait.",
+        "Too many wrong passwords were tried lately, so new browsers have to wait 15 minutes. A browser you've signed in with before can sign in now, and restarting HireMe ends the wait.",
     });
     expect(passwordMatches).not.toHaveBeenCalled();
   });

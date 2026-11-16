@@ -8,25 +8,25 @@ import { loadSettings } from "@/lib/settings-data";
 import { SCORING_KEY_MISSING, SCORING_KEY_UNREADABLE, type Scorer, type ScoringKeyState, type ScoringView } from "./scorers";
 
 // What scores postings (#274): the choice saved in Settings → Scoring, or
-// else DOSSIER_SCORER, or else the AI model; and Jev's key, saved there or
-// in DOSSIER_TYPESAFE_KEY.
+// else HIREME_SCORER, or else the AI model; and Jev's key, saved there or
+// in HIREME_TYPESAFE_KEY.
 
 export type ScoringConfig = {
   scorer: Scorer;
-  /** Whether the choice is saved in Settings, rather than coming from DOSSIER_SCORER or the default. */
+  /** Whether the choice is saved in Settings, rather than coming from HIREME_SCORER or the default. */
   saved: boolean;
   key: string | null;
   keyState: ScoringKeyState;
 };
 
-const FROM_ENV: Record<NonNullable<Env["DOSSIER_SCORER"]>, Scorer> = { ai: "AI", jev: "JEV" };
+const FROM_ENV: Record<NonNullable<Env["HIREME_SCORER"]>, Scorer> = { ai: "AI", jev: "JEV" };
 
 export function resolveScoringConfig(
   saved: Pick<SettingsData, "scorer" | "typesafeKeyEnc">,
-  source: Pick<Env, "DOSSIER_SCORER" | "DOSSIER_TYPESAFE_KEY">,
+  source: Pick<Env, "HIREME_SCORER" | "HIREME_TYPESAFE_KEY">,
   secret?: string,
 ): ScoringConfig {
-  const scorer = saved.scorer ?? (source.DOSSIER_SCORER ? FROM_ENV[source.DOSSIER_SCORER] : "AI");
+  const scorer = saved.scorer ?? (source.HIREME_SCORER ? FROM_ENV[source.HIREME_SCORER] : "AI");
   const choice = { scorer, saved: saved.scorer !== null };
   if (saved.typesafeKeyEnc) {
     try {
@@ -36,7 +36,7 @@ export function resolveScoringConfig(
       return { ...choice, key: null, keyState: "unreadable" };
     }
   }
-  return source.DOSSIER_TYPESAFE_KEY ? { ...choice, key: source.DOSSIER_TYPESAFE_KEY, keyState: "env" } : { ...choice, key: null, keyState: "none" };
+  return source.HIREME_TYPESAFE_KEY ? { ...choice, key: source.HIREME_TYPESAFE_KEY, keyState: "env" } : { ...choice, key: null, keyState: "none" };
 }
 
 /** The scoring configuration in effect right now. */

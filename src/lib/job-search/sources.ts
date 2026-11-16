@@ -10,7 +10,7 @@ export type JobSearchSettingsView = {
   adzuna: { appId: string; keyState: JobKeyState };
   /** Whether this server offers the Bundesagentur für Arbeit, and when its note was accepted (#223). */
   arbeitsagentur: { offered: boolean; acceptedAt: string | null };
-  /** The FreeHire it searches: "freehire.me", or a self-hosted one's host (DOSSIER_FREEHIRE_URL). */
+  /** The FreeHire it searches: "freehire.me", or a self-hosted one's host (HIREME_FREEHIRE_URL). */
   freehire: { host: string };
 };
 
@@ -94,7 +94,7 @@ export const SOURCE_INFO: Record<JobSource, SourceInfo> = {
   },
 };
 
-/** FreeHire's public catalogue; DOSSIER_FREEHIRE_URL can name a self-hosted one instead. */
+/** FreeHire's public catalogue; HIREME_FREEHIRE_URL can name a self-hosted one instead. */
 export const FREEHIRE_URL = "https://freehire.me";
 
 /** Whether a source lists jobs in a country ("de"). */
@@ -103,17 +103,17 @@ export function sourceCovers(source: JobSource, country: string): boolean {
   return countries === null || countries.includes(country);
 }
 
-// The Bundesagentur für Arbeit (#223) has no official API: Dossier uses the
+// The Bundesagentur für Arbeit (#223) has no official API: HireMe uses the
 // access its own job search uses, without its permission. So it's the
 // user's own choice, after this note, and a server can turn it off
-// (DOSSIER_JOBS_ARBEITSAGENTUR=off).
+// (HIREME_JOBS_ARBEITSAGENTUR=off).
 
 /** The BA's terms of use for arbeitsagentur.de. */
 export const ARBEITSAGENTUR_TERMS_URL = "https://www.arbeitsagentur.de/datei/nutzungsbedingungen_ba036575.pdf";
 
 /** What "I understand" agrees to, in Settings, in Find jobs and in the server log. */
 export const ARBEITSAGENTUR_NOTE =
-  "The Bundesagentur für Arbeit has no official API. Dossier searches it through the access its own job search uses, without its permission, " +
+  "The Bundesagentur für Arbeit has no official API. HireMe searches it through the access its own job search uses, without its permission, " +
   "and the BA's terms of use don't allow automated access. You choose this source on your own responsibility, and it can stop working at any time.";
 
 /** A BA posting's own page on arbeitsagentur.de, which its results always link to, even when they have a link of their own. */

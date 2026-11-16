@@ -97,7 +97,7 @@ describe("JobSearchSection", () => {
     render(<JobSearchSection initial={off} />);
     await userEvent.click(screen.getByRole("radio", { name: "Bundesagentur für Arbeit" }));
     expect(saveJobSource).not.toHaveBeenCalled();
-    expect(screen.getByText(/has no official API\. Dossier searches it through the access its own job search uses, without its permission/)).toBeInTheDocument();
+    expect(screen.getByText(/has no official API\. HireMe searches it through the access its own job search uses, without its permission/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /The BA's terms of use/ })).toHaveAttribute("href", "https://www.arbeitsagentur.de/datei/nutzungsbedingungen_ba036575.pdf");
     expect(screen.queryByRole("button", { name: "Test connection" })).not.toBeInTheDocument();
 
@@ -133,17 +133,17 @@ describe("JobSearchSection", () => {
 
   it("says which FreeHire it searches, with no key to ask for", () => {
     const { unmount } = render(<JobSearchSection initial={withSource({ source: "FREEHIRE" })} />);
-    expect(screen.getByText("No key needed. Dossier searches FreeHire's public catalogue at freehire.me.")).toBeInTheDocument();
+    expect(screen.getByText("No key needed. HireMe searches FreeHire's public catalogue at freehire.me.")).toBeInTheDocument();
     expect(screen.queryByLabelText(/key/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Test connection" })).toBeInTheDocument();
     unmount();
     render(<JobSearchSection initial={withSource({ source: "FREEHIRE", freehire: { host: "jobs.example" } })} />);
-    expect(screen.getByText("No key needed. Dossier searches your own FreeHire at jobs.example.")).toBeInTheDocument();
+    expect(screen.getByText("No key needed. HireMe searches your own FreeHire at jobs.example.")).toBeInTheDocument();
   });
 
   it("shows keys from the environment and keys that can't be read", () => {
     const { unmount } = render(<JobSearchSection initial={withSource({ source: "JSEARCH", jsearch: { host: "openwebninja", keyState: "env" } })} />);
-    expect(screen.getByLabelText("API key")).toHaveAttribute("placeholder", "Using DOSSIER_JSEARCH_KEY · type one to save it here");
+    expect(screen.getByLabelText("API key")).toHaveAttribute("placeholder", "Using HIREME_JSEARCH_KEY · type one to save it here");
     unmount();
     render(<JobSearchSection initial={withSource({ source: "JSEARCH", jsearch: { host: "openwebninja", keyState: "unreadable" } })} />);
     expect(screen.getByText("Your saved key can't be read. Please enter it again.")).toBeInTheDocument();

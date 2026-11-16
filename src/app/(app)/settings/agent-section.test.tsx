@@ -39,10 +39,10 @@ describe("Settings → Job agent", () => {
     expect(screen.getByText("Recurring searches (0/3)")).toBeInTheDocument();
   });
 
-  it("says on this computer that it only runs while Dossier is open (#325)", () => {
+  it("says on this computer that it only runs while HireMe is open (#325)", () => {
     open({ initial: { ...initial, enabled: true }, onlyWhileOpen: true });
     expect(screen.getByRole("switch", { name: "Run the job agent" })).toHaveAccessibleDescription(
-      /On this computer, only while Dossier is open: when it's closed at that hour, the run starts once you open it, the same day\.$/,
+      /On this computer, only while HireMe is open: when it's closed at that hour, the run starts once you open it, the same day\.$/,
     );
   });
 

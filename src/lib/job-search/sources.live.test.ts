@@ -14,14 +14,14 @@ import { EMPTY_QUERY } from "./search";
 //   JOBS_LIVE=adzuna ADZUNA_TEST_APP_ID=… ADZUNA_TEST_KEY=… docker/bin/yarn vitest run src/lib/job-search/sources.live.test.ts
 //   JOBS_LIVE=freehire docker/bin/yarn vitest run src/lib/job-search/sources.live.test.ts
 //
-// FreeHire's is freehire.me, or the self-hosted one DOSSIER_FREEHIRE_URL
+// FreeHire's is freehire.me, or the self-hosted one HIREME_FREEHIRE_URL
 // names, on the command line or in `.env`.
 
 const live = new Set((process.env.JOBS_LIVE ?? "").split(",").map((name) => name.trim()));
 const adzunaKey = { appId: process.env.ADZUNA_TEST_APP_ID ?? "", key: process.env.ADZUNA_TEST_KEY ?? "" };
 const query = { ...EMPTY_QUERY, keywords: "Softwareentwickler", place: "Hamburg", country: "de", radiusKm: 25 as const };
 
-/** Where the app sends FreeHire's searches, with `.env` read as the app reads it, so DOSSIER_FREEHIRE_URL there counts. */
+/** Where the app sends FreeHire's searches, with `.env` read as the app reads it, so HIREME_FREEHIRE_URL there counts. */
 function freehireContext() {
   // Keeps what's set already, such as the DATABASE_URL Compose gives the container.
   process.loadEnvFile(".env");

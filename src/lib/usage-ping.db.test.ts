@@ -29,10 +29,10 @@ vi.mock("@/lib/prisma", async () => {
 const telemetry = vi.hoisted(() => ({ value: undefined as "on" | "off" | undefined, testUrl: undefined as string | undefined }));
 vi.mock("@/lib/env", () => ({
   env: {
-    get DOSSIER_TELEMETRY() {
+    get HIREME_TELEMETRY() {
       return telemetry.value;
     },
-    get DOSSIER_USAGE_PING_TEST_URL() {
+    get HIREME_USAGE_PING_TEST_URL() {
       return telemetry.testUrl;
     },
   },
@@ -67,7 +67,7 @@ const answered = (choice: "on" | "off", text = USAGE_PING_TEXT_VERSION) => ({ us
 const unanswered = { usagePingChoice: null, usagePingChoiceText: null };
 
 describe("whether the usage ping goes (#172)", () => {
-  it("follows DOSSIER_TELEMETRY while it's set, else the answer to the current question", () => {
+  it("follows HIREME_TELEMETRY while it's set, else the answer to the current question", () => {
     expect(usagePingChoice(unanswered, "on")).toEqual({ choice: "on", source: "env" });
     expect(usagePingChoice(answered("on"), "off")).toEqual({ choice: "off", source: "env" });
     expect(usagePingChoice(answered("on"), undefined)).toEqual({ choice: "on", source: "app" });
@@ -127,7 +127,7 @@ describe("answering (#172)", () => {
     expect(sent(fetchImpl)[0].body).toEqual({ id: ID, version: appVersion });
   });
 
-  it("records DOSSIER_TELEMETRY at startup when it's set; off forgets the ID", async () => {
+  it("records HIREME_TELEMETRY at startup when it's set; off forgets the ID", async () => {
     await saveSettings({ usagePingId: ID, usagePingDay: "2026-10-15" });
     await recordEnvChoice(undefined, morning);
     expect((await loadSettings()).usagePingChoice).toBeNull();
@@ -149,7 +149,7 @@ describe("the usage ping", () => {
     expect(utcDay(new Date("2026-10-17T01:00:00+02:00"))).toBe("2026-10-16");
   });
 
-  it("sends nothing and stores nothing before a yes, in development, or with DOSSIER_TELEMETRY=off", async () => {
+  it("sends nothing and stores nothing before a yes, in development, or with HIREME_TELEMETRY=off", async () => {
     const fetchImpl = answering();
     // An install that pinged before 1.8 and hasn't answered yet.
     await saveSettings({ usagePingId: ID });
@@ -164,7 +164,7 @@ describe("the usage ping", () => {
     expect((await loadSettings()).usagePingDay).toBeNull();
   });
 
-  it("goes with DOSSIER_TELEMETRY=on without an answer in the app", async () => {
+  it("goes with HIREME_TELEMETRY=on without an answer in the app", async () => {
     telemetry.value = "on";
     const fetchImpl = answering();
     expect(await pingIfNewDay({ now: morning, fetchImpl })).toBe("sent");

@@ -8,7 +8,7 @@ const notice = {
   severity: "security",
   title: "Update to 1.13.1",
   body: "This release fixes a security problem in sign-in.",
-  link: { label: "What's new", url: "https://github.com/AienTech/dossier/releases/tag/v1.13.1" },
+  link: { label: "What's new", url: "https://github.com/shahzadafridi/HireMe/releases/tag/v1.13.1" },
   minVersion: null,
   maxVersion: "1.13.0",
   publishedAt: "2026-11-10T09:00:00Z",
@@ -71,7 +71,7 @@ describe("parseAnnouncements (E18-1)", () => {
 
   it("keeps a notice whose link it can't read, without the link", () => {
     expect(one({ link: { label: "No address" } })![0].link).toBeNull();
-    expect(one({ link: "https://dossier.aien.me" })![0].link).toBeNull();
+    expect(one({ link: "https://hireme.example" })![0].link).toBeNull();
   });
 
   it("gives up on an answer that isn't the expected shape", () => {

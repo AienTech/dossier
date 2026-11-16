@@ -1,4 +1,4 @@
-// Dossier's data model (PRD §9). After editing, run
+// HireMe's data model (PRD §9). After editing, run
 // `docker/bin/yarn prisma migrate dev --name <name>` and `docker compose restart app`.
 //
 // Conventions:
@@ -512,7 +512,7 @@ model Application {
   /// The Gmail thread the application was sent in, when it went out through Gmail (E15-2).
   emailThreadId       String?
   /// The Google Calendar event of the next interview, and the calendar it's
-  /// in, when Dossier added it: kept in step with nextInterviewAt both ways.
+  /// in, when HireMe added it: kept in step with nextInterviewAt both ways.
   interviewEventId    String?
   interviewCalendarId String?
   /// The Find jobs posting it was started from, if any (E14-8).
@@ -536,6 +536,11 @@ model Application {
 
   @@index([status])
   @@index([updatedAt])
+
+  /// The confirmed submission record, kept apart from the drafted text.
+  submission Json?
+  /// Drive archive state for this packet: the latest snapshot and its source hash.
+  driveSync  Json?
 }
 
 /// One status change. Keeps the application's furthestStage and sentAt from
@@ -924,7 +929,7 @@ model GoogleAccount {
 }
 
 enum EmailDirection {
-  /// Sent from Dossier, or from Gmail in a thread Dossier knows.
+  /// Sent from HireMe, or from Gmail in a thread HireMe knows.
   OUTGOING
   INCOMING
 }
@@ -976,7 +981,7 @@ model EmailMessage {
   /// What the draft couldn't answer from the profile (stringList).
   replyGaps       Json?
   draftedWith     String?
-  /// Answered from Dossier, or marked as needing no answer.
+  /// Answered from HireMe, or marked as needing no answer.
   handledAt       DateTime?
   /// "Not job-related": only the ids and date are kept, so the inbox check
   /// doesn't fetch it again.
@@ -1060,4 +1065,52 @@ model AiUsage {
   createdAt    DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ─── Private packets, Drive archives and reviewed connector actions ─────────
+
+model StoredFile {
+  key      String   @id
+  data     Bytes
+  modified DateTime @default(now())
+
+  @@index([modified])
+}
+
+
+/// Explicit per-client permissions; install-specific and never exported.
+model ConnectorGrant {
+  id          String   @id
+  name        String
+  generation  String
+  permissions Json
+  requested   Json
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Immutable action review; only the signed-in owner can approve execution.
+model ConnectorApproval {
+  id          String   @id @default(cuid())
+  clientId    String
+  action      String
+  payload     Json
+  digest      String
+  status      String   @default("PENDING")
+  expiresAt   DateTime
+  result      Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([clientId, createdAt])
+}
+
+model ConnectorAudit {
+  id        String   @id @default(cuid())
+  clientId  String
+  action    String
+  target    String?
+  outcome   String
+  createdAt DateTime @default(now())
+  @@index([clientId, createdAt])
 }

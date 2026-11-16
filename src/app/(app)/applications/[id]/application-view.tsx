@@ -65,6 +65,9 @@ import { ResumeScore } from "./resume-score";
 import { WriteMissingDocument } from "./write-missing-document";
 import { ApplicationHeader } from "./application-header";
 import { ApplicationMenu } from "./application-menu";
+import { EMPTY_BOT_NOTES, type ApplyBotNotes, type ApplyBot } from "@/lib/application-bots";
+import { applyCandidateContext, latestDriveSnapshot } from "@/lib/drive-handoff";
+import { DriveArchiveButton } from "@/components/documents/drive-archive-button";
 import { ConversationTab } from "./conversation-tab";
 import { EmailTab, type Attachments } from "./email-tab";
 import type { GmailSender } from "./send-with-gmail";
@@ -114,7 +117,10 @@ export type ApplicationViewProps = {
     id: string;
     title: string;
     company: string;
+    role: string;
     location: string;
+    /** Target / posting salary when known (for Apply with bot answers). */
+    salary?: string;
     status: ApplicationStatus;
     tone: Tone;
     /** The documents' language, e.g. "English". */
@@ -187,6 +193,23 @@ export type ApplicationViewProps = {
   /** A reply still being written, e.g. since before a reload. */
   refining: string | null;
   suggestions: RefineSuggestions;
+  /** Which bot runs Apply with bot (Settings → Job agent → Application bots). */
+  applyBot: ApplyBot;
+  botNotes?: ApplyBotNotes;
+  botPromptTemplate?: string;
+  grokAgentName?: string;
+  grokAppName?: string;
+  grokLaunchMode?: "app-link" | "mac-helper";
+  openbotAgentName?: string;
+  openbotAppName?: string;
+  openbotLaunchMode?: "clipboard" | "mac-helper";
+  packetFolderName?: string;
+  driveSyncKey?: string;
+  initialDriveSnapshot?: string;
+  driveAutoSave?: boolean;
+  /** Grok Bot id from Settings → Job agent → Application bots, when apply bot is Grok. */
+  grokBotId: string | null;
+  /** Claude connector on — required when apply bot is Claude. */
 };
 
 /**
@@ -231,6 +254,20 @@ export function ApplicationView({
   messages,
   refining,
   suggestions,
+  applyBot,
+  botNotes = EMPTY_BOT_NOTES,
+  botPromptTemplate,
+  openbotLaunchMode,
+  openbotAgentName,
+  openbotAppName,
+  grokLaunchMode,
+  grokAgentName,
+  grokAppName,
+  packetFolderName,
+  driveSyncKey,
+  initialDriveSnapshot,
+  driveAutoSave = true,
+  grokBotId,
 }: ApplicationViewProps) {
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
@@ -706,6 +743,29 @@ export function ApplicationView({
                 Download PDF
               </DownloadPdfButton>
             )}
+            {!application.awaitingReview && <DriveArchiveButton
+              key={application.id}
+              applicationId={application.id}
+              snapshotUrl={latestDriveSnapshot(activity)}
+              defaultBot={applyBot}
+              botNotes={botNotes}
+              promptTemplate={botPromptTemplate}
+              openbotLaunchMode={openbotLaunchMode}
+              openbotAgentName={openbotAgentName} openbotAppName={openbotAppName} grokLaunchMode={grokLaunchMode} grokAgentName={grokAgentName} grokAppName={grokAppName}
+              packetFolderName={packetFolderName}
+              driveSyncKey={driveSyncKey}
+              initialDriveSnapshot={initialDriveSnapshot}
+              autoSave={driveAutoSave}
+              grokBotId={grokBotId}
+              jobLocation={application.location}
+              postingSalary={application.salary}
+              postingText={posting.text}
+              applicationStatus={application.status}
+              candidate={applyCandidateContext(profile.basics)}
+              jobTitle={application.role || application.title}
+              company={application.company}
+              postingUrl={posting.url}
+            />}
             <ApplicationMenu id={application.id} archived={application.archived} />
           </>
         }

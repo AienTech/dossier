@@ -59,7 +59,7 @@ describe("Adzuna search", () => {
         remote: null,
         salary: "EUR 70,000–85,000 a year (estimated)",
         postedAt: "2026-09-29T09:15:00.000Z",
-        url: "https://www.adzuna.de/land/ad/4721394012?se=abc&utm_medium=api&utm_source=dossier&v=1",
+        url: "https://www.adzuna.de/land/ad/4721394012?se=abc&utm_medium=api&utm_source=hireme&v=1",
         via: "",
         description: "Ledgerly is hiring a Product Designer for its payments team…",
         complete: false,

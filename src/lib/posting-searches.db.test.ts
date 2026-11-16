@@ -18,7 +18,7 @@ vi.mock("@/lib/prisma", async () => {
   db.client = createTestClient();
   return { prisma: db.client };
 });
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 const prisma = () => db.client!;
 
 const query = { ...EMPTY_QUERY, keywords: "product designer", place: "Hamburg", country: "de" };

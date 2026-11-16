@@ -48,9 +48,9 @@ export function GoogleStep({
     return (
       <Card className="flex flex-col gap-2">
         <p className="text-sm">
-          Connected as <strong className="font-medium">{connection.email}</strong>. Settings → Google is where you choose what Dossier reads and your working hours.
+          Connected as <strong className="font-medium">{connection.email}</strong>. Settings → Google is where you choose what HireMe reads and your working hours.
         </p>
-        <p className="text-meta text-muted">Changing your Google password disconnects Dossier: connect again in Settings → Google when that happens.</p>
+        <p className="text-meta text-muted">Changing your Google password disconnects HireMe: connect again in Settings → Google when that happens.</p>
       </Card>
     );
   }
@@ -69,7 +69,7 @@ export function GoogleStep({
             {addressProblem === "ip"
               ? "Google needs a name, such as jobs.example.com, rather than numbers such as 192.168.1.20."
               : "Google needs an address that starts with https://, unless it's localhost."}{" "}
-            Dossier is at <span className="font-mono text-[13px] [overflow-wrap:anywhere]">{new URL(redirectUri).origin}</span>. Give it a domain name with https (the
+            HireMe is at <span className="font-mono text-[13px] [overflow-wrap:anywhere]">{new URL(redirectUri).origin}</span>. Give it a domain name with https (the
             wiki&apos;s install guides show how), or skip this step for now.
           </p>
           <a href={GOOGLE_HELP} target="_blank" rel="noopener noreferrer" className="self-start font-medium text-ink underline underline-offset-2">
@@ -83,7 +83,7 @@ export function GoogleStep({
             <dd className="text-pretty text-muted">Nothing. Google Cloud may ask for billing details for other services; Gmail and Calendar don&apos;t need it.</dd>
             <dt className="font-medium">Your data</dt>
             <dd className="text-pretty text-muted">
-              Your mail and calendar stay with Google. Dossier reads the replies to your applications, and the AI you chose reads them to draft your answers. Nothing
+              Your mail and calendar stay with Google. HireMe reads the replies to your applications, and the AI you chose reads them to draft your answers. Nothing
               is sent without you pressing Send.
             </dd>
           </dl>

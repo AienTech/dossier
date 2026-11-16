@@ -7,4 +7,4 @@
 export type Instruction = { text: string; link?: { href: string; label: string } };
 
 /** The wiki's pages for each part, which can be corrected between releases. */
-export const WIKI = "https://github.com/AienTech/dossier/wiki";
+export const WIKI = "https://github.com/shahzadafridi/HireMe/wiki";

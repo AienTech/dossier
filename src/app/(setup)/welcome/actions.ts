@@ -46,7 +46,7 @@ export const connectAi = action(z.object({ choice: z.enum(choiceIds), key: z.str
     }
     const model = pickModel(choice.models, served);
     if (!model) {
-      return { connected: false as const, kind: "model" as const, message: `Your ${choice.name} account doesn't offer the models Dossier uses: ${choice.models.join(" or ")}.` };
+      return { connected: false as const, kind: "model" as const, message: `Your ${choice.name} account doesn't offer the models HireMe uses: ${choice.models.join(" or ")}.` };
     }
     await saveSettings({ model });
     const { latencyMs } = await createProvider({ ...config, model }).test(AbortSignal.timeout(CHECK_TIMEOUT_MS));

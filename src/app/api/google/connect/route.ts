@@ -5,7 +5,7 @@ import { authorizeUrl, googleClient, redirectUri, SCOPES, signState, type ScopeG
 import { publicOrigin } from "@/lib/google/origin";
 import { route } from "@/lib/route";
 
-const GROUPS: readonly ScopeGroup[] = ["send", "read", "calendar"];
+const GROUPS: readonly ScopeGroup[] = ["send", "read", "calendar", "drive"];
 
 /** Where to come back to: Settings → Google, or the setup guide (E21-5) when it asks. */
 function returnTo(request: Request): string {
@@ -27,7 +27,7 @@ export const GET = route(async (request) => {
     url.searchParams.set("google", "not-configured");
     return NextResponse.redirect(url);
   }
-  const asked = (request.nextUrl.searchParams.get("scopes") ?? GROUPS.join(","))
+  const asked = (request.nextUrl.searchParams.get("scopes") ?? "send,read,calendar")
     .split(",")
     .filter((group): group is ScopeGroup => (GROUPS as readonly string[]).includes(group));
   const account = await loadGoogleAccount();

@@ -90,7 +90,7 @@ export const adzunaPage = {
       title: "Senior <strong>Product Designer</strong> &amp; Researcher",
       description: "Ledgerly is hiring a <strong>Product Designer</strong> for its payments team…",
       created: "2026-09-29T09:15:00Z",
-      redirect_url: "https://www.adzuna.de/land/ad/4721394012?se=abc&utm_medium=api&utm_source=dossier&v=1",
+      redirect_url: "https://www.adzuna.de/land/ad/4721394012?se=abc&utm_medium=api&utm_source=hireme&v=1",
       company: { __CLASS__: "Adzuna::API::Response::Company", display_name: "Ledgerly GmbH" },
       location: { __CLASS__: "Adzuna::API::Response::Location", display_name: "Hamburg, Deutschland", area: ["Deutschland", "Hamburg"] },
       salary_min: 70000,

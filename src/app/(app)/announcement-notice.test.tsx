@@ -14,7 +14,7 @@ vi.mock("@/components/toast", () => ({ toast: vi.fn() }));
 const announcement = (changes: Partial<Announcement> = {}): Announcement => ({
   id: "ann_1",
   severity: "info",
-  title: "Dossier is moving",
+  title: "HireMe is moving",
   body: "The website has a new address.",
   link: null,
   minVersion: null,
@@ -39,13 +39,13 @@ beforeEach(() => vi.clearAllMocks());
 describe("AnnouncementNotice (E18-3)", () => {
   it("shows the title and the text", () => {
     renderNotice();
-    const notice = screen.getByRole("region", { name: "Dossier is moving" });
+    const notice = screen.getByRole("region", { name: "HireMe is moving" });
     expect(notice).toHaveTextContent("The website has a new address.");
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("says what kind of notice it is in words", () => {
-    for (const [severity, word] of [["security", "Security notice"], ["important", "Important"], ["info", "From Dossier"]] as const) {
+    for (const [severity, word] of [["security", "Security notice"], ["important", "Important"], ["info", "From HireMe"]] as const) {
       const { unmount } = renderNotice(announcement({ severity }));
       expect(screen.getByText(word)).toBeInTheDocument();
       unmount();
@@ -96,6 +96,6 @@ describe("AnnouncementNotice (E18-3)", () => {
     renderNotice();
     await user.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(toast).toHaveBeenCalledWith("You seem to be offline.");
-    expect(screen.getByRole("region", { name: "Dossier is moving" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "HireMe is moving" })).toBeInTheDocument();
   });
 });

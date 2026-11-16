@@ -33,7 +33,8 @@ export async function updateDocuments<T>(
 ): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     try {
-      return await prisma.$transaction(async (tx) => {
+      let changed = false;
+      const result = await prisma.$transaction(async (tx) => {
         const rows = await tx.document.findMany({ where: { applicationId } });
         const documents: DocumentUnits = {};
         for (const row of rows) documents[row.kind] = unitsSchema.parse(row.units);
@@ -50,10 +51,16 @@ export async function updateDocuments<T>(
             data: { units },
           });
           if (count === 0) throw new ChangedMeanwhile();
+          changed = true;
           if (version) await saveVersion(tx, row.id, units, version);
         }
         return result;
       });
+      if (changed) {
+        const { scheduleDriveSyncQuietly } = await import("@/lib/google/drive-sync");
+        await scheduleDriveSyncQuietly(applicationId);
+      }
+      return result;
     } catch (error) {
       if (!(error instanceof ChangedMeanwhile) || attempt === ATTEMPTS) throw error;
     }

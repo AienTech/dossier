@@ -1,4 +1,4 @@
--- Dossier 1.12.0 on SQLite: certifications, custom sections, which roles
+-- HireMe 1.12.0 on SQLite: certifications, custom sections, which roles
 -- are volunteering, what sent applications were sent with, the board's
 -- order and AI usage. The 1.11.0 schema is the init migration, as the public
 -- repository merged it. Experience is rebuilt for its new columns; it has

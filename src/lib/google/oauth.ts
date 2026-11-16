@@ -15,22 +15,23 @@ import { GoogleError } from "./errors";
 // Signing in with Google for Gmail and Calendar (E15-1): the OAuth 2.0
 // authorization code flow for a web server app, with offline access so a
 // refresh token keeps working after the browser is gone. The state is a
-// short-lived token signed with a key from DOSSIER_SECRET, so a callback
+// short-lived token signed with a key from HIREME_SECRET, so a callback
 // can't be forged from another site.
 
 export const CALLBACK_PATH = "/api/google/callback";
 
-/** What Dossier asks Google for, by feature. */
+/** What HireMe asks Google for, by feature. */
 export const SCOPES = {
   identity: ["openid", "email"],
   send: ["https://www.googleapis.com/auth/gmail.send"],
   read: ["https://www.googleapis.com/auth/gmail.readonly"],
+  drive: ["https://www.googleapis.com/auth/drive.file"],
   calendar: ["https://www.googleapis.com/auth/calendar.freebusy", "https://www.googleapis.com/auth/calendar.events"],
 } as const;
 
 export type ScopeGroup = keyof typeof SCOPES;
 
-/** Every scope Dossier can use. */
+/** Every scope HireMe can use. */
 export const ALL_SCOPES: readonly string[] = Object.values(SCOPES).flat();
 
 /** Whether `granted` (space-separated, as Google returns it) covers a feature. */
@@ -51,14 +52,14 @@ export type GoogleClientConfig = {
 };
 
 type SavedClient = Pick<SettingsData, "googleClientId" | "googleClientSecretEnc">;
-type ClientEnv = Pick<Env, "DOSSIER_GOOGLE_CLIENT_ID" | "DOSSIER_GOOGLE_CLIENT_SECRET">;
+type ClientEnv = Pick<Env, "HIREME_GOOGLE_CLIENT_ID" | "HIREME_GOOGLE_CLIENT_SECRET">;
 
 /**
  * The OAuth client: what's saved in Settings → Google, else the
- * DOSSIER_GOOGLE_CLIENT_* variables, each part on its own.
+ * HIREME_GOOGLE_CLIENT_* variables, each part on its own.
  */
 export function resolveGoogleClient(saved: SavedClient, source: ClientEnv, secret?: string): GoogleClientConfig {
-  const fromEnvId = source.DOSSIER_GOOGLE_CLIENT_ID || undefined;
+  const fromEnvId = source.HIREME_GOOGLE_CLIENT_ID || undefined;
   const id = saved.googleClientId ?? fromEnvId ?? "";
   const idState: ClientPartState = saved.googleClientId ? "set" : fromEnvId ? "env" : "none";
   let clientSecret: string | null = null;
@@ -71,8 +72,8 @@ export function resolveGoogleClient(saved: SavedClient, source: ClientEnv, secre
       if (!(error instanceof SecretUnreadable)) throw error;
       secretState = "unreadable";
     }
-  } else if (source.DOSSIER_GOOGLE_CLIENT_SECRET) {
-    clientSecret = source.DOSSIER_GOOGLE_CLIENT_SECRET;
+  } else if (source.HIREME_GOOGLE_CLIENT_SECRET) {
+    clientSecret = source.HIREME_GOOGLE_CLIENT_SECRET;
     secretState = "env";
   }
   return { client: id && clientSecret ? { id, secret: clientSecret } : null, id, idState, secretState };
@@ -88,12 +89,12 @@ export async function googleClient(): Promise<{ id: string; secret: string } | n
   return (await loadGoogleClientConfig()).client;
 }
 
-/** Where Google sends the browser back to: DOSSIER_PUBLIC_URL, else the address in use. */
+/** Where Google sends the browser back to: HIREME_PUBLIC_URL, else the address in use. */
 export function redirectUri(origin: string): string {
-  return `${env.DOSSIER_PUBLIC_URL ?? origin}${CALLBACK_PATH}`;
+  return `${env.HIREME_PUBLIC_URL ?? origin}${CALLBACK_PATH}`;
 }
 
-const STATE_AUDIENCE = "dossier-google-oauth";
+const STATE_AUDIENCE = "hireme-google-oauth";
 
 /** A state that only this server can make, for ten minutes, carrying where to go back to. */
 export async function signState(returnTo: string, secret?: string): Promise<string> {
@@ -167,11 +168,11 @@ async function postToken(body: Record<string, string>, signal?: AbortSignal): Pr
   const json = (await response.json().catch(() => null)) as { error?: string } | null;
   if (!response.ok) {
     // invalid_grant: the refresh token was revoked, expired or the password changed.
-    if (json?.error === "invalid_grant") throw new GoogleError("revoked", "Google no longer accepts Dossier's access. Connect your Google account again.");
+    if (json?.error === "invalid_grant") throw new GoogleError("revoked", "Google no longer accepts HireMe's access. Connect your Google account again.");
     throw new GoogleError("rejected", "Google refused the sign-in. Check the client ID and secret in Settings → Google.");
   }
   const parsed = tokenSchema.safeParse(json);
-  if (!parsed.success) throw new GoogleError("unavailable", "Google sent an answer Dossier doesn't understand.");
+  if (!parsed.success) throw new GoogleError("unavailable", "Google sent an answer HireMe doesn't understand.");
   return parsed.data;
 }
 

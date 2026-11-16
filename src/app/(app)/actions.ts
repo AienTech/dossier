@@ -24,11 +24,11 @@ export const rememberQuietDays = action(z.object({ days: z.number().int().min(1)
 /**
  * The answer to the usage ping question (#172), from the dialog after
  * sign-in or the switch in Settings → About. Closing the dialog is a no.
- * While DOSSIER_TELEMETRY is set, it decides, and this changes nothing.
+ * While HIREME_TELEMETRY is set, it decides, and this changes nothing.
  */
 export const chooseUsagePing = action(z.object({ send: z.boolean() }), async ({ send }) => {
-  if (env.DOSSIER_TELEMETRY) {
-    throw new ActionError(`DOSSIER_TELEMETRY=${env.DOSSIER_TELEMETRY} is set on the server, so it decides. Change it there.`);
+  if (env.HIREME_TELEMETRY) {
+    throw new ActionError(`HIREME_TELEMETRY=${env.HIREME_TELEMETRY} is set on the server, so it decides. Change it there.`);
   }
   await saveUsagePingChoice(send ? "on" : "off");
   revalidatePath("/", "layout");

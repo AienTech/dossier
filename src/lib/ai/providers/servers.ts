@@ -15,7 +15,7 @@ export type Server = {
   domain: string;
   /** The API's path for the one entered (without a trailing slash), when people tend to enter another. */
   path?: (path: string) => string;
-  /** Headers for every request, made once per provider: Dossier makes one for each task. */
+  /** Headers for every request, made once per provider: HireMe makes one for each task. */
   headers?: () => Record<string, string>;
   /** Fields every chat request gets on top of OpenAI's. */
   chat?: Record<string, unknown>;
@@ -54,7 +54,7 @@ export const SERVERS: readonly Server[] = [
     domain: "opencode.ai",
     path: (path) => path.replace(/\/openai(\/v1)?$/, "/v1"),
     headers: () => ({
-      "User-Agent": `Dossier/${appVersion} (+https://github.com/AienTech/dossier)`,
+      "User-Agent": `HireMe/${appVersion} (+https://github.com/shahzadafridi/HireMe)`,
       "x-opencode-session": `ses_${randomUUID()}`,
     }),
   },

@@ -1,5 +1,5 @@
 // The top bar takes its colours from the page below it, so the two read as one
-// surface, whichever scheme the page is in and whichever version of Dossier the
+// surface, whichever scheme the page is in and whichever version of HireMe the
 // server runs.
 
 export type BarColors = { background: string; ink: string };

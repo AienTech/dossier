@@ -22,12 +22,12 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 export async function checkAuthorizeRequest(params: Record<string, string | string[] | undefined>): Promise<AuthorizeRequest | { error: string }> {
   if (!(await connectorSince())) return { error: "The MCP connector is off. Turn it on in Settings → MCP connector, then connect again from the app." };
   const client = await readClient(one(params.client_id));
-  if (!client) return { error: "This sign-in link isn't valid any more. Remove Dossier in the app and add it again." };
+  if (!client) return { error: "This sign-in link isn't valid any more. Remove HireMe in the app and add it again." };
   const redirectUri = one(params.redirect_uri);
   if (!allowedRedirect(redirectUri, await addedRedirects()) || !clientAllows(client, redirectUri)) {
-    return { error: "This sign-in would send you to an address Dossier doesn't know, so it was stopped. Add the app's callback address in Settings → MCP connector first." };
+    return { error: "This sign-in would send you to an address HireMe doesn't know, so it was stopped. Add the app's callback address in Settings → MCP connector first." };
   }
-  if (one(params.response_type) !== "code") return { error: "The app asked for a kind of sign-in Dossier doesn't offer." };
+  if (one(params.response_type) !== "code") return { error: "The app asked for a kind of sign-in HireMe doesn't offer." };
   const codeChallenge = one(params.code_challenge);
   if (one(params.code_challenge_method) !== "S256" || !/^[A-Za-z0-9_-]{43,128}$/.test(codeChallenge)) {
     return { error: "The app's sign-in request is missing its PKCE challenge." };

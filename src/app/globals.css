@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Design tokens, taken from the prototype (design/Dossier.dc.html).
+ * Design tokens, taken from the prototype (design/HireMe.dc.html).
  * Each token below becomes a Tailwind utility, e.g. --color-muted → text-muted,
  * --radius-card → rounded-card, --text-title → text-title.
  */

@@ -5,14 +5,14 @@ import { jwtVerify, SignJWT } from "jose";
 import { deriveKey } from "@/lib/keys";
 
 // Headless Chromium has no session cookie. It reaches a print page with a
-// short-lived token instead, signed with a key derived from DOSSIER_SECRET
+// short-lived token instead, signed with a key derived from HIREME_SECRET
 // and bound to that one page, sent in a request header so it never shows up
 // in a URL or a log.
 
-export const PRINT_TOKEN_HEADER = "x-dossier-print-token";
+export const PRINT_TOKEN_HEADER = "x-hireme-print-token";
 export const PRINT_TOKEN_LIFETIME_SECONDS = 60;
 
-const AUDIENCE = "dossier-print";
+const AUDIENCE = "hireme-print";
 
 /** A token that opens `path` (e.g. "/print/base") for a minute. */
 export async function signPrintToken(path: string, secret?: string): Promise<string> {

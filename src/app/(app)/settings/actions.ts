@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { AiProvider, Creativity, DateFormat, JobStatus, PaperSize, Tone } from "@/generated/prisma/enums";
 import { action, ActionError } from "@/lib/action";
+import { BOT_NOTE_KEYS, isApplyBot, applyBotSchema } from "@/lib/application-bots";
+import { parseGrokBotId } from "@/lib/grok-bot";
 import { lockAgentSearches } from "@/lib/agent/searches";
 import { AiError, createProvider } from "@/lib/ai";
 import { applyApiKeyChange } from "@/lib/ai/api-key";
@@ -82,7 +84,7 @@ export const saveApiKey = action(
     const current = await loadSettings();
     await saveSettings({
       apiKeyEnc: applyApiKeyChange(current.apiKeyEnc, change),
-      // Until now the provider came from DOSSIER_AI_*; the key makes it a saved choice.
+      // Until now the provider came from HIREME_AI_*; the key makes it a saved choice.
       ...(current.provider ? {} : { provider }),
     });
     return { keyState: await currentKeyState() };
@@ -91,7 +93,7 @@ export const saveApiKey = action(
 
 /**
  * How long one AI request may take, in seconds (public issue 118); null goes
- * back to DOSSIER_AI_TIMEOUT_SECONDS, or the provider's own. A task started
+ * back to HIREME_AI_TIMEOUT_SECONDS, or the provider's own. A task started
  * after the change has it.
  */
 export const saveAiTimeout = action(
@@ -225,7 +227,7 @@ export const testJev = action(z.object({}), async () => {
   const started = performance.now();
   try {
     const { model } = await askJev(
-      { state: "Dossier is checking that it can reach Jev.", questions: { check: { type: "noul", instructions: "Is this text about checking a connection?" } } },
+      { state: "HireMe is checking that it can reach Jev.", questions: { check: { type: "noul", instructions: "Is this text about checking a connection?" } } },
       { key: jev.key, timeoutMs: TEST_TIMEOUT_MS, retryDelaysMs: [] },
     );
     return { connected: true as const, model, seconds: Math.round((performance.now() - started) / 100) / 10 };
@@ -299,7 +301,7 @@ export const startZippingPdfs = action(z.object({}), async () => {
 export const deleteEverything = action(z.object({ confirm: z.literal("DELETE") }), async () => {
   const unfinished = await prisma.job.findMany({ where: { status: { in: [JobStatus.QUEUED, JobStatus.RUNNING] } }, select: { id: true } });
   for (const job of unfinished) await cancelJob(job.id);
-  // Revokes Dossier's access at Google too (E15-1).
+  // Revokes HireMe's access at Google too (E15-1).
   await disconnectGoogle().catch(() => {});
 
   await prisma.$transaction(async (tx) => {
@@ -365,7 +367,7 @@ export const setConnector = action(z.object({ on: z.boolean() }), async ({ on })
 export const disconnectApps = action(z.object({}), async (_input, { toast }) => {
   if (!(await loadSettings()).connectorEnabledAt) throw new ActionError("The MCP connector is off already.");
   await saveSettings({ connectorEnabledAt: new Date().toISOString() });
-  toast("Every app is disconnected. Connect again from an app to use Dossier there.");
+  toast("Every app is disconnected. Connect again from an app to use HireMe there.");
   return null;
 });
 
@@ -392,3 +394,108 @@ export const removeConnectorRedirect = action(z.object({ uri: z.string().max(200
   await saveSettings({ connectorRedirects: redirects });
   return { redirects };
 });
+
+
+/**
+ * Settings → Job agent → Application bots: which Grok Bot “Apply with bot” opens when the apply bot is
+ * Grok. Accepts a bare id or a pasted Copy-link URL; empty clears it.
+ */
+export const saveGrokBotId = action(
+  z.object({ value: z.string().max(500) }),
+  async ({ value }) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      await saveSettings({ grokBotId: null });
+      revalidatePath("/", "layout");
+      return { grokBotId: null as string | null };
+    }
+    const id = parseGrokBotId(trimmed);
+    if (!id) throw new ActionError("Paste the Bot id from Grok Bot → Copy link (the last part of the link).");
+    await saveSettings({ grokBotId: id });
+    revalidatePath("/", "layout");
+    return { grokBotId: id };
+  },
+);
+
+/** Default external application bot; each bot retains its own handoff preferences. */
+export const saveApplyBot = action(
+  z.object({ value: z.string() }),
+  async ({ value }) => {
+    if (!isApplyBot(value)) throw new ActionError("Pick an application bot from the list.");
+    await saveSettings({ applyBot: value });
+    revalidatePath("/", "layout");
+    return { applyBot: value };
+  },
+);
+
+export const saveGrokAgentName = action(
+  z.strictObject({ value: z.string().trim().max(100).refine(value => !/[\u0000-\u001f\u007f]/.test(value), "Use a single-line agent name.") }),
+  async ({ value }) => {
+    await saveSettings({ grokAgentName: value || "Job Finder" });
+    revalidatePath("/", "layout");
+    return { value: value || "Job Finder" };
+  },
+);
+
+export const saveGrokAppName = action(
+  z.strictObject({ value: z.string().trim().max(100).refine(value => !/[\u0000-\u001f\u007f/\\]/.test(value), "Use an app name, without slashes.") }),
+  async ({ value }) => {
+    await saveSettings({ grokAppName: value });
+    revalidatePath("/", "layout");
+    return { value };
+  },
+);
+
+export const saveGrokLaunchMode = action(
+  z.strictObject({ value: z.enum(["app-link", "mac-helper"]) }),
+  async ({ value }) => {
+    await saveSettings({ grokLaunchMode: value });
+    revalidatePath("/", "layout");
+    return { value };
+  },
+);
+
+export const saveOpenbotAgentName = action(
+  z.strictObject({ value: z.string().trim().max(100).refine(value => !/[\u0000-\u001f\u007f]/.test(value), "Use a single-line agent name.") }),
+  async ({ value }) => {
+    await saveSettings({ openbotAgentName: value || "Job Manager" });
+    revalidatePath("/", "layout");
+    return { value: value || "Job Manager" };
+  },
+);
+
+export const saveOpenbotAppName = action(
+  z.strictObject({ value: z.string().trim().max(100).refine(value => !/[\u0000-\u001f\u007f/\\]/.test(value), "Use an app name, without slashes.") }),
+  async ({ value }) => {
+    await saveSettings({ openbotAppName: value });
+    revalidatePath("/", "layout");
+    return { value };
+  },
+);
+
+export const saveOpenbotLaunchMode = action(
+  z.strictObject({ value: z.enum(["clipboard", "mac-helper"]) }),
+  async ({ value }) => {
+    await saveSettings({ openbotLaunchMode: value });
+    revalidatePath("/", "layout");
+    return { value };
+  },
+);
+
+export const saveApplyBotPromptTemplate = action(
+  z.strictObject({ value: z.string().trim().max(10000) }),
+  async ({ value }) => {
+    await saveSettings({ applyBotPromptTemplate: value });
+    revalidatePath("/", "layout");
+    return { value };
+  },
+);
+
+export const saveApplyBotNotes = action(
+  z.strictObject({ bot: applyBotSchema, value: z.string().trim().max(2000) }),
+  async ({ bot, value }) => {
+    await saveSettings({ [BOT_NOTE_KEYS[bot]]: value });
+    revalidatePath("/", "layout");
+    return { bot, value };
+  },
+);

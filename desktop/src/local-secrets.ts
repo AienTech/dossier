@@ -7,9 +7,9 @@ import path from "node:path";
 // saved keys readable, and it's readable only by this user.
 
 export type LocalSecrets = {
-  /** DOSSIER_SECRET: encrypts saved API keys and sessions. */
+  /** HIREME_SECRET: encrypts saved API keys and sessions. */
   secret: string;
-  /** DOSSIER_PASSWORD: random bytes in the shape of a hash, so no password opens the sign-in page. */
+  /** HIREME_PASSWORD: random bytes in the shape of a hash, so no password opens the sign-in page. */
   passwordHash: string;
   port: number;
 };
@@ -40,6 +40,6 @@ export function loadLocalSecrets(file: string): LocalSecrets {
     return secrets;
   }
   const saved = JSON.parse(text) as Partial<LocalSecrets>;
-  if (!isUsable(saved)) throw new Error(`${file} isn't what Dossier saved. Restore it from a backup, or remove it to start over, which loses saved keys.`);
+  if (!isUsable(saved)) throw new Error(`${file} isn't what HireMe saved. Restore it from a backup, or remove it to start over, which loses saved keys.`);
   return saved;
 }

@@ -17,14 +17,14 @@ import { liveAnthropic, liveLmStudio, liveMistral } from "./test-live";
 //   AI_LIVE=anthropic docker/bin/yarn vitest run src/lib/ai/providers.live.test.ts
 //   AI_LIVE=mistral docker/bin/yarn vitest run src/lib/ai/providers.live.test.ts
 //
-// Anthropic's and Mistral's keys are DOSSIER_AI_KEY when that's set, or else
+// Anthropic's and Mistral's keys are HIREME_AI_KEY when that's set, or else
 // the one saved in Settings → AI provider with that provider chosen.
-// DOSSIER_AI_MODEL goes with DOSSIER_AI_KEY; Anthropic's checks use
+// HIREME_AI_MODEL goes with HIREME_AI_KEY; Anthropic's checks use
 // claude-haiku-4-5 when no model is given.
 //
 //   AI_LIVE=lmstudio docker/bin/yarn vitest run src/lib/ai/providers.live.test.ts
 //
-// LM Studio's model is DOSSIER_AI_MODEL (at DOSSIER_AI_URL, by default on the
+// LM Studio's model is HIREME_AI_MODEL (at HIREME_AI_URL, by default on the
 // Docker host), or else the one saved in Settings with LM Studio chosen.
 // A model that isn't loaded gets loaded, and stays loaded until ejected.
 //

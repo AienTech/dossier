@@ -18,7 +18,7 @@ import { THEME_STYLE_DEFAULTS, type ThemeData } from "./themes";
 // A theme as a file to share or keep (E5-7, RES-8), and the rules every saved
 // theme's look follows, from the builder or a file.
 
-export const THEME_FILE_FORMAT = "dossier-theme";
+export const THEME_FILE_FORMAT = "hireme-theme";
 /**
  * Bump when the file's shape changes; imports refuse versions they don't
  * know. Version 2 added the header, sidebar and date styles, 3 the photo's
@@ -26,7 +26,7 @@ export const THEME_FILE_FORMAT = "dossier-theme";
  */
 export const THEME_FILE_VERSION = 3;
 
-const font = z.enum(ThemeFont, { error: (issue) => `That theme uses a font Dossier doesn't have (${String(issue.input)}).` });
+const font = z.enum(ThemeFont, { error: (issue) => `That theme uses a font HireMe doesn't have (${String(issue.input)}).` });
 
 /** A theme's name and look, checked the same way wherever it comes from. */
 export const themeFieldsSchema = z.object({
@@ -76,20 +76,20 @@ export function themeFile(theme: ThemeData) {
   };
 }
 
-/** "Quiet green.dossier-theme.json": the name, without characters files can't have. */
+/** "Quiet green.hireme-theme.json": the name, without characters files can't have. */
 export function themeFileName(theme: Pick<ThemeData, "name">): string {
   const name = theme.name.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim() || "Theme";
-  return `${name}.dossier-theme.json`;
+  return `${name}.hireme-theme.json`;
 }
 
 /** A theme file's contents, checked, or why it can't be used, in plain words. */
 export function parseThemeFile(json: unknown): { ok: true; theme: ThemeFields } | { ok: false; error: string } {
   const header = json as { format?: unknown; version?: unknown } | null;
   if (typeof json !== "object" || json === null || header?.format !== THEME_FILE_FORMAT) {
-    return { ok: false, error: "That file isn't a Dossier theme." };
+    return { ok: false, error: "That file isn't a HireMe theme." };
   }
   if (typeof header.version !== "number" || header.version > THEME_FILE_VERSION) {
-    return { ok: false, error: "That theme comes from a newer version of Dossier. Update this server first." };
+    return { ok: false, error: "That theme comes from a newer version of HireMe. Update this server first." };
   }
   const parsed = themeFileSchema.safeParse(json);
   if (!parsed.success) {

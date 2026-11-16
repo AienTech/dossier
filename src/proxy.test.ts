@@ -11,7 +11,7 @@ import { PRINT_TOKEN_HEADER, signPrintToken } from "@/lib/pdf/print-token";
 import { config, proxy } from "./proxy";
 
 vi.mock("@/lib/env", () => ({
-  env: { DOSSIER_SECRET: "a".repeat(32), DOSSIER_PASSWORD: "correct horse" },
+  env: { HIREME_SECRET: "a".repeat(32), HIREME_PASSWORD: "correct horse" },
 }));
 
 const key = deriveKey("session", "a".repeat(32));
@@ -48,6 +48,10 @@ describe("proxy matcher", () => {
 });
 
 describe("proxy", () => {
+  it("lets only the exact scheduler path reach its own credential check", async () => {
+    expect((await proxy(request("/api/worker-schedule"))).headers.get("x-middleware-next")).toBe("1");
+    expect((await proxy(request("/api/worker-schedule/other"))).status).toBe(401);
+  });
   it("lets signed-in requests through", async () => {
     const token = await encodeSession({ persistent: false }, { key, fingerprint });
     const response = await proxy(request("/profile", { cookie: token }));

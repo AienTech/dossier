@@ -7,6 +7,8 @@ import { contentDisposition } from "@/lib/file-name";
 import { getJob } from "@/lib/jobs/runner";
 import { downloadsDir, zipPdfsJob } from "@/lib/jobs/zip-pdfs";
 import { route } from "@/lib/route";
+import { cloudRuntime } from "@/lib/runtime";
+import { deleteStoredFile, readStoredFile } from "@/lib/stored-files";
 
 const GONE = "That download isn't here any more. Start a new one from Settings → Your data.";
 
@@ -18,9 +20,10 @@ export const GET = route<RouteContext<"/api/downloads/[id]">>(async (_request, {
   if (!result?.success) return NextResponse.json({ error: GONE }, { status: 404 });
 
   const file = path.join(downloadsDir(), result.data.file);
-  const zip = await readFile(file).catch(() => null);
+  const zip = cloudRuntime() ? await readStoredFile("downloads", result.data.file) : await readFile(file).catch(() => null);
   if (!zip) return NextResponse.json({ error: GONE }, { status: 410 });
-  await unlink(file).catch(() => {});
+  if (cloudRuntime()) await deleteStoredFile("downloads", result.data.file);
+  else await unlink(file).catch(() => {});
   return new Response(zip, {
     headers: { "content-type": "application/zip", "content-disposition": contentDisposition(result.data.fileName) },
   });

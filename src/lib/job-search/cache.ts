@@ -9,7 +9,7 @@ const MAX_ENTRIES = 200;
 
 type Entry = { value: unknown; expires: number };
 
-const store: Map<string, Entry> = ((globalThis as { __dossierJobSearchCache?: Map<string, Entry> }).__dossierJobSearchCache ??= new Map());
+const store: Map<string, Entry> = ((globalThis as { __hiremeJobSearchCache?: Map<string, Entry> }).__hiremeJobSearchCache ??= new Map());
 
 /** What's kept under `key`, unless it's older than half an hour. */
 export function cached<T>(key: string, now = Date.now()): T | undefined {

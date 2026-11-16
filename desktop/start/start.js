@@ -1,6 +1,6 @@
 // The start screen: which mode, which server, and what to do when it can't be
 // reached. All it can do is make the three calls in preload.ts.
-const app = window.dossier;
+const app = window.hireme;
 const element = (id) => document.getElementById(id);
 
 function show(id) {
@@ -8,10 +8,10 @@ function show(id) {
 }
 
 const MESSAGES = {
-  invalid: "That doesn't look like an address. Try something like https://dossier.example.com.",
+  invalid: "That doesn't look like an address. Try something like https://hireme.example.com.",
   unreachable: "Couldn't reach that address. Check it, and that the server is running.",
-  certificate: "That server's certificate can't be trusted, so Dossier won't connect to it.",
-  "not-dossier": "That doesn't look like a Dossier server.",
+  certificate: "That server's certificate can't be trusted, so HireMe won't connect to it.",
+  "not-hireme": "That doesn't look like a HireMe server.",
   unencrypted: "This address isn't encrypted, so your password would travel in the open. Use https:// unless you trust this network. Press Connect again to go ahead.",
 };
 
@@ -84,8 +84,8 @@ element("retry").addEventListener("click", async () => {
 
 function showProblem({ kind, detail, log }) {
   const newer = kind === "newer-database";
-  element("problem-title").textContent = newer ? "This data needs a newer Dossier" : kind === "port-busy" ? "Another program is in the way" : "Dossier couldn't start";
-  element("problem-text").textContent = newer ? "Your data was last used by a newer version of Dossier, so this one won't open it. Nothing was changed. Download the latest version from the release page." : detail;
+  element("problem-title").textContent = newer ? "This data needs a newer HireMe" : kind === "port-busy" ? "Another program is in the way" : "HireMe couldn't start";
+  element("problem-text").textContent = newer ? "Your data was last used by a newer version of HireMe, so this one won't open it. Nothing was changed. Download the latest version from the release page." : detail;
   element("problem-log").textContent = newer ? "" : `The log is at ${log}`;
   element("problem-retry").hidden = newer;
   element("problem-download").hidden = !newer;
@@ -95,7 +95,7 @@ function showProblem({ kind, detail, log }) {
 
 async function start() {
   const state = await app.state();
-  element("version").textContent = `Dossier ${state.version}`;
+  element("version").textContent = `HireMe ${state.version}`;
   element("change").onclick = () => showServerForm(state.address);
   element("pick-local").disabled = !state.localAvailable;
   element("local-note").hidden = state.localAvailable;
@@ -105,7 +105,7 @@ async function start() {
   if (state.screen === "unreachable") {
     element("unreachable-title").textContent = state.certificate ? "Can't trust your server's certificate" : "Can't reach your server";
     element("unreachable-text").textContent = state.certificate
-      ? `${state.address} sent a certificate Dossier can't trust, so it won't connect.`
+      ? `${state.address} sent a certificate HireMe can't trust, so it won't connect.`
       : `${state.address} isn't answering. Check that it's running and that you're online.`;
     show("unreachable");
     element("retry").focus();

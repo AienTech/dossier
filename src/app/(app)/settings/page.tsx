@@ -26,10 +26,13 @@ import { loadSettings } from "@/lib/settings-data";
 import { availableUpdate } from "@/lib/update-check";
 import { USAGE_PING_HOST, usagePingChoice } from "@/lib/usage-ping";
 
+import { ApplicationBotsSection } from "./application-bots-section";
 import { AgentSection } from "./agent-section";
 import { AiBehaviour } from "./ai-behaviour";
 import { AiProviderSection } from "./ai-provider-section";
 import { DataSection } from "./data-section";
+import { SetupSection } from "./setup-section";
+import { loadSetupStatus } from "@/lib/setup-data";
 import { DocumentsSection } from "./documents-section";
 import { GoogleSection } from "./google-section";
 import { GoogleNotice } from "./google-notice";
@@ -37,6 +40,7 @@ import { JobSearchSection } from "./job-search-section";
 import { ScoringSection } from "./scoring-section";
 import { AboutSection, type AboutFacts, type UsagePingView } from "./about-section";
 import { ConnectorSection } from "./connector-section";
+import { applicationBotNotes } from "@/lib/application-bots";
 import { settingsSectionFromParam } from "./sections";
 import { SettingsScreen } from "./settings-screen";
 
@@ -50,7 +54,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
 
   return (
     <SettingsScreen section={section}>
-      {section === "ai" ? (
+      {section === "setup" ? <SetupSection items={await loadSetupStatus()} /> : section === "ai" ? (
         <>
           <AiProviderSection initial={await loadAiSettingsView()} />
           <AiBehaviour initial={{ creativity: settings.creativity, strict: settings.strict, showDiff: settings.showDiff }} />
@@ -60,6 +64,10 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
       ) : section === "scoring" ? (
         <ScoringSection initial={scoringView(await loadScoringConfig())} />
       ) : section === "agent" ? (
+        <>
+        <ApplicationBotsSection applyBot={settings.applyBot} grokBotId={settings.grokBotId} notes={applicationBotNotes(settings)} promptTemplate={settings.applyBotPromptTemplate} openbotLaunchMode={settings.openbotLaunchMode} openbotAgentName={settings.openbotAgentName} grokLaunchMode={settings.grokLaunchMode} grokAgentName={settings.grokAgentName} openbotAppName={settings.openbotAppName} grokAppName={settings.grokAppName}
+          applications={await prisma.application.findMany({ where: { awaitingReview: false }, select: { id: true, company: true, role: true, title: true }, orderBy: { updatedAt: "desc" } })}
+          selectedApplicationId={typeof params.application === "string" ? params.application : ""} />
         <AgentSection
           initial={{
             enabled: settings.agentEnabled,
@@ -77,6 +85,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
           timeZone={await lastKnownTimeZone()}
           onlyWhileOpen={isDesktopApp()}
         />
+        </>
       ) : section === "google" ? (
         <>
           <GoogleNotice outcome={typeof params.google === "string" ? params.google : null} />
@@ -105,7 +114,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
       ) : section === "connector" ? (
         <ConnectorSection
           initial={{ on: settings.connectorEnabledAt !== null, redirects: settings.connectorRedirects }}
-          address={mcpUrl(env.DOSSIER_PUBLIC_URL ?? (await requestOrigin()))}
+          address={mcpUrl(env.HIREME_PUBLIC_URL ?? (await requestOrigin()))}
           inDesktopApp={isDesktopApp()}
         />
       ) : section === "data" ? (
@@ -114,7 +123,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
           exportName={exportFileName()}
           backups={{
             on: settings.nightlyBackup,
-            retentionDays: env.DOSSIER_BACKUP_RETENTION_DAYS,
+            retentionDays: env.HIREME_BACKUP_RETENTION_DAYS,
             dir: backupsDir(),
             lastRun: whenRan(await lastNightlyBackup()),
             problem: settings.backupProblem,
@@ -200,7 +209,7 @@ async function aboutFacts(): Promise<AboutFacts> {
     { label: "Version", value: appVersion },
     { label: "Server", value: host },
     { label: "Database", value: `${sqlite ? "SQLite" : "PostgreSQL"} · ${formatBytes(Number(database.size))}` },
-    { label: "Sign-in", value: isDesktopApp() ? "none, on this computer" : "set via DOSSIER_PASSWORD" },
+    { label: "Sign-in", value: isDesktopApp() ? "none, on this computer" : "set via HIREME_PASSWORD" },
     { label: "AI", value: [providerOption(ai.provider).name, ai.model].filter(Boolean).join(" · ") },
     { label: "Applications", value: String(applications) },
   ];

@@ -13,7 +13,7 @@ export type SelectControlProps = ComponentProps<"select"> & {
 };
 
 /**
- * A native select with Dossier's own arrow (#46). The browser's arrow sits
+ * A native select with HireMe's own arrow (#46). The browser's arrow sits
  * against the right edge whatever the padding, and differs between browsers;
  * this one is inset as far as the text is. Owns the horizontal padding, so
  * pass sizes, borders and colors but no `px-*`. The wrapper never gets

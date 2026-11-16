@@ -17,7 +17,7 @@ import { loadProfileName } from "@/lib/profile-data";
 import { loginMessages } from "./messages";
 
 /**
- * Signs in with the password that DOSSIER_PASSWORD is a hash of (PRD AUTH-1, AUTH-4).
+ * Signs in with the password that HIREME_PASSWORD is a hash of (PRD AUTH-1, AUTH-4).
  * Attempts are rate-limited per IP and globally, or per IP and browser for a
  * browser that signed in before (AUTH-5, #334). Returns
  * where to go next: the requested page if it's on this site, or the dashboard.
@@ -37,7 +37,9 @@ export const signIn = publicAction(
       const message = attempt.limit === "everyone" ? pausedForNewBrowsersMessage : tooManyAttemptsMessage;
       throw new ActionError(message(attempt.waitMs));
     }
-    if (!(await passwordMatches(password))) throw new ActionError(loginMessages.wrong);
+    // Bound work on this public endpoint; keep the same error and throttle as any
+    // wrong password, without running Argon2 on a huge input.
+    if (password.length > 1024 || !(await passwordMatches(password))) throw new ActionError(loginMessages.wrong);
     await attempt.succeeded();
 
     await startSession({ persistent: remember });

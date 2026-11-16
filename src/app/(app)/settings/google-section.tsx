@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { useTrackSave } from "@/components/save-tracker";
 import { toast, toastResult } from "@/components/toast";
@@ -12,12 +12,16 @@ import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Select } from "@/components/ui/select";
 import { Toggle } from "@/components/ui/toggle";
-import { checkInbox, disconnectGoogleAccount, saveGoogleClient, saveGoogleSettings } from "@/lib/google/actions";
+import { disconnectGoogleAccount, saveGoogleClient, saveGoogleSettings } from "@/lib/google/actions";
 import { cn } from "@/lib/cn";
+import { CheckInboxButton } from "@/components/email/check-inbox-button";
 
 import { SettingsSectionIntro } from "./settings-screen";
+import { GoogleDriveSection } from "./google-drive-section";
 
 export type GoogleSettings = {
+  driveAutoSave?: boolean;
+  driveShareLinks?: boolean;
   gmailRead: boolean;
   gmailScope: "known" | "all";
   gmailInterval: number;
@@ -51,6 +55,7 @@ export type GoogleConnectionView =
       lastSync: string | null;
       syncProblem: string | null;
       signInProblem: string | null;
+      canArchiveDrive?: boolean;
     };
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -69,7 +74,7 @@ export const CALLBACK_MESSAGES: Record<string, string> = {
 };
 
 /**
- * Settings → Google (E15-1): connect Gmail and Calendar, choose what Dossier
+ * Settings → Google (E15-1): connect Gmail and Calendar, choose what HireMe
  * reads, and set the working hours that interview times are offered in.
  * Every field saves on its own. Nothing is ever sent without asking.
  */
@@ -96,7 +101,6 @@ export function GoogleSection({
   const [timeZone, setTimeZone] = useState(initial.workTimeZone ?? "");
   const [calendarId, setCalendarId] = useState(initial.calendarId);
   const [confirming, setConfirming] = useState(false);
-  const [checking, startChecking] = useTransition();
 
   const change = (next: Partial<GoogleSettings>) => {
     const previous = settings;
@@ -113,19 +117,18 @@ export function GoogleSection({
     if (toastResult(await disconnectGoogleAccount({})).ok) router.refresh();
   };
 
-  const checkNow = () =>
-    startChecking(async () => {
-      toastResult(await checkInbox({}));
-      router.refresh();
-    });
-
-  if (connection.status === "not-configured") return <SetupSteps redirectUri={redirectUri} client={client} />;
+  if (connection.status === "not-configured") return (
+    <>
+      <SetupSteps redirectUri={redirectUri} client={client} />
+      <GoogleDriveSection connection={connection} autoSave={initial.driveAutoSave} shareLinks={initial.driveShareLinks} />
+    </>
+  );
 
   return (
     <>
       <SettingsSectionIntro title="Google">
         Send applications from your Gmail, see employers&apos; replies next to each application, and offer interview times from your
-        calendar. Dossier always asks before it sends anything.
+        calendar. Keep application files in Google Drive for your history. HireMe always asks before it sends anything.
       </SettingsSectionIntro>
 
       <Card className="flex flex-col gap-4">
@@ -143,7 +146,7 @@ export function GoogleSection({
             {connection.signInProblem && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line px-4 py-3">
                 <p role="alert" className="text-control text-error">
-                  {connection.signInProblem} Until then, Dossier doesn&apos;t check your mail or calendar.
+                  {connection.signInProblem} Until then, HireMe doesn&apos;t check your mail or calendar.
                 </p>
                 <a href="/api/google/connect" className={buttonClassName("secondary", "sm")}>
                   Connect again
@@ -159,7 +162,7 @@ export function GoogleSection({
         ) : (
           <div className="flex flex-col items-start gap-3">
             <p className="text-sm text-muted">
-              You&apos;ll sign in on Google&apos;s own page and choose what Dossier may do. Tokens are stored encrypted on your server and
+              You&apos;ll sign in on Google&apos;s own page and choose what HireMe may do. Tokens are stored encrypted on your server and
               never leave it, except to talk to Google.
             </p>
             <a href="/api/google/connect" className={buttonClassName("primary", "md", "hover:text-on-primary")}>
@@ -176,6 +179,8 @@ export function GoogleSection({
           </div>
         )}
       </Card>
+
+      <GoogleDriveSection key={connection.status === "connected" ? `${connection.email}:${Boolean(connection.canArchiveDrive)}` : connection.status} connection={connection} autoSave={initial.driveAutoSave} shareLinks={initial.driveShareLinks} />
 
       {connection.status === "connected" && (
         <>
@@ -223,9 +228,7 @@ export function GoogleSection({
                       </option>
                     ))}
                   </Select>
-                  <Button variant="secondary" onClick={checkNow} disabled={checking}>
-                    {checking ? "Checking…" : "Check now"}
-                  </Button>
+                  <CheckInboxButton />
                   <p role="status" className={cn("flex items-center gap-2 pb-2 text-control", connection.syncProblem ? "text-error" : "text-muted")}>
                     {connection.syncProblem ?? (connection.lastSync ? `Last checked ${connection.lastSync}` : "Not checked yet")}
                   </p>
@@ -320,7 +323,7 @@ export function GoogleSection({
         open={confirming}
         onOpenChange={setConfirming}
         title="Disconnect Google?"
-        description="Dossier's access is revoked at Google. Mail already in Dossier stays; nothing new comes in until you connect again."
+        description="HireMe's access is revoked at Google. Mail already in HireMe stays; nothing new comes in until you connect again."
         confirmLabel="Disconnect"
         onConfirm={() => void disconnect()}
       />
@@ -357,14 +360,14 @@ function SetupSteps({ redirectUri, client }: { redirectUri: string; client: Goog
   return (
     <>
       <SettingsSectionIntro title="Google">
-        Connect Gmail and Google Calendar to send applications, read replies and offer interview times. First, give this server a
+        Connect Gmail and Google Calendar for email and interviews, or Google Drive for document history. First, give this server a
         Google OAuth client.
       </SettingsSectionIntro>
       <Card className="flex flex-col gap-4 text-sm">
         <ol className="flex list-decimal flex-col gap-2.5 pl-5">
           <li>
             In <span className="font-medium">Google Cloud Console</span>, create a project and enable the{" "}
-            <span className="font-medium">Gmail API</span> and the <span className="font-medium">Google Calendar API</span>.
+            <span className="font-medium">Gmail API</span> and the <span className="font-medium">Google Calendar API</span>, plus the <span className="font-medium">Google Drive API</span> for document history.
           </li>
           <li>
             Set up the <span className="font-medium">OAuth consent screen</span> as External, add yourself as a test user, then{" "}
@@ -391,14 +394,14 @@ function SetupSteps({ redirectUri, client }: { redirectUri: string; client: Goog
 
 const SECRET_PLACEHOLDER: Record<GoogleClientView["secretState"], string> = {
   set: "Saved · type a new secret to replace it",
-  env: "Using DOSSIER_GOOGLE_CLIENT_SECRET · type one to save it here",
+  env: "Using HIREME_GOOGLE_CLIENT_SECRET · type one to save it here",
   none: "Stored encrypted on your server",
   unreadable: "Stored encrypted on your server",
 };
 
 /**
  * The OAuth client: its ID, and a write-only secret, each saved when you
- * leave its field. Saved here, they override the DOSSIER_GOOGLE_CLIENT_*
+ * leave its field. Saved here, they override the HIREME_GOOGLE_CLIENT_*
  * variables. A different client ID disconnects the account.
  */
 export function ClientCard({ initial, connected }: { initial: GoogleClientView; connected: boolean }) {
@@ -438,8 +441,8 @@ export function ClientCard({ initial, connected }: { initial: GoogleClientView; 
         <Input
           label="Client ID"
           value={id}
-          placeholder={view.idState === "env" ? "Using DOSSIER_GOOGLE_CLIENT_ID" : "…apps.googleusercontent.com"}
-          hint={view.idState === "env" ? "From DOSSIER_GOOGLE_CLIENT_ID · type one to save it here" : undefined}
+          placeholder={view.idState === "env" ? "Using HIREME_GOOGLE_CLIENT_ID" : "…apps.googleusercontent.com"}
+          hint={view.idState === "env" ? "From HIREME_GOOGLE_CLIENT_ID · type one to save it here" : undefined}
           spellCheck={false}
           autoComplete="off"
           inputClassName="font-mono text-[13.5px]"
@@ -459,7 +462,7 @@ export function ClientCard({ initial, connected }: { initial: GoogleClientView; 
             autoComplete="off"
             value={secret}
             placeholder={SECRET_PLACEHOLDER[view.secretState]}
-            error={view.secretState === "unreadable" ? "The saved secret can't be read, probably since DOSSIER_SECRET changed. Enter it again." : undefined}
+            error={view.secretState === "unreadable" ? "The saved secret can't be read, probably since HIREME_SECRET changed. Enter it again." : undefined}
             onChange={(event) => setSecret(event.target.value)}
             onBlur={() => void saveSecret()}
             onKeyDown={(event) => {

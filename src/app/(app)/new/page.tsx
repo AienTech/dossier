@@ -32,6 +32,7 @@ export default async function NewApplicationPage({ searchParams }: PageProps<"/n
       defaultTone={settings.defaultTone}
       defaultWrite={settings.documentsToWrite}
       fresh={fresh !== undefined}
+      applyBot={settings.applyBot}
       fromPosting={
         fromFindJobs
           ? { id: fromFindJobs.id, text: postingText(fromFindJobs), url: fromFindJobs.url, complete: fromFindJobs.complete }

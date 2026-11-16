@@ -101,7 +101,7 @@ export function AgentSection({
           description={
             settings.enabled
               ? `On. It runs once a day after ${clock(settings.hour)} your time (${timeZone}), and you can run it now and then on the Agent screen.${
-                  onlyWhileOpen ? " On this computer, only while Dossier is open: when it's closed at that hour, the run starts once you open it, the same day." : ""
+                  onlyWhileOpen ? " On this computer, only while HireMe is open: when it's closed at that hour, the run starts once you open it, the same day." : ""
                 }`
               : "Off. Nothing is searched or scored until it's on."
           }

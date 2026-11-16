@@ -23,3 +23,4 @@ export const isPassing = (error: unknown) => error instanceof GoogleError && (er
 
 /** Whether a failure means the thing is gone: deleted, or never there. */
 export const isGone = (error: unknown) => error instanceof GoogleError && (error.status === 404 || error.status === 410);
+

@@ -108,6 +108,22 @@ describe("stored settings", () => {
       connectorEnabledAt: null,
       connectorRedirects: [],
       browserTimeZone: null,
+      driveAutoSave: true,
+      driveShareLinks: false,
+      driveSyncProblem: null,
+      grokBotId: null,
+      applyBot: "grok",
+      grokAgentName: "Job Finder",
+      grokAppName: "",
+      grokLaunchMode: "app-link",
+      openbotAgentName: "Job Manager",
+      openbotAppName: "",
+      openbotLaunchMode: "clipboard",
+      applyBotPromptTemplate: "",
+      applyBotClaudeNotes: "",
+      applyBotGrokNotes: "",
+      applyBotOpenbotNotes: "",
+      applyBotOtherNotes: "",
     });
   });
 

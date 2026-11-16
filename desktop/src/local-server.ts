@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { loadLocalSecrets } from "./local-secrets";
 
-// "On this computer": Dossier's own server, on a plain Node binary next to
+// "On this computer": HireMe's own server, on a plain Node binary next to
 // Electron, as in the Docker image. Nothing native is built for Electron, so an
 // Electron update, which is how Chromium's security fixes arrive, can't be held
 // back by it. The server listens on this computer only.
@@ -63,7 +63,7 @@ export async function startLocalServer({
   const fail = (kind: LocalProblem["kind"], detail: string) => new LocalServerError({ kind, detail, log });
 
   const secrets = loadLocalSecrets(path.join(dataDir, "secrets.json"));
-  const file = path.join(dataDir, "dossier.db");
+  const file = path.join(dataDir, "hireme.db");
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     NODE_ENV: "production",
@@ -71,13 +71,13 @@ export async function startLocalServer({
     PORT: String(secrets.port),
     HOSTNAME: "127.0.0.1",
     DATABASE_URL: `file:${file}`,
-    DOSSIER_DATABASE_FILE: file,
-    DOSSIER_APP_VERSION: version,
-    DOSSIER_DATA_DIR: path.join(dataDir, "files"),
-    DOSSIER_SECRET: secrets.secret,
-    DOSSIER_PASSWORD: secrets.passwordHash,
-    DOSSIER_DESKTOP_TOKEN: token,
-    DOSSIER_DESKTOP_PRINT_URL: printUrl,
+    HIREME_DATABASE_FILE: file,
+    HIREME_APP_VERSION: version,
+    HIREME_DATA_DIR: path.join(dataDir, "files"),
+    HIREME_SECRET: secrets.secret,
+    HIREME_PASSWORD: secrets.passwordHash,
+    HIREME_DESKTOP_TOKEN: token,
+    HIREME_DESKTOP_PRINT_URL: printUrl,
   };
   delete env.ELECTRON_RUN_AS_NODE;
 

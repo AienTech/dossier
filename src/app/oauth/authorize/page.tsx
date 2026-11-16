@@ -9,7 +9,7 @@ import { checkAuthorizeRequest } from "./request";
 export const metadata: Metadata = { title: "Connect an app" };
 
 /**
- * Claude, or another MCP app (#281), asks to use Dossier through the connector (#221, src/app/api/mcp).
+ * Claude, or another MCP app (#281), asks to use HireMe through the connector (#221, src/app/api/mcp).
  * Signed-out visitors sign in first: the proxy sends them to /login and back.
  */
 export default async function AuthorizePage({ searchParams }: PageProps<"/oauth/authorize">) {
@@ -24,7 +24,7 @@ export default async function AuthorizePage({ searchParams }: PageProps<"/oauth/
         <div className="flex items-center gap-3">
           <BrandMark className="size-10" />
           <h1 className="font-serif text-[26px] font-medium tracking-[-0.01em]">
-            Connect {"error" in checked ? "an app" : checked.clientName} to Dossier
+            Connect {"error" in checked ? "an app" : checked.clientName} to HireMe
           </h1>
         </div>
         {"error" in checked ? (
@@ -35,16 +35,17 @@ export default async function AuthorizePage({ searchParams }: PageProps<"/oauth/
           <>
             <div className="flex flex-col gap-3 text-sm leading-[1.6] text-pretty">
               <p>
-                <strong>{checked.clientName}</strong> wants to use your Dossier. Once you allow it, it can:
+                <strong>{checked.clientName}</strong> wants to use your HireMe. Once you allow it, it can:
               </p>
               <ul className="list-disc pl-5 text-muted">
-                <li>search for jobs with your job source, and score postings against your profile</li>
+                <li>search for jobs, pull past searches, save or dismiss postings, and score them against your profile</li>
                 <li>read your profile and your applications, with their resumes and cover letters, but not your contact details or notes</li>
-                <li>save applications it writes for you as drafts, and change their status</li>
+                <li>save application drafts, record jobs you already applied to or were rejected from, edit details and add private notes</li>
+                <li>read dashboard totals and status history, and archive or restore application cards</li>
               </ul>
               <p className="text-muted">
-                It can never send an application or an email, or delete anything. Allow it only if you&apos;ve just added Dossier to{" "}
-                {checked.clientName} yourself: it sends you back to <strong className="text-ink">{new URL(checked.redirectUri).host}</strong>.
+                It can never send an application or an email, or delete anything. Allow it only if you&apos;ve just added HireMe to{" "}
+                {checked.clientName} yourself: it sends you back to <strong className="text-ink">{checked.redirectUri.startsWith("openbot:") ? checked.redirectUri : new URL(checked.redirectUri).host}</strong>.
                 Disconnect every app in Settings → MCP connector at any time.
               </p>
             </div>

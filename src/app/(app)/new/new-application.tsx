@@ -1,5 +1,7 @@
 "use client";
 
+import { APPLY_BOTS, type ApplyBot } from "@/lib/application-bots";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -142,7 +144,7 @@ function useLeaveGuard(active: boolean, onLeave: () => void) {
 export type NewApplicationProps = {
   /** Whether an AI provider is set up; without one, the page points to Settings. */
   aiReady: boolean;
-  /** The Claude connector is on and Dossier has no usable AI model: a Claude chat writes it instead (#221). */
+  /** The Claude connector is on and HireMe has no usable AI model: a Claude chat writes it instead (#221). */
   writeInClaude?: boolean;
   /** Offered through "Use a sample posting" before the first application. */
   samplePosting: string | null;
@@ -154,6 +156,8 @@ export type NewApplicationProps = {
   fresh?: boolean;
   /** "Start application" on Find jobs: start over from this posting. */
   fromPosting?: FromPosting | null;
+  /** Settings → Job agent → Application bots: which bot “Apply with bot” uses after create. */
+  applyBot?: ApplyBot;
 };
 
 /** The new application flow (E7): paste → read → review → create. */
@@ -165,6 +169,7 @@ export function NewApplication({
   defaultWrite = "both",
   fresh = false,
   fromPosting = null,
+  applyBot = "grok",
 }: NewApplicationProps) {
   const [initial] = useState<Draft>(() => ({
     step: "paste",
@@ -331,7 +336,15 @@ export function NewApplication({
       setSaveError(result.error);
       return;
     }
-    toast("Your application is ready. Nothing gets sent until you say so.");
+    toast(
+      /^https?:\/\//i.test(draft.postingUrl.trim())
+        ? applyBot === "claude"
+          ? "Your application is ready. On the next screen, Apply with bot opens Claude so it can load this application from HireMe, apply, and mark it Sent."
+          : applyBot === "grok"
+            ? "Your application is ready. On the next screen, Apply with bot shares the job packet with Grok Bot. Review every answer before submission."
+            : `Your application is ready. On the next screen, Apply with bot copies a complete prompt for ${APPLY_BOTS.find(bot => bot.value === applyBot)!.label}, with Drive first and ZIP as fallback. Review every answer before submission.`
+        : "Your application is ready. Nothing gets sent until you say so.",
+    );
     draftStore?.clear();
     router.push(`/applications/${result.data}`);
   };
@@ -390,9 +403,9 @@ export function NewApplication({
             <>
               {writeInClaude ? (
                 <p role="note" className="rounded-card border border-line-card bg-card px-4 py-3 text-meta text-muted">
-                  Dossier has no AI model of its own, so Claude writes this one: <strong className="text-ink">Write it with Claude</strong> opens a
-                  chat in Claude that uses your Claude plan and the Dossier connector, and saves the resume and cover letter here as a Draft. To
-                  have Dossier write it instead,{" "}
+                  HireMe has no AI model of its own, so Claude writes this one: <strong className="text-ink">Write it with Claude</strong> opens a
+                  chat in Claude that uses your Claude plan and the HireMe connector, and saves the resume and cover letter here as a Draft. To
+                  have HireMe write it instead,{" "}
                   <Link href="/settings?section=ai" className="font-medium text-ink underline underline-offset-2">
                     choose a model in Settings → AI provider
                   </Link>
@@ -464,6 +477,7 @@ export function NewApplication({
           {draft.step === "reading" && (
             <JobProgress
               title="Reading the posting…"
+              waiting={readJob?.status === "QUEUED" ? readJob.step || "Waiting for a worker to start" : null}
               steps={READ_POSTING_STEPS}
               current={jobStep(READ_POSTING_STEPS, readJob)}
               error={readJob?.status === "FAILED" ? readJob.error : null}
@@ -502,6 +516,7 @@ export function NewApplication({
               steps={WRITE_DOCUMENTS_STEPS}
               // "Saving the application" is the last step, once the documents are written.
               current={writeJob?.status === "DONE" ? 2 : jobStep(WRITE_DOCUMENTS_STEPS, writeJob)}
+              waiting={writeJob?.status === "QUEUED" ? writeJob.step || "Waiting for a worker to start" : null}
               error={writeJob?.status === "FAILED" ? writeJob.error : saveError}
               onRetry={() => void retryCreating()}
               onBack={() => update({ step: "review" })}

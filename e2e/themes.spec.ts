@@ -19,7 +19,7 @@ test("duplicates, exports, deletes and imports a theme", async ({ page }) => {
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: `Export ${original} copy` }).click()]);
   const exported = JSON.parse(await readFile((await download.path())!, "utf8"));
   expect(exported).toMatchObject({
-    format: "dossier-theme",
+    format: "hireme-theme",
     version: 3,
     theme: {
       name: `${original} copy`,
@@ -42,7 +42,7 @@ test("duplicates, exports, deletes and imports a theme", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Editorial theme, in use" })).toBeFocused();
 
   await page.locator("input[type=file][accept*=json]").setInputFiles({
-    name: "theme.dossier-theme.json",
+    name: "theme.hireme-theme.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(exported)),
   });

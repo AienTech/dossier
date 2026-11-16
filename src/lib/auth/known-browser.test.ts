@@ -24,7 +24,7 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers(jar.proto ? { "x-forwarded-proto": jar.proto } : {}),
 }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "s".repeat(32), DOSSIER_PASSWORD: "correct horse" } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "s".repeat(32), HIREME_PASSWORD: "correct horse" } }));
 
 beforeEach(() => {
   jar.values.clear();

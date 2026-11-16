@@ -54,7 +54,7 @@ export function UpdateNotice({
   if (hidden) return null;
 
   if (collapsed) {
-    const label = `Dossier ${release.version} is out`;
+    const label = `HireMe ${release.version} is out`;
     return (
       <button
         type="button"
@@ -86,7 +86,7 @@ export function UpdateNotice({
   return (
     <section ref={notice} aria-labelledby={titleId} className="flex flex-col gap-1.5 rounded-control border border-line-card bg-card px-3 py-2.5">
       <h2 id={titleId} className="text-meta font-medium">
-        Dossier {release.version} is out
+        HireMe {release.version} is out
       </h2>
       <p className="text-xs text-muted">
         {desktop

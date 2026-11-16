@@ -38,7 +38,7 @@ vi.mock("@/hooks/use-job", async () => {
 describe("Your data (E10-4)", () => {
   it("exports everything, the API key only when ticked", async () => {
     const user = userEvent.setup();
-    render(<DataSection jobRetentionHours={24} hasApiKey exportName="dossier-export-2026-09-28.json" backups={backups} />);
+    render(<DataSection jobRetentionHours={24} hasApiKey exportName="hireme-export-2026-09-28.json" backups={backups} />);
     expect(screen.getByRole("heading", { name: "Export everything" })).toBeInTheDocument();
     const exportLink = screen.getByRole("link", { name: "Export" });
     expect(exportLink).toHaveAttribute("href", "/api/export");
@@ -49,7 +49,7 @@ describe("Your data (E10-4)", () => {
   });
 
   it("doesn't offer the API key without one", () => {
-    render(<DataSection jobRetentionHours={24} hasApiKey={false} exportName="dossier-export-2026-09-28.json" backups={backups} />);
+    render(<DataSection jobRetentionHours={24} hasApiKey={false} exportName="hireme-export-2026-09-28.json" backups={backups} />);
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 });
@@ -66,10 +66,10 @@ describe("Download all PDFs (E10-5)", () => {
     expect(screen.getByRole("button", { name: "Zipping…" })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("status")).toHaveTextContent("Rendered 3 of 12…");
 
-    const result = { file: "f.zip", fileName: "dossier-pdfs-2026-09-28.zip", documents: 12 };
+    const result = { file: "f.zip", fileName: "hireme-pdfs-2026-09-28.zip", documents: 12 };
     act(() => jobs.report?.({ id: "zip-1", type: "zip-pdfs", status: "DONE", step: null, error: null, result }));
-    expect(screen.getByRole("link", { name: "Download dossier-pdfs-2026-09-28.zip" })).toHaveAttribute("href", "/api/downloads/zip-1");
-    expect(toast).toHaveBeenLastCalledWith("dossier-pdfs-2026-09-28.zip is ready.", { action: expect.objectContaining({ label: "Download" }) });
+    expect(screen.getByRole("link", { name: "Download hireme-pdfs-2026-09-28.zip" })).toHaveAttribute("href", "/api/downloads/zip-1");
+    expect(toast).toHaveBeenLastCalledWith("hireme-pdfs-2026-09-28.zip is ready.", { action: expect.objectContaining({ label: "Download" }) });
   });
 
   it("says so when there's nothing to zip", async () => {
@@ -83,14 +83,14 @@ describe("Download all PDFs (E10-5)", () => {
 
 describe("Import (E10-6)", () => {
   const summary = { applications: 8, roles: 3, skills: 12, themes: 1, notes: 0 };
-  const file = new File(["{}"], "dossier-export-2026-09-27.json", { type: "application/json" });
+  const file = new File(["{}"], "hireme-export-2026-09-27.json", { type: "application/json" });
 
   it("says what the file replaces, then backs up and imports", async () => {
     const user = userEvent.setup();
     const fetch = vi.fn(async (url: string) =>
       url.endsWith("?preview=1")
         ? Response.json({ incoming: summary, current: { ...summary, applications: 10, themes: 0 }, exportedAt: "2026-09-27T10:00:00Z" })
-        : Response.json({ incoming: summary, backup: "dossier-backup-before-import-2026-09-28-120000.json" }),
+        : Response.json({ incoming: summary, backup: "hireme-backup-before-import-2026-09-28-120000.json" }),
     );
     vi.stubGlobal("fetch", fetch);
     try {
@@ -104,7 +104,7 @@ describe("Import (E10-6)", () => {
       );
       await user.click(screen.getByRole("button", { name: "Import and replace" }));
       expect(fetch).toHaveBeenLastCalledWith("/api/import", expect.objectContaining({ method: "POST", body: file }));
-      expect(toast).toHaveBeenLastCalledWith("Imported. Your previous data is backed up as dossier-backup-before-import-2026-09-28-120000.json.");
+      expect(toast).toHaveBeenLastCalledWith("Imported. Your previous data is backed up as hireme-backup-before-import-2026-09-28-120000.json.");
       expect(router.refresh).toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
@@ -113,11 +113,11 @@ describe("Import (E10-6)", () => {
 
   it("shows why a file can't be imported", async () => {
     const user = userEvent.setup();
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "That file isn't a Dossier export." }, { status: 400 })));
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "That file isn't a HireMe export." }, { status: 400 })));
     try {
       const { container } = render(<DataSection jobRetentionHours={24} hasApiKey={false} exportName="x.json" backups={backups} />);
       await user.upload(container.querySelector("input[type=file]")!, file);
-      expect(toast).toHaveBeenLastCalledWith("That file isn't a Dossier export.");
+      expect(toast).toHaveBeenLastCalledWith("That file isn't a HireMe export.");
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     } finally {
       vi.unstubAllGlobals();
@@ -154,10 +154,10 @@ describe("Nightly backups (E10-7)", () => {
     expect(screen.getByRole("switch")).toHaveAccessibleDescription("Kept for 14 days in /data/backups. The first one runs tonight at 03:00.");
   });
 
-  it("says on this computer that they only run while Dossier is open (#325)", () => {
+  it("says on this computer that they only run while HireMe is open (#325)", () => {
     render(<DataSection jobRetentionHours={24} hasApiKey={false} exportName="x.json" backups={{ ...backups, onlyWhileOpen: true }} />);
     expect(screen.getByRole("switch")).toHaveAccessibleDescription(
-      "Kept for 14 days in /data/backups. Last one ran today at 03:00. On this computer, they only run while Dossier is open: a night it was closed is made up soon after you open it.",
+      "Kept for 14 days in /data/backups. Last one ran today at 03:00. On this computer, they only run while HireMe is open: a night it was closed is made up soon after you open it.",
     );
   });
 

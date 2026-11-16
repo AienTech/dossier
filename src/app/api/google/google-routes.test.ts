@@ -11,7 +11,7 @@ import { GET as connect } from "./connect/route";
 // Connecting Google (E15-1): the redirect to Google's consent page and the
 // way back, with Google's token endpoint mocked.
 
-const env = vi.hoisted(() => ({ DOSSIER_SECRET: "s".repeat(40), DOSSIER_GOOGLE_CLIENT_ID: "client" as string | undefined, DOSSIER_GOOGLE_CLIENT_SECRET: "secret" }));
+const env = vi.hoisted(() => ({ HIREME_SECRET: "s".repeat(40), HIREME_GOOGLE_CLIENT_ID: "client" as string | undefined, HIREME_GOOGLE_CLIENT_SECRET: "secret" }));
 vi.mock("@/lib/env", () => ({ env }));
 // Nothing saved in Settings → Google: the client comes from the environment.
 vi.mock("@/lib/settings-data", () => ({ loadSettings: async () => ({ googleClientId: null, googleClientSecretEnc: null }) }));
@@ -24,7 +24,7 @@ const request = (path: string) => new NextRequest(`${origin}${path}`, { headers:
 const idToken = (email: string) => `h.${Buffer.from(JSON.stringify({ email })).toString("base64url")}.s`;
 
 beforeEach(() => {
-  env.DOSSIER_GOOGLE_CLIENT_ID = "client";
+  env.HIREME_GOOGLE_CLIENT_ID = "client";
   vi.mocked(getSession).mockResolvedValue({ persistent: false, issuedAt: new Date(), expiresAt: new Date() });
   vi.mocked(loadGoogleAccount).mockResolvedValue(null);
   vi.mocked(saveGoogleAccount).mockReset().mockResolvedValue();
@@ -43,8 +43,16 @@ describe("GET /api/google/connect", () => {
     expect(url.searchParams.get("state")).toBeTruthy();
   });
 
+  it("requests per-file Drive access only when explicitly selected", async () => {
+    const defaultResponse = await connect(request("/api/google/connect"), undefined);
+    expect(new URL(defaultResponse.headers.get("location")!).searchParams.get("scope")).not.toContain("drive");
+    const response = await connect(request("/api/google/connect?scopes=drive"), undefined);
+    const scopes = new URL(response.headers.get("location")!).searchParams.get("scope")!.split(" ");
+    expect(scopes).toEqual(["openid", "email", "https://www.googleapis.com/auth/drive.file"]);
+  });
+
   it("goes back to Settings when Google isn't set up", async () => {
-    env.DOSSIER_GOOGLE_CLIENT_ID = undefined;
+    env.HIREME_GOOGLE_CLIENT_ID = undefined;
     const response = await connect(request("/api/google/connect"), undefined);
     expect(response.headers.get("location")).toBe(`${origin}/settings?section=google&google=not-configured`);
   });
@@ -72,7 +80,7 @@ describe("GET /api/google/callback", () => {
     const other = new URL(elsewhere.headers.get("location")!).searchParams.get("state")!;
     expect((await callback(request(`/api/google/callback?state=${other}&code=abc`))).headers.get("location")).toBe(`${origin}/settings?section=google&google=connected`);
 
-    env.DOSSIER_GOOGLE_CLIENT_ID = undefined;
+    env.HIREME_GOOGLE_CLIENT_ID = undefined;
     const missing = await connect(request(`/api/google/connect?return=${encodeURIComponent("/welcome?step=google")}`), undefined);
     expect(missing.headers.get("location")).toBe(`${origin}/welcome?step=google&google=not-configured`);
   });

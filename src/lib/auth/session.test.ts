@@ -72,7 +72,7 @@ describe("session tokens", () => {
 });
 
 describe("password check", () => {
-  it("accepts only the password that DOSSIER_PASSWORD is a hash of", async () => {
+  it("accepts only the password that HIREME_PASSWORD is a hash of", async () => {
     const hash = await hashPassword("correct horse");
     expect(await passwordMatches("correct horse", hash)).toBe(true);
     expect(await passwordMatches("Correct horse", hash)).toBe(false);

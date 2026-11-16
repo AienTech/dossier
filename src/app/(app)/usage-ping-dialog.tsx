@@ -9,7 +9,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { chooseUsagePing } from "./actions";
 
 /** PRIVACY.md's section on the usage ping, for the rest of what the question says. */
-export const USAGE_PING_PRIVACY_URL = "https://github.com/AienTech/dossier/blob/main/PRIVACY.md#usage-ping";
+export const USAGE_PING_PRIVACY_URL = "https://github.com/shahzadafridi/HireMe/blob/main/PRIVACY.md#usage-ping";
 
 const LINK = "font-medium text-ink underline underline-offset-2";
 
@@ -51,19 +51,19 @@ export function UsagePingDialog({ host }: { host: string }) {
           <Dialog.Description asChild>
             <div className="flex flex-col gap-2.5 text-sm text-muted">
               <p>
-                Once on each day you use Dossier, your server would send <span className="text-ink">{host}</span> a random install ID and
+                Once on each day you use HireMe, your server would send <span className="text-ink">{host}</span> a random install ID and
                 the version number, so the project knows how many installs are in use and how often.
               </p>
               <ul className="flex list-disc flex-col gap-1 pl-5">
                 <li>Nothing else: no profile, documents, applications, settings or server address. The receiver doesn&apos;t keep the address the ping comes from.</li>
-                <li>It goes to the Dossier project&apos;s maintainer, on the project&apos;s own server in Germany. No other service handles it on the way.</li>
+                <li>It goes to the HireMe project&apos;s maintainer, on the project&apos;s own server in Germany. No other service handles it on the way.</li>
                 <li>What it keeps is deleted after a year.</li>
               </ul>
               <p>
-                Nothing is sent unless you choose Send usage ping. You can change your mind in Settings → About, or with DOSSIER_TELEMETRY on the
+                Nothing is sent unless you choose Send usage ping. You can change your mind in Settings → About, or with HIREME_TELEMETRY on the
                 server. To have what was kept deleted, send the install ID to{" "}
-                <a href="mailto:dossier.app@pm.me" className={LINK}>
-                  dossier.app@pm.me
+                <a href="mailto:the issue tracker at https://github.com/shahzadafridi/HireMe/issues" className={LINK}>
+                  the issue tracker at https://github.com/shahzadafridi/HireMe/issues
                 </a>
                 .{" "}
                 <a href={USAGE_PING_PRIVACY_URL} target="_blank" rel="noopener noreferrer" className={LINK}>

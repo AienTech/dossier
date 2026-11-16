@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-dossier}
+      POSTGRES_DB: ${POSTGRES_DB:-hireme}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -26,7 +26,7 @@ services:
         condition: service_healthy
     environment:
       # Overrides the localhost URL in .env, which is meant for tools run on the host.
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dossier}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-hireme}
     ports:
       - "3000:3000"
     volumes:
@@ -48,7 +48,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-dossier}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-hireme}
     # Studio has no login and can edit every row, so keep it off the network.
     ports:
       - "127.0.0.1:5555:5555"

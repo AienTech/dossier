@@ -9,7 +9,7 @@ describe("theme files (E5-7)", () => {
   it("exports the look without ids, and reads it back", () => {
     const file = themeFile({ ...editorial, name: "Quiet green", accent: "#1F6F5C" });
     expect(file).toEqual({
-      format: "dossier-theme",
+      format: "hireme-theme",
       version: 3,
       theme: expect.not.objectContaining({ id: expect.anything() }),
     });
@@ -28,7 +28,7 @@ describe("theme files (E5-7)", () => {
   it("reads version 1 files, which have no header, sidebar or date style, with the defaults", () => {
     const { name, headFont, bodyFont, accent, layout, align, headingStyle, density } = editorial;
     const look = { name, headFont, bodyFont, accent, layout, align, headingStyle, density };
-    expect(parseThemeFile({ format: "dossier-theme", version: 1, theme: look })).toEqual({
+    expect(parseThemeFile({ format: "hireme-theme", version: 1, theme: look })).toEqual({
       ok: true,
       theme: { ...look, headerStyle: "PLAIN", sidebarStyle: "PLAIN", dateStyle: "INLINE", photoShape: "CIRCLE", photoPosition: "HEADER_END" },
     });
@@ -42,7 +42,7 @@ describe("theme files (E5-7)", () => {
     });
     const { photoShape, photoPosition, ...look } = themeFile(modern).theme;
     expect([photoShape, photoPosition]).toEqual(["ROUNDED", "SIDEBAR"]);
-    expect(parseThemeFile({ format: "dossier-theme", version: 2, theme: look })).toEqual({
+    expect(parseThemeFile({ format: "hireme-theme", version: 2, theme: look })).toEqual({
       ok: true,
       theme: { ...look, photoShape: "CIRCLE", photoPosition: "HEADER_END" },
     });
@@ -50,19 +50,19 @@ describe("theme files (E5-7)", () => {
 
   it("refuses other files, newer versions, unknown fonts and bad colors, in plain words", () => {
     const file = themeFile(editorial);
-    expect(parseThemeFile({ hello: "world" })).toEqual({ ok: false, error: "That file isn't a Dossier theme." });
-    expect(parseThemeFile(null)).toEqual({ ok: false, error: "That file isn't a Dossier theme." });
-    expect(parseThemeFile({ ...file, version: 4 })).toEqual({ ok: false, error: "That theme comes from a newer version of Dossier. Update this server first." });
+    expect(parseThemeFile({ hello: "world" })).toEqual({ ok: false, error: "That file isn't a HireMe theme." });
+    expect(parseThemeFile(null)).toEqual({ ok: false, error: "That file isn't a HireMe theme." });
+    expect(parseThemeFile({ ...file, version: 4 })).toEqual({ ok: false, error: "That theme comes from a newer version of HireMe. Update this server first." });
     expect(parseThemeFile({ ...file, theme: { ...file.theme, headFont: "COMIC_SANS" } })).toEqual({
       ok: false,
-      error: "That theme uses a font Dossier doesn't have (COMIC_SANS).",
+      error: "That theme uses a font HireMe doesn't have (COMIC_SANS).",
     });
     expect(parseThemeFile({ ...file, theme: { ...file.theme, accent: "green" } })).toEqual({ ok: false, error: "That theme file is damaged (theme.accent)." });
   });
 
   it("names the file after the theme, safely", () => {
-    expect(themeFileName({ name: "Quiet green" })).toBe("Quiet green.dossier-theme.json");
-    expect(themeFileName({ name: 'A/B: "best"' })).toBe("A B best.dossier-theme.json");
-    expect(themeFileName({ name: "   " })).toBe("Theme.dossier-theme.json");
+    expect(themeFileName({ name: "Quiet green" })).toBe("Quiet green.hireme-theme.json");
+    expect(themeFileName({ name: 'A/B: "best"' })).toBe("A B best.hireme-theme.json");
+    expect(themeFileName({ name: "   " })).toBe("Theme.hireme-theme.json");
   });
 });

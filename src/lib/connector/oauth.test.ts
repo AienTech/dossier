@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const env = vi.hoisted(() => ({ DOSSIER_SECRET: "s".repeat(40), DOSSIER_PASSWORD: "argon2id:m=19456,t=2,p=1:c2FsdA:aGFzaA" }));
+const env = vi.hoisted(() => ({ HIREME_SECRET: "s".repeat(40), HIREME_PASSWORD: "argon2id:m=19456,t=2,p=1:c2FsdA:aGFzaA" }));
 vi.mock("@/lib/env", () => ({ env }));
 const settings = vi.hoisted(() => ({ connectorEnabledAt: "2026-10-23T09:00:00.000Z" as string | null, connectorRedirects: ["https://n8n.example/rest/oauth2-credential/callback"] }));
 vi.mock("@/lib/settings-data", () => ({ loadSettings: async () => settings }));
@@ -26,13 +26,13 @@ const VERIFIER = "v".repeat(50);
 
 async function signIn(redirectUri = CLAUDE) {
   const clientId = await registerClient({ name: "Claude", redirectUris: [redirectUri] });
-  const code = await issueCode({ clientId, redirectUri, codeChallenge: challengeOf(VERIFIER), resource: "https://dossier.example/api/mcp" });
+  const code = await issueCode({ clientId, redirectUri, codeChallenge: challengeOf(VERIFIER), resource: "https://hireme.example/api/mcp" });
   return { clientId, code };
 }
 
 beforeEach(() => {
   settings.connectorEnabledAt = "2026-10-23T09:00:00.000Z";
-  env.DOSSIER_PASSWORD = "argon2id:m=19456,t=2,p=1:c2FsdA:aGFzaA";
+  env.HIREME_PASSWORD = "argon2id:m=19456,t=2,p=1:c2FsdA:aGFzaA";
 });
 
 describe("the Claude connector's sign-in (#221)", () => {
@@ -91,7 +91,7 @@ describe("the Claude connector's sign-in (#221)", () => {
   it("trades a code for tokens with the PKCE verifier, and refreshes them", async () => {
     const { clientId, code } = await signIn();
     const tokens = await exchangeCode({ code, clientId, redirectUri: CLAUDE, verifier: VERIFIER });
-    expect(tokens).toMatchObject({ token_type: "Bearer", expires_in: 3600, scope: "dossier" });
+    expect(tokens).toMatchObject({ token_type: "Bearer", expires_in: 3600, scope: "hireme" });
     expect(await verifyAccessToken(tokens.access_token)).toEqual({ clientId });
     // A refresh token isn't an access token.
     expect(await verifyAccessToken(tokens.refresh_token)).toBeNull();
@@ -132,22 +132,31 @@ describe("the Claude connector's sign-in (#221)", () => {
     settings.connectorEnabledAt = "2026-10-23T11:00:00.000Z";
     const again = await signIn();
     const againTokens = await exchangeCode({ code: again.code, clientId: again.clientId, redirectUri: CLAUDE, verifier: VERIFIER });
-    env.DOSSIER_PASSWORD = "argon2id:m=19456,t=2,p=1:c2FsdA:bmV3";
+    env.HIREME_PASSWORD = "argon2id:m=19456,t=2,p=1:c2FsdA:bmV3";
     expect(await verifyAccessToken(againTokens.access_token)).toBeNull();
   });
 
   it("describes itself at the addresses Claude looks for", () => {
-    expect(authorizationServerMetadata("https://dossier.example")).toMatchObject({
-      issuer: "https://dossier.example",
-      authorization_endpoint: "https://dossier.example/oauth/authorize",
-      token_endpoint: "https://dossier.example/api/oauth/token",
-      registration_endpoint: "https://dossier.example/api/oauth/register",
+    expect(authorizationServerMetadata("https://hireme.example")).toMatchObject({
+      issuer: "https://hireme.example",
+      authorization_endpoint: "https://hireme.example/oauth/authorize",
+      token_endpoint: "https://hireme.example/api/oauth/token",
+      registration_endpoint: "https://hireme.example/api/oauth/register",
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
     });
-    expect(protectedResourceMetadata("https://dossier.example")).toMatchObject({
-      resource: "https://dossier.example/api/mcp",
-      authorization_servers: ["https://dossier.example"],
+    expect(protectedResourceMetadata("https://hireme.example")).toMatchObject({
+      resource: "https://hireme.example/api/mcp",
+      authorization_servers: ["https://hireme.example"],
     });
+  });
+});
+
+describe("OpenBot native callback", () => {
+  it("requires the exact owner-approved address and keeps other native schemes blocked", () => {
+    expect(redirectProblem("openbot://mcp-auth")).toBeNull();
+    expect(allowedRedirect("openbot://mcp-auth")).toBe(false);
+    expect(allowedRedirect("openbot://mcp-auth", ["openbot://mcp-auth"])).toBe(true);
+    for (const uri of ["openbot://other", "openbot://mcp-auth?next=https://evil.example", "openbot://mcp-auth#fragment", "javascript:alert(1)", "otherapp://mcp-auth"]) expect(redirectProblem(uri)).not.toBeNull();
   });
 });

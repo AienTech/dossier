@@ -36,7 +36,9 @@ const pool: Pool = (globalForPdf.pdfPool ??= { browser: null, active: 0, queue: 
 
 /** Where the app itself is listening, for Chromium to open print pages. */
 function appOrigin(): string {
-  return `http://localhost:${process.env.PORT ?? 3000}`;
+  // URL.origin omits default ports (Vercel supplies PORT=80). Compare the
+  // same canonical form used by the request allowlist below.
+  return new URL(`http://localhost:${process.env.PORT ?? 3000}`).origin;
 }
 
 function browser(): Promise<Browser> {
@@ -92,7 +94,7 @@ function release(): void {
  * blocked, so fonts come from the bundle and nothing leaves the server.
  */
 export async function renderPdf(path: string): Promise<Uint8Array> {
-  if (env.DOSSIER_DESKTOP_PRINT_URL) return printWithDesktopApp(env.DOSSIER_DESKTOP_PRINT_URL, path);
+  if (env.HIREME_DESKTOP_PRINT_URL) return printWithDesktopApp(env.HIREME_DESKTOP_PRINT_URL, path);
   await acquire();
   try {
     const origin = appOrigin();

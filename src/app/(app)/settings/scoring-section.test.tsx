@@ -54,7 +54,7 @@ describe("ScoringSection (#274)", () => {
 
   it("names the environment's key, and says when the saved one can't be read", () => {
     const { unmount } = render(<ScoringSection initial={{ scorer: "JEV", keyState: "env" }} />);
-    expect(screen.getByLabelText("TypeSafe key")).toHaveAttribute("placeholder", "Using DOSSIER_TYPESAFE_KEY · type one to save it here");
+    expect(screen.getByLabelText("TypeSafe key")).toHaveAttribute("placeholder", "Using HIREME_TYPESAFE_KEY · type one to save it here");
     unmount();
     render(<ScoringSection initial={{ scorer: "JEV", keyState: "unreadable" }} />);
     expect(screen.getByText("Your saved key can't be read. Please enter it again.")).toBeInTheDocument();

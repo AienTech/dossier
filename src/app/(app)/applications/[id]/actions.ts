@@ -26,6 +26,7 @@ import { emailJobKey, writeEmailJob } from "@/lib/jobs/write-email";
 import { writeDocumentJob, writeDocumentJobKey } from "@/lib/jobs/write-document";
 import { scoreResumeJob, scoreResumeJobKey } from "@/lib/jobs/score-resume";
 import { scoringProblem } from "@/lib/scoring";
+import { writeApplyPacket } from "@/lib/apply-packet";
 import { prisma } from "@/lib/prisma";
 import { loadProfile } from "@/lib/profile-data";
 import { findOrCreateSkill } from "@/lib/profile-entries";
@@ -38,7 +39,11 @@ import { cleanUnitText, isPublicationUnit, isVerbatimUnit, unitName } from "@/li
 const GONE = "That application no longer exists.";
 const PART_GONE = "That part of the document no longer exists. Reload the page to see what's there now.";
 
-const refresh = (id: string) => revalidatePath(`/applications/${id}`);
+const refresh = async (id: string) => {
+  revalidatePath(`/applications/${id}`);
+  const { scheduleDriveSyncQuietly } = await import("@/lib/google/drive-sync");
+  await scheduleDriveSyncQuietly(id);
+};
 
 /** The Resume tab's layout switch (APP-4): the theme's own layout, or a single column. */
 export const setFollowThemeLayout = action(
@@ -46,7 +51,7 @@ export const setFollowThemeLayout = action(
   async ({ id, follow }) => {
     const { count } = await prisma.application.updateMany({ where: { id }, data: { followThemeLayout: follow } });
     if (count === 0) throw new ActionError(GONE);
-    refresh(id);
+    await refresh(id);
     return null;
   },
 );
@@ -55,7 +60,7 @@ export const setFollowThemeLayout = action(
 export const setShowPhoto = action(z.object({ id: z.string().min(1), show: z.boolean() }), async ({ id, show }) => {
   const { count } = await prisma.application.updateMany({ where: { id }, data: { showPhoto: show } });
   if (count === 0) throw new ActionError(GONE);
-  refresh(id);
+  await refresh(id);
   return null;
 });
 
@@ -194,13 +199,14 @@ export const setApplicationTheme = action(z.object({ id: z.string().min(1), them
     await prisma.application.update({ where: { id }, data: { frozen: { ...copy, themes: { RESUME: theme, COVER_LETTER: theme } } as unknown as Prisma.InputJsonValue } });
   }
   refresh(id);
+  await refresh(id);
   return null;
 });
 
 /**
  * The next interview's date and time (E9-9), or null to remove it. It shows
  * on the dashboard's "Worth a look" while the application is in Interview,
- * and while Dossier keeps interviews in Google Calendar, the event is added,
+ * and while HireMe keeps interviews in Google Calendar, the event is added,
  * moved or deleted to match.
  */
 export const setInterviewDate = action(
@@ -208,7 +214,7 @@ export const setInterviewDate = action(
   async ({ id, at }, { toast }) => {
     const { count } = await prisma.application.updateMany({ where: { id }, data: { nextInterviewAt: at ? new Date(at) : null } });
     if (count === 0) throw new ActionError(GONE);
-    refresh(id);
+    await refresh(id);
     try {
       const { inCalendar } = await syncInterviewToCalendar(id);
       if (inCalendar) toast(at ? "Interview date saved, in your calendar too." : "Interview date removed, from your calendar too.");
@@ -257,7 +263,7 @@ export const saveUnit = action(
       unit.text = clean;
       delete unit.unverified;
     });
-    refresh(id);
+    await refresh(id);
     return { text: clean };
   },
 );
@@ -323,7 +329,7 @@ export const restoreUnit = action(
       if (unverified?.length) unit.unverified = unverified;
       else delete unit.unverified;
     }, { version: { cause: VersionCause.UNDONE } });
-    refresh(id);
+    await refresh(id);
     return null;
   },
 );
@@ -356,7 +362,7 @@ export const sendMessage = action(
           { applicationId: id, role: ChatRole.AI, text: POSTING_REPLY, createdAt: new Date(now + 1) },
         ],
       });
-      refresh(id);
+      await refresh(id);
       return { jobId: null };
     }
 
@@ -377,7 +383,7 @@ export const sendMessage = action(
       select: { id: true },
     });
     const jobId = await startJob(refineJob, { applicationId: id, messageId: message.id, request: text, target, viewing }, { key: refineJobKey(id), applicationId: id });
-    refresh(id);
+    await refresh(id);
     return { jobId };
   },
 );
@@ -417,7 +423,7 @@ export const undoMessage = action(z.object({ id: z.string().min(1), messageId: z
     const { count } = await tx.chatMessage.updateMany({ where: { id: messageId, undone: false }, data: { undone: true } });
     if (count === 0) throw new ActionError("That's already undone.");
   }, { version: { cause: VersionCause.UNDONE } });
-  refresh(id);
+  await refresh(id);
   return { edited: edits.data.map(({ document, unitId }) => ({ document, unitId })) };
 });
 
@@ -439,7 +445,7 @@ export const addMatchSkill = action(z.object({ id: z.string().min(1), index: z.n
   const { skill } = await findOrCreateSkill(requirement.skill.trim());
   const items = match.data.items.map((entry, position) => (position === index ? withSkillAdded(entry, skill.name) : entry));
   await prisma.application.update({ where: { id }, data: { match: { items } } });
-  refresh(id);
+  await refresh(id);
   return { name: skill.name };
 });
 
@@ -451,7 +457,7 @@ const noteBody = z.string().trim().min(1, "Write something first.").max(5000);
 export const addNote = action(z.object({ id: z.string().min(1), body: noteBody }), async ({ id, body }) => {
   if (!(await prisma.application.count({ where: { id } }))) throw new ActionError(GONE);
   await prisma.note.create({ data: { applicationId: id, body } });
-  refresh(id);
+  await refresh(id);
   return null;
 });
 
@@ -462,7 +468,7 @@ export const updateNote = action(
   async ({ id, noteId, body }) => {
     const { count } = await prisma.note.updateMany({ where: { id: noteId, applicationId: id }, data: { body } });
     if (count === 0) throw new ActionError(NOTE_GONE);
-    refresh(id);
+    await refresh(id);
     return null;
   },
 );
@@ -472,7 +478,7 @@ export const deleteNote = action(z.object({ id: z.string().min(1), noteId: z.str
   const note = await prisma.note.findFirst({ where: { id: noteId, applicationId: id } });
   if (!note) throw new ActionError(NOTE_GONE);
   await prisma.note.delete({ where: { id: note.id } });
-  refresh(id);
+  await refresh(id);
   return { body: note.body, createdAt: note.createdAt.toISOString(), updatedAt: note.updatedAt.toISOString() };
 });
 
@@ -481,7 +487,7 @@ export const restoreNote = action(
   async ({ id, body, createdAt, updatedAt }) => {
     if (!(await prisma.application.count({ where: { id } }))) throw new ActionError(GONE);
     await prisma.note.create({ data: { applicationId: id, body, createdAt: new Date(createdAt), updatedAt: new Date(updatedAt) } });
-    refresh(id);
+    await refresh(id);
     return null;
   },
 );
@@ -507,7 +513,7 @@ export const leaveOutUnit = action(z.object({ id: z.string().min(1), unitId: z.s
   const earlier = trimmedSchema.safeParse(row.trimmed);
   const trimmed = [...(earlier.success ? earlier.data : []), cut];
   await prisma.document.update({ where: { id: row.id }, data: { trimmed } });
-  refresh(id);
+  await refresh(id);
   return { index: trimmed.length - 1 };
 });
 
@@ -535,7 +541,7 @@ export const putBackTrimmed = action(z.object({ id: z.string().min(1), index: z.
   });
   const rest = trimmed.data.filter((_, position) => position !== index);
   await prisma.document.update({ where: { id: row.id }, data: { trimmed: rest.length > 0 ? rest : Prisma.DbNull } });
-  refresh(id);
+  await refresh(id);
   return null;
 });
 
@@ -609,7 +615,7 @@ export const restoreVersion = action(z.object({ id: z.string().min(1), versionId
     });
   }
   toast(`Restored the ${DOCUMENT_LABELS[kind].toLowerCase()} as it was then. The version you had is in the history too.`);
-  refresh(id);
+  await refresh(id);
   return null;
 });
 
@@ -679,6 +685,19 @@ export const undoEmailRewrite = action(z.object({ id: z.string().min(1), jobId: 
     }
     documents[DocumentKind.EMAIL] = previous;
   }, { version: { cause: VersionCause.UNDONE } });
-  refresh(id);
+  await refresh(id);
   return null;
+});
+
+/**
+ * Writes ~/Documents/HireMe/apply/{id}/ for Grok Bot: application.md,
+ * instructions.md, and resume/cover-letter PDFs when present.
+ */
+export const prepareGrokApplyPacket = action(z.object({ id: z.string().min(1) }), async ({ id }) => {
+  if (!(await prisma.application.count({ where: { id, awaitingReview: false } }))) throw new ActionError(GONE);
+  try {
+    return await writeApplyPacket(id);
+  } catch (error) {
+    throw new ActionError(error instanceof Error ? error.message : "Couldn’t write the apply folder.");
+  }
 });

@@ -27,7 +27,7 @@
 # The website, built by site/build.sh
 /_site/
 
-# DOSSIER_DATA_DIR in development (backups, temporary downloads)
+# HIREME_DATA_DIR in development (backups, temporary downloads)
 /data/
 
 # debug
@@ -50,7 +50,7 @@ next-env.d.ts
 /src/generated/prisma
 /src/generated/prisma-sqlite
 
-# DOSSIER_DATA_DIR in development
+# HIREME_DATA_DIR in development
 /data
 
 # end-to-end test runs
@@ -66,3 +66,7 @@ next-env.d.ts
 desktop/**/.yarn
 desktop/**/node_modules
 desktop/**/test-results
+# local application packets and the macOS app build
+/apply/
+/apply.zip
+/dist/

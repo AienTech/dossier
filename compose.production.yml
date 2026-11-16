@@ -1,7 +1,7 @@
-# Dossier with Docker Compose (see the installation guide, https://github.com/AienTech/dossier/wiki). Save this
+# HireMe with Docker Compose (see the installation guide, https://github.com/shahzadafridi/HireMe/wiki). Save this
 # file as compose.yml in a folder of its own, put POSTGRES_PASSWORD,
-# DOSSIER_PASSWORD (a hash of your password, from `docker run --rm -it
-# ghcr.io/aientech/dossier hash-password`) and DOSSIER_SECRET in a .env file
+# HIREME_PASSWORD (a hash of your password, from `docker run --rm -it
+# ghcr.io/shahzadafridi/hireme hash-password`) and HIREME_SECRET in a .env file
 # next to it, then:
 #
 #   docker compose up -d
@@ -13,57 +13,57 @@ services:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: dossier
+      POSTGRES_USER: hireme
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: dossier
+      POSTGRES_DB: hireme
     volumes:
       # Postgres 18+ keeps data in a versioned subdirectory, so mount the parent.
       - pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dossier -d dossier"]
+      test: ["CMD-SHELL", "pg_isready -U hireme -d hireme"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   app:
-    image: ${DOSSIER_IMAGE:-ghcr.io/aientech/dossier:latest}
+    image: ${HIREME_IMAGE:-ghcr.io/shahzadafridi/hireme:latest}
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://dossier:${POSTGRES_PASSWORD}@db:5432/dossier
-      DOSSIER_PASSWORD: ${DOSSIER_PASSWORD:?Set DOSSIER_PASSWORD in .env to a hash from hash-password}
-      DOSSIER_SECRET: ${DOSSIER_SECRET:?Set DOSSIER_SECRET in .env}
-      DOSSIER_BACKUP_RETENTION_DAYS: ${DOSSIER_BACKUP_RETENTION_DAYS:-}
+      DATABASE_URL: postgresql://hireme:${POSTGRES_PASSWORD}@db:5432/hireme
+      HIREME_PASSWORD: ${HIREME_PASSWORD:?Set HIREME_PASSWORD in .env to a hash from hash-password}
+      HIREME_SECRET: ${HIREME_SECRET:?Set HIREME_SECRET in .env}
+      HIREME_BACKUP_RETENTION_DAYS: ${HIREME_BACKUP_RETENTION_DAYS:-}
       # Your time zone, e.g. Europe/Berlin: nightly backups run at 03:00 in it.
       TZ: ${TZ:-UTC}
-      DOSSIER_AI_PROVIDER: ${DOSSIER_AI_PROVIDER:-}
-      DOSSIER_AI_URL: ${DOSSIER_AI_URL:-}
-      DOSSIER_AI_MODEL: ${DOSSIER_AI_MODEL:-}
-      DOSSIER_AI_KEY: ${DOSSIER_AI_KEY:-}
-      DOSSIER_AI_TIMEOUT_SECONDS: ${DOSSIER_AI_TIMEOUT_SECONDS:-}
-      # The daily usage ping: unset, Dossier asks after sign-in; on or off answers in advance (see Privacy in the wiki).
-      DOSSIER_TELEMETRY: ${DOSSIER_TELEMETRY:-}
+      HIREME_AI_PROVIDER: ${HIREME_AI_PROVIDER:-}
+      HIREME_AI_URL: ${HIREME_AI_URL:-}
+      HIREME_AI_MODEL: ${HIREME_AI_MODEL:-}
+      HIREME_AI_KEY: ${HIREME_AI_KEY:-}
+      HIREME_AI_TIMEOUT_SECONDS: ${HIREME_AI_TIMEOUT_SECONDS:-}
+      # The daily usage ping: unset, HireMe asks after sign-in; on or off answers in advance (see Privacy in the wiki).
+      HIREME_TELEMETRY: ${HIREME_TELEMETRY:-}
       # Defaults for Settings → Job search.
-      DOSSIER_JOBS_SOURCE: ${DOSSIER_JOBS_SOURCE:-}
-      DOSSIER_JSEARCH_KEY: ${DOSSIER_JSEARCH_KEY:-}
-      DOSSIER_JSEARCH_HOST: ${DOSSIER_JSEARCH_HOST:-}
-      DOSSIER_ADZUNA_APP_ID: ${DOSSIER_ADZUNA_APP_ID:-}
-      DOSSIER_ADZUNA_KEY: ${DOSSIER_ADZUNA_KEY:-}
-      DOSSIER_FREEHIRE_URL: ${DOSSIER_FREEHIRE_URL:-}
-      DOSSIER_JOBS_ARBEITSAGENTUR: ${DOSSIER_JOBS_ARBEITSAGENTUR:-}
+      HIREME_JOBS_SOURCE: ${HIREME_JOBS_SOURCE:-}
+      HIREME_JSEARCH_KEY: ${HIREME_JSEARCH_KEY:-}
+      HIREME_JSEARCH_HOST: ${HIREME_JSEARCH_HOST:-}
+      HIREME_ADZUNA_APP_ID: ${HIREME_ADZUNA_APP_ID:-}
+      HIREME_ADZUNA_KEY: ${HIREME_ADZUNA_KEY:-}
+      HIREME_FREEHIRE_URL: ${HIREME_FREEHIRE_URL:-}
+      HIREME_JOBS_ARBEITSAGENTUR: ${HIREME_JOBS_ARBEITSAGENTUR:-}
       # Defaults for Settings → Scoring: ai or jev (Jev by TypeSafe, with its key).
-      DOSSIER_SCORER: ${DOSSIER_SCORER:-}
-      DOSSIER_TYPESAFE_KEY: ${DOSSIER_TYPESAFE_KEY:-}
+      HIREME_SCORER: ${HIREME_SCORER:-}
+      HIREME_TYPESAFE_KEY: ${HIREME_TYPESAFE_KEY:-}
       # Gmail and Calendar: a Google OAuth client (or enter it in Settings → Google).
-      DOSSIER_GOOGLE_CLIENT_ID: ${DOSSIER_GOOGLE_CLIENT_ID:-}
-      DOSSIER_GOOGLE_CLIENT_SECRET: ${DOSSIER_GOOGLE_CLIENT_SECRET:-}
-      # The address Dossier is reached at, for Google's redirect.
-      DOSSIER_PUBLIC_URL: ${DOSSIER_PUBLIC_URL:-}
+      HIREME_GOOGLE_CLIENT_ID: ${HIREME_GOOGLE_CLIENT_ID:-}
+      HIREME_GOOGLE_CLIENT_SECRET: ${HIREME_GOOGLE_CLIENT_SECRET:-}
+      # The address HireMe is reached at, for Google's redirect.
+      HIREME_PUBLIC_URL: ${HIREME_PUBLIC_URL:-}
     # Only on the server itself: put a reverse proxy with HTTPS in front.
     ports:
-      - "127.0.0.1:${DOSSIER_PORT:-3000}:3000"
+      - "127.0.0.1:${HIREME_PORT:-3000}:3000"
     volumes:
       - data:/data
     # Room for Chromium, which prints the PDFs.
@@ -74,7 +74,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   # A local model, with COMPOSE_PROFILES=ai in .env: `docker compose up -d`,
-  # then pull one (see "Choosing an AI provider" in the wiki). Dossier reaches it at http://ollama:11434.
+  # then pull one (see "Choosing an AI provider" in the wiki). HireMe reaches it at http://ollama:11434.
   ollama:
     profiles: [ai]
     image: ollama/ollama:0.40.13

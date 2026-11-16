@@ -47,7 +47,7 @@ export function SetupFrame({
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <BrandMark className="size-8" />
-          <span className="font-serif text-[22px] font-medium">Dossier</span>
+          <span className="font-serif text-[22px] font-medium">HireMe</span>
         </div>
         {step !== "done" && (
           <Button variant="text" size="sm" onClick={() => void leave()}>

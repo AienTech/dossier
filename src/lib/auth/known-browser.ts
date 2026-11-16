@@ -15,17 +15,17 @@ import { isHttps, passwordFingerprint } from "./session";
 // addresses can keep new browsers out for a while, but not the person's own.
 // It holds a random id with a limit of its own, wherever the browser
 // connects from. Like the session, it's encrypted with a key derived from
-// DOSSIER_SECRET and carries the password's fingerprint, so changing the
+// HIREME_SECRET and carries the password's fingerprint, so changing the
 // password makes every browser a new one again.
 
-export const KNOWN_BROWSER_COOKIE = "dossier_browser";
+export const KNOWN_BROWSER_COOKIE = "hireme_browser";
 
 /** A year, under the 400 days browsers keep a cookie at most. */
 export const KNOWN_BROWSER_LIFETIME = 365 * 24 * 60 * 60;
 
 type TokenOptions = {
   key: Uint8Array;
-  /** passwordFingerprint() of the current DOSSIER_PASSWORD. */
+  /** passwordFingerprint() of the current HIREME_PASSWORD. */
   fingerprint: string;
   now?: Date;
 };

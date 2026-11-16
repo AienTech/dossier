@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "x".repeat(40), DOSSIER_PUBLIC_URL: undefined } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "x".repeat(40), HIREME_PUBLIC_URL: undefined } }));
 
 import { encryptSecret, GOOGLE_CLIENT_SECRET } from "@/lib/secrets";
 
@@ -49,8 +49,8 @@ describe("the consent page", () => {
 
 describe("the OAuth client", () => {
   const none = { googleClientId: null, googleClientSecretEnc: null };
-  const noEnv = { DOSSIER_GOOGLE_CLIENT_ID: undefined, DOSSIER_GOOGLE_CLIENT_SECRET: undefined };
-  const env = { DOSSIER_GOOGLE_CLIENT_ID: "env-id", DOSSIER_GOOGLE_CLIENT_SECRET: "env-secret" };
+  const noEnv = { HIREME_GOOGLE_CLIENT_ID: undefined, HIREME_GOOGLE_CLIENT_SECRET: undefined };
+  const env = { HIREME_GOOGLE_CLIENT_ID: "env-id", HIREME_GOOGLE_CLIENT_SECRET: "env-secret" };
 
   it("isn't set up without both parts", () => {
     expect(resolveGoogleClient(none, noEnv, secret)).toEqual({ client: null, id: "", idState: "none", secretState: "none" });

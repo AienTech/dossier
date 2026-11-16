@@ -21,7 +21,7 @@ const fake = vi.hoisted(() => {
       close: async () => {},
       newContext: async () => ({
         route: async (_pattern: string, handler: (route: unknown) => void) => {
-          for (const url of ["http://localhost:3000/_next/static/app.css", "https://fonts.example/font.woff2"]) {
+          for (const url of [`http://localhost:${process.env.PORT ?? 3000}/_next/static/app.css`, "https://fonts.example/font.woff2"]) {
             handler({
               request: () => ({ url: () => url }),
               continue: () => state.routes.push(`continue ${url}`),
@@ -49,7 +49,7 @@ const fake = vi.hoisted(() => {
 });
 
 vi.mock("playwright-core", () => ({ chromium: { launch: fake.launch } }));
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 
 const { MAX_CONCURRENT_RENDERS, renderPdf } = await import("./render");
 
@@ -67,6 +67,20 @@ beforeEach(() => {
 });
 
 describe("renderPdf", () => {
+  it("allows the app on the default HTTP port while blocking external resources", async () => {
+    vi.stubEnv("PORT", "80");
+    try {
+      const rendering = renderPdf("/print/base");
+      await settle();
+      await rendering;
+      expect(fake.state.routes).toEqual([
+        "continue http://localhost:80/_next/static/app.css",
+        "abort https://fonts.example/font.woff2",
+      ]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
   it("prints a page to PDF, letting Chromium reach only the app", async () => {
     const rendering = renderPdf("/print/base");
     await settle();

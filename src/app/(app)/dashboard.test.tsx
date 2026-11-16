@@ -43,7 +43,7 @@ describe("the dashboard (E9-7)", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Good morning, Jane" })).toBeInTheDocument();
     expect(screen.getByText("You've sent 7 applications and heard back from 5. That's a solid run. Keep it going.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "+ New application" })).toHaveAttribute("href", "/new?fresh=1");
-    expect(document.cookie).toMatch(/dossier-tz=/);
+    expect(document.cookie).toMatch(/hireme-tz=/);
   });
 
   it("encourages before anything was sent", () => {
@@ -136,7 +136,7 @@ describe("the dashboard (E9-7)", () => {
 
   it("welcomes a new user", () => {
     render(<Dashboard {...props} empty figures={{ ...figures, sent: 0 }} />);
-    expect(screen.getByRole("heading", { name: "Welcome to Dossier" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Welcome to HireMe" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Fill in your profile" })).toHaveAttribute("href", "/profile");
     expect(screen.queryByRole("region", { name: "Your funnel" })).not.toBeInTheDocument();
   });

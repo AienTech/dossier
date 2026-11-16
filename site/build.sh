@@ -21,7 +21,7 @@ done
 # browsers don't ask anyone for it. Only the package page shows it (GitHub's
 # API has no download counts for ghcr.io), as <h3 title="12741">12.7K</h3> under
 # "Total downloads". If that can't be read, the page keeps the floor it has.
-package=https://github.com/AienTech/dossier/pkgs/container/dossier
+package=https://github.com/shahzadafridi/HireMe/pkgs/container/hireme
 downloads=$(curl -fsSL --max-time 20 "$package" 2>/dev/null |
   grep -A1 'Total downloads' | sed -n 's/.*title="\([0-9][0-9]*\)".*/\1/p' | head -n 1) || true
 if [ -n "$downloads" ]; then

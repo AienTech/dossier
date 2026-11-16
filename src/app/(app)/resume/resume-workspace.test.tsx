@@ -217,7 +217,7 @@ describe("managing themes (E5-7)", () => {
     const createObjectURL = vi.fn(() => "blob:theme");
     Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
-      expect(this.download).toBe("Modern.dossier-theme.json");
+      expect(this.download).toBe("Modern.hireme-theme.json");
     });
     render(<ResumeWorkspace {...props} />);
     await user.click(screen.getByRole("button", { name: "Export Modern" }));
@@ -233,12 +233,12 @@ describe("managing themes (E5-7)", () => {
     vi.mocked(importTheme).mockResolvedValueOnce({ ok: true, data: { ...BUILT_IN_THEMES[0], id: "c3", name: "Shared", builtIn: false } });
     const { container } = render(<ResumeWorkspace {...props} />);
     const input = container.querySelector<HTMLInputElement>("input[type=file]")!;
-    await user.upload(input, new File([JSON.stringify(file)], "Shared.dossier-theme.json", { type: "application/json" }));
+    await user.upload(input, new File([JSON.stringify(file)], "Shared.hireme-theme.json", { type: "application/json" }));
     expect(importTheme).toHaveBeenCalledWith({ file });
     expect(screen.getByRole("button", { name: "Shared theme, in use" })).toBeInTheDocument();
 
     await user.upload(input, new File(["{\"hello\":1}"], "other.json", { type: "application/json" }));
-    expect(toast).toHaveBeenCalledWith("That file isn't a Dossier theme.");
+    expect(toast).toHaveBeenCalledWith("That file isn't a HireMe theme.");
     expect(importTheme).toHaveBeenCalledTimes(1);
   });
 });

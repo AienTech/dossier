@@ -1,22 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const config = vi.hoisted(() => ({ DOSSIER_DESKTOP_TOKEN: undefined as string | undefined }));
+const config = vi.hoisted(() => ({ HIREME_DESKTOP_TOKEN: undefined as string | undefined }));
 vi.mock("@/lib/env", () => ({ env: config }));
 const session = vi.hoisted(() => ({ startSession: vi.fn(async () => {}) }));
 vi.mock("@/lib/auth/session", () => session);
 
 const { GET } = await import("./route");
 
-const asked = (token?: string) => new Request("http://127.0.0.1:47318/api/desktop/sign-in", { headers: token ? { "x-dossier-desktop-token": token } : {} });
+const asked = (token?: string) => new Request("http://127.0.0.1:47318/api/desktop/sign-in", { headers: token ? { "x-hireme-desktop-token": token } : {} });
 
 beforeEach(() => {
-  config.DOSSIER_DESKTOP_TOKEN = undefined;
+  config.HIREME_DESKTOP_TOKEN = undefined;
   session.startSession.mockClear();
 });
 
 describe("GET /api/desktop/sign-in", () => {
   it("signs the desktop app in with this launch's token, and goes to the dashboard", async () => {
-    config.DOSSIER_DESKTOP_TOKEN = "launch-token";
+    config.HIREME_DESKTOP_TOKEN = "launch-token";
     const response = await GET(asked("launch-token"));
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/");
@@ -24,7 +24,7 @@ describe("GET /api/desktop/sign-in", () => {
   });
 
   it("doesn't exist for any other token, or without one", async () => {
-    config.DOSSIER_DESKTOP_TOKEN = "launch-token";
+    config.HIREME_DESKTOP_TOKEN = "launch-token";
     for (const request of [asked("other-token"), asked()]) {
       expect((await GET(request)).status).toBe(404);
     }

@@ -3,7 +3,7 @@
 
 export type DayPeriod = "morning" | "afternoon" | "evening";
 
-export const TIME_ZONE_COOKIE = "dossier-tz";
+export const TIME_ZONE_COOKIE = "hireme-tz";
 
 export function dayPeriod(hour: number): DayPeriod {
   return hour >= 5 && hour < 12 ? "morning" : hour >= 12 && hour < 18 ? "afternoon" : "evening";

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AI_API_KEY, applySecretChange, decryptSecret, encryptSecret, JOB_SOURCE_KEY, SecretUnreadable, secretState } from "./secrets";
 
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 
 describe("secrets", () => {
   it("round-trips each kind", () => {

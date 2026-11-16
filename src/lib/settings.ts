@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { applyBotSchema } from "@/lib/application-bots";
 
 import { AiProvider, Creativity, DateFormat, PaperSize, Tone } from "@/generated/prisma/enums";
 import { announcementFeedSchema } from "@/lib/announcements/contract";
@@ -108,13 +109,13 @@ export const AGENT_RUNS_KEPT = 10;
 
 export const settingsSchema = z.object({
   // AI provider (SET-1). Null means "not set in the app": fall back to the
-  // DOSSIER_AI_* environment variables, then to the built-in defaults.
+  // HIREME_AI_* environment variables, then to the built-in defaults.
   provider: z.enum(AiProvider).nullable().catch(null),
   baseUrl: z.string().nullable().catch(null),
   model: z.string().nullable().catch(null),
-  /** Encrypted with a key derived from DOSSIER_SECRET (E6-2); never sent to the client. */
+  /** Encrypted with a key derived from HIREME_SECRET (E6-2); never sent to the client. */
   apiKeyEnc: z.string().nullable().catch(null),
-  /** How long one AI request may take, in seconds (public issue 118); null for DOSSIER_AI_TIMEOUT_SECONDS's, or the provider's own. */
+  /** How long one AI request may take, in seconds (public issue 118); null for HIREME_AI_TIMEOUT_SECONDS's, or the provider's own. */
   aiTimeoutSeconds: z.coerce.number().int().min(AI_TIMEOUT_LIMITS.min).max(AI_TIMEOUT_LIMITS.max).nullable().catch(null),
   creativity: z.enum(Creativity).catch(Creativity.BALANCED),
   /** "Never invent experience" (SET-4). */
@@ -161,7 +162,7 @@ export const settingsSchema = z.object({
   fitBaseResume: flag(false),
   /** Why the last nightly backup failed; null once one works again (E10-7). */
   backupProblem: z.string().nullable().catch(null),
-  // Job search (E14-4). Null means "not set in the app": DOSSIER_JOBS_SOURCE
+  // Job search (E14-4). Null means "not set in the app": HIREME_JOBS_SOURCE
   // decides. "OFF" is a choice. Each source keeps its own key, encrypted
   // like the AI key, so switching back and forth loses nothing.
   jobSource: z.enum([...JOB_SOURCES, "OFF"]).nullable().catch(null),
@@ -173,7 +174,7 @@ export const settingsSchema = z.object({
   /** When "I understand" was ticked under the Bundesagentur für Arbeit's note (#223); its searches wait for it. */
   arbeitsagenturAcceptedAt: z.iso.datetime().nullable().catch(null),
   // Scoring (#274): what Score in Find jobs and the job agent score postings
-  // with. Null means "not set in the app": DOSSIER_SCORER decides, else the
+  // with. Null means "not set in the app": HIREME_SCORER decides, else the
   // AI model. Jev's key is encrypted like the others, under its own key.
   scorer: z.enum(SCORERS).nullable().catch(null),
   typesafeKeyEnc: z.string().nullable().catch(null),
@@ -212,13 +213,13 @@ export const settingsSchema = z.object({
   announcementsDismissed: stringList.catch([]),
   // Gmail and Calendar (E15). Off until the Google account is connected.
   // The OAuth client, entered in Settings → Google. Null means "not set in the
-  // app": DOSSIER_GOOGLE_CLIENT_ID and DOSSIER_GOOGLE_CLIENT_SECRET decide.
+  // app": HIREME_GOOGLE_CLIENT_ID and HIREME_GOOGLE_CLIENT_SECRET decide.
   googleClientId: z.string().nullable().catch(null),
   /** Encrypted like the API keys (GOOGLE_CLIENT_SECRET); never sent to the client. */
   googleClientSecretEnc: z.string().nullable().catch(null),
   /** Read replies from Gmail. */
   gmailRead: flag(true),
-  /** Which mail the inbox check reads: only threads Dossier knows and company domains, or every new mail. */
+  /** Which mail the inbox check reads: only threads HireMe knows and company domains, or every new mail. */
   gmailScope: z.enum(["known", "all"]).catch("known"),
   /** Minutes between inbox checks. */
   gmailInterval: z.coerce.number().int().min(5).max(120).catch(10),
@@ -260,6 +261,38 @@ export const settingsSchema = z.object({
   // without a request, such as the inbox check (time-zone.ts). It belongs
   // to the install, not its data, so exports leave it out (INSTALL_SETTINGS).
   browserTimeZone: z.string().nullable().catch(null),
+  // Drive history for application packets, and the optional sharing of a
+  // snapshot link. Both belong to the install (INSTALL_SETTINGS).
+  driveAutoSave: flag(true),
+  driveShareLinks: flag(false),
+  driveSyncProblem: z.string().nullable().catch(null),
+  /**
+   * Grok Bot id for "Apply with Grok Bot" (Copy link in that Bot's sidebar).
+   * Belongs to the install: exports leave it out (INSTALL_SETTINGS).
+   */
+  grokBotId: z.string().nullable().catch(null),
+  /**
+   * Which external bot runs the last apply step. Claude uses the MCP connector
+   * (read materials + write status/notes). Grok uses prompt + PDF attach.
+   * Belongs to the install: exports leave it out (INSTALL_SETTINGS).
+   */
+  applyBot: applyBotSchema.catch("grok"),
+  grokAgentName: z.string().max(100).catch("Job Finder"),
+  /**
+   * Optional macOS app to open for a handoff, when the app is not installed
+   * under its default name. Empty uses the bot's default app, or the copy
+   * that is already running.
+   */
+  grokAppName: z.string().max(100).catch(""),
+  grokLaunchMode: z.enum(["app-link", "mac-helper"]).catch("app-link"),
+  openbotAgentName: z.string().max(100).catch("Job Manager"),
+  openbotAppName: z.string().max(100).catch(""),
+  openbotLaunchMode: z.enum(["clipboard", "mac-helper"]).catch("clipboard"),
+  applyBotPromptTemplate: z.string().max(10000).catch(""),
+  applyBotClaudeNotes: z.string().max(2000).catch(""),
+  applyBotGrokNotes: z.string().max(2000).catch(""),
+  applyBotOpenbotNotes: z.string().max(2000).catch(""),
+  applyBotOtherNotes: z.string().max(2000).catch(""),
 });
 export type SettingsData = z.output<typeof settingsSchema>;
 

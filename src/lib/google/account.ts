@@ -22,6 +22,8 @@ export type GoogleConnection =
       canSend: boolean;
       canRead: boolean;
       canUseCalendar: boolean;
+      /** Whether the account can archive packets to Drive (Settings → Google → Drive). */
+      canArchiveDrive: boolean;
       lastSyncAt: Date | null;
       syncProblem: string | null;
       /** Why the saved access can't be used, so nothing is tried until the user connects again (#136); null when it can. */
@@ -30,13 +32,13 @@ export type GoogleConnection =
 
 /** Stored in place of the refresh token once Google refuses it, so nothing asks Google again until a new sign-in. */
 const REFUSED = "";
-const SIGN_IN_AGAIN = "Google no longer accepts Dossier's access. Connect your Google account again.";
-const UNREADABLE = "The saved Google access can't be read, probably since DOSSIER_SECRET changed. Connect your Google account again.";
+const SIGN_IN_AGAIN = "Google no longer accepts HireMe's access. Connect your Google account again.";
+const UNREADABLE = "The saved Google access can't be read, probably since HIREME_SECRET changed. Connect your Google account again.";
 
 /**
  * Why the saved refresh token can't be used: Google refused it, or it can't
  * be decrypted. An unreadable one is kept, since putting the old
- * DOSSIER_SECRET back makes it work again.
+ * HIREME_SECRET back makes it work again.
  */
 function signInProblem(refreshTokenEnc: string): string | null {
   if (refreshTokenEnc === REFUSED) return SIGN_IN_AGAIN;
@@ -62,6 +64,7 @@ export async function googleConnection(): Promise<GoogleConnection> {
     canSend: hasScopes(account.scopes, "send"),
     canRead: hasScopes(account.scopes, "read"),
     canUseCalendar: hasScopes(account.scopes, "calendar"),
+    canArchiveDrive: hasScopes(account.scopes, "drive"),
     lastSyncAt: account.lastSyncAt,
     syncProblem: account.syncProblem,
     signInProblem: signInProblem(account.refreshTokenEnc),
@@ -75,7 +78,7 @@ export async function googleConnection(): Promise<GoogleConnection> {
 export async function saveGoogleAccount({ email, refreshToken, scopes }: { email: string; refreshToken: string | undefined; scopes: string }) {
   const existing = await loadGoogleAccount();
   const refreshTokenEnc = refreshToken ? encryptSecret(GOOGLE_TOKEN, refreshToken) : existing?.refreshTokenEnc;
-  if (!refreshTokenEnc) throw new GoogleError("rejected", "Google didn't give Dossier lasting access. Remove Dossier at myaccount.google.com/permissions and connect again.");
+  if (!refreshTokenEnc) throw new GoogleError("rejected", "Google didn't give HireMe lasting access. Remove HireMe at myaccount.google.com/permissions and connect again.");
   // Another account replaces the old one, and its sync starts afresh.
   const sameAccount = existing?.email.toLowerCase() === email.toLowerCase();
   const merged = sameAccount ? [...new Set([...existing!.scopes.split(/\s+/), ...scopes.split(/\s+/)])].filter(Boolean).join(" ") : scopes;
@@ -116,7 +119,7 @@ export async function accessToken(group: ScopeGroup, signal?: AbortSignal): Prom
   const account = await loadGoogleAccount();
   if (!account) throw new GoogleError("not-connected", "Connect your Google account in Settings → Google first.");
   if (!hasScopes(account.scopes, group)) {
-    throw new GoogleError("scope", "Dossier doesn't have that permission yet. Allow it in Settings → Google.");
+    throw new GoogleError("scope", "HireMe doesn't have that permission yet. Allow it in Settings → Google.");
   }
   if (account.refreshTokenEnc === REFUSED) throw new GoogleError("revoked", SIGN_IN_AGAIN);
   const cached = tokens.get(ACCOUNT_ID);
@@ -148,7 +151,7 @@ async function refused(error: GoogleError): Promise<GoogleError> {
 }
 
 const MAX_BYTES = 30 * 1024 * 1024;
-const SLOW_DOWN = "Google asks Dossier to slow down. Try again in a few minutes.";
+const SLOW_DOWN = "Google asks HireMe to slow down. Try again in a few minutes.";
 /** Before the second, third and fourth try, when the error passes (public issue 68). */
 const RETRY_DELAYS_MS = [1000, 3000, 9000];
 
@@ -184,7 +187,7 @@ const pause = (ms: number, signal?: AbortSignal) =>
 export async function googleFetch<T = unknown>(
   group: ScopeGroup,
   url: string | URL,
-  options: { method?: string; body?: unknown; signal?: AbortSignal; retry?: boolean } = {},
+  options: { method?: string; body?: unknown; signal?: AbortSignal; retry?: boolean; media?: { body: BodyInit; contentType: string } } = {},
 ): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -199,7 +202,7 @@ export async function googleFetch<T = unknown>(
 async function googleFetchOnce<T>(
   group: ScopeGroup,
   url: string | URL,
-  { method = "GET", body, signal }: { method?: string; body?: unknown; signal?: AbortSignal },
+  { method = "GET", body, signal, media }: { method?: string; body?: unknown; signal?: AbortSignal; media?: { body: BodyInit; contentType: string } },
 ): Promise<T> {
   const token = await accessToken(group, signal);
   const timeout = AbortSignal.timeout(30_000);
@@ -207,8 +210,8 @@ async function googleFetchOnce<T>(
   try {
     response = await fetch(url, {
       method,
-      headers: { authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "content-type": "application/json" }) },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: { authorization: `Bearer ${token}`, ...(media ? { "content-type": media.contentType } : body === undefined ? {} : { "content-type": "application/json" }) },
+      body: media ? media.body : body === undefined ? undefined : JSON.stringify(body),
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       cache: "no-store",
     });
@@ -218,7 +221,7 @@ async function googleFetchOnce<T>(
   const path = new URL(url).pathname;
   if (response.status === 401) {
     tokens.delete(ACCOUNT_ID);
-    throw new GoogleError("revoked", "Google no longer accepts Dossier's access. Connect your Google account again.", `${path}: 401`);
+    throw new GoogleError("revoked", "Google no longer accepts HireMe's access. Connect your Google account again.", `${path}: 401`);
   }
   if (response.status === 403) {
     // Gmail says 403 for its per-user rate limit too, not only for a missing permission: the reason tells them apart.

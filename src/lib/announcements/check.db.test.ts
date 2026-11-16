@@ -14,7 +14,7 @@ vi.mock("@/lib/prisma", async () => {
   db.client = createTestClient();
   return { prisma: db.client };
 });
-const config = vi.hoisted(() => ({ DOSSIER_API_URL: undefined as string | undefined }));
+const config = vi.hoisted(() => ({ HIREME_API_URL: undefined as string | undefined }));
 vi.mock("@/lib/env", () => ({ env: config }));
 const log = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/log", () => ({ logServerError: log }));
@@ -50,7 +50,7 @@ const check = (fetchImpl: typeof fetch, current = "1.13.0") => checkAnnouncement
 const stored = async () => (await loadSettings()).announcementFeed;
 
 beforeEach(async () => {
-  config.DOSSIER_API_URL = undefined;
+  config.HIREME_API_URL = undefined;
   log.mockClear();
   await resetDatabase(prisma());
 });
@@ -91,9 +91,9 @@ describe("checkDue", () => {
 describe("checkRuns", () => {
   it("runs in production, and elsewhere only when pointed at a backend", () => {
     expect(checkRuns()).toBe(false);
-    config.DOSSIER_API_URL = "http://api.localhost:3000/v1";
+    config.HIREME_API_URL = "http://api.localhost:3000/v1";
     expect(checkRuns()).toBe(true);
-    config.DOSSIER_API_URL = undefined;
+    config.HIREME_API_URL = undefined;
     vi.stubEnv("NODE_ENV", "production");
     expect(checkRuns()).toBe(true);
   });
@@ -104,19 +104,19 @@ describe("askBackend", () => {
     const fetch = answer({ announcements: [] });
     await askBackend(null, fetch);
     const [url, init] = fetch.mock.calls[0];
-    expect(url).toBe("https://api.dossier.aien.me/v1/announcements");
+    expect(url).toBe("https://api.hireme.example/v1/announcements");
     expect(init?.method ?? "GET").toBe("GET");
     expect(init?.body).toBeUndefined();
-    expect(init?.headers).toEqual({ accept: "application/json", "user-agent": "Dossier" });
+    expect(init?.headers).toEqual({ accept: "application/json", "user-agent": "HireMe" });
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("uses DOSSIER_API_URL, and the ETag when it has one", async () => {
-    config.DOSSIER_API_URL = "http://api.localhost:3000/v1";
+  it("uses HIREME_API_URL, and the ETag when it has one", async () => {
+    config.HIREME_API_URL = "http://api.localhost:3000/v1";
     const fetch = notModified();
-    await askBackend('"abc"', fetch, config.DOSSIER_API_URL);
+    await askBackend('"abc"', fetch, config.HIREME_API_URL);
     expect(fetch.mock.calls[0][0]).toBe("http://api.localhost:3000/v1/announcements");
-    expect(fetch.mock.calls[0][1]?.headers).toEqual({ accept: "application/json", "user-agent": "Dossier", "if-none-match": '"abc"' });
+    expect(fetch.mock.calls[0][1]?.headers).toEqual({ accept: "application/json", "user-agent": "HireMe", "if-none-match": '"abc"' });
   });
 
   it("reads each kind of answer", async () => {
@@ -219,14 +219,14 @@ describe("checkAnnouncementsIfDue", () => {
     const fetch = answer({ announcements: [] });
     globalThis.fetch = fetch;
     await checkAnnouncementsIfDue({ announcementFeed: null });
-    config.DOSSIER_API_URL = "https://backend.test/v1";
+    config.HIREME_API_URL = "https://backend.test/v1";
     await checkAnnouncementsIfDue({ announcementFeed: feed({ nextCheckAt: new Date(Date.now() + HOUR * 1000).toISOString() }) });
     expect(fetch).not.toHaveBeenCalled();
     expect(await stored()).toBeNull();
   });
 
   it("logs a problem of its own instead of throwing", async () => {
-    config.DOSSIER_API_URL = "https://backend.test/v1";
+    config.HIREME_API_URL = "https://backend.test/v1";
     globalThis.fetch = answer({ announcements: [] });
     const spy = vi.spyOn(prisma().setting, "findMany").mockRejectedValueOnce(new Error("database down"));
     await expect(checkAnnouncementsIfDue({ announcementFeed: null })).resolves.toBeUndefined();

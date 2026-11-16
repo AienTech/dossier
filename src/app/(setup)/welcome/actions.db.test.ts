@@ -19,7 +19,7 @@ vi.mock("@/lib/prisma", async () => {
 vi.mock("@/lib/auth/session", () => ({
   getSession: async () => ({ persistent: false, issuedAt: new Date(), expiresAt: new Date(Date.now() + 60_000) }),
 }));
-vi.mock("@/lib/env", () => ({ env: { DOSSIER_SECRET: "a".repeat(32) } }));
+vi.mock("@/lib/env", () => ({ env: { HIREME_SECRET: "a".repeat(32) } }));
 // The real config and key handling, with a mock model behind them, made for each config.
 const ai = vi.hoisted(() => ({ make: undefined as unknown as (config: AiConfig) => unknown, configs: [] as AiConfig[] }));
 vi.mock("@/lib/ai", async (importOriginal) => ({

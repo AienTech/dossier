@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 
+import { googleConnection } from "@/lib/google/account";
+import { DriveConnectionBanner } from "@/components/documents/drive-connection-banner";
 import { countAgentQueue } from "@/lib/agent/view";
 import { checkAnnouncementsIfDue } from "@/lib/announcements/check";
 import { currentAnnouncement } from "@/lib/announcements/visible";
@@ -47,6 +49,12 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   // Replies waiting for an answer or a link, on the Inbox item; the job agent's finds and drafts on its own (E16-6).
   const [waiting, agent] = await Promise.all([inboxCount().catch(() => 0), countAgentQueue().catch(() => 0)]);
 
+  const google = settings.driveAutoSave ? await googleConnection() : null;
+  const driveConnected = google?.status === "connected" && google.canArchiveDrive;
+  const driveMessage = !settings.driveAutoSave ? null : !driveConnected
+    ? "Connect Google Drive in Settings to save application packets automatically."
+    : settings.driveSyncProblem;
+
   return (
     <div className="flex min-h-screen">
       <a
@@ -73,6 +81,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           tabIndex={-1}
           className="relative flex min-w-0 flex-1 flex-col rounded-b-panel border border-t-0 border-line-card bg-surface focus:outline-none"
         >
+          <div id="hireme-drive-banner" />
+          <DriveConnectionBanner message={driveMessage} suppressOnJob={Boolean(driveConnected)} />
           {children}
         </main>
       </div>

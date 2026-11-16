@@ -63,6 +63,20 @@ describe("InboxScreen (E15-3)", () => {
     expect(checkInbox).toHaveBeenCalled();
   });
 
+  it("keeps a connected Gmail account usable when automatic sync is off", () => {
+    render(<InboxScreen inbox={{ waiting: [], unmatched: [], updates: [] }} connected configured googleEmail="owner@example.com" automaticSync={false} lastSync={null} problem={null} aiReady applications={[]} />);
+    expect(screen.getByText(/Gmail connected as owner@example.com/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check now" })).toBeEnabled();
+    expect(screen.queryByRole("link", { name: "Connect Gmail" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "enable automatic checks" })).toHaveAttribute("href", "/settings?section=google");
+  });
+  it("asks only for Gmail permission when Google is already connected for Drive", () => {
+    render(<InboxScreen inbox={{ waiting: [], unmatched: [], updates: [] }} connected={false} configured googleEmail="owner@example.com" gmailPermissionMissing lastSync={null} problem={null} aiReady applications={[]} />);
+    expect(screen.getByText(/Google is connected as owner@example.com/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Allow Gmail read access" })).toHaveAttribute("href", "/api/google/connect?scopes=read");
+    expect(screen.queryByRole("link", { name: "Connect Gmail" })).not.toBeInTheDocument();
+  });
+
   it("points to Settings until Gmail is connected", () => {
     render(<InboxScreen inbox={{ waiting: [], unmatched: [], updates: [] }} connected={false} configured={false} lastSync={null} problem={null} aiReady applications={[]} />);
     expect(screen.getByRole("link", { name: "Set up Google" })).toHaveAttribute("href", "/settings?section=google");

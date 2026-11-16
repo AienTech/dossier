@@ -15,7 +15,7 @@ const TIMEOUT_MS = 60_000;
 export async function printWithDesktopApp(url: string, page: string, fetchImpl: typeof fetch = fetch): Promise<Uint8Array> {
   const response = await fetchImpl(url, {
     method: "POST",
-    headers: { "content-type": "application/json", [DESKTOP_TOKEN_HEADER]: env.DOSSIER_DESKTOP_TOKEN ?? "" },
+    headers: { "content-type": "application/json", [DESKTOP_TOKEN_HEADER]: env.HIREME_DESKTOP_TOKEN ?? "" },
     body: JSON.stringify({ page, printToken: await signPrintToken(page) }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
     cache: "no-store",

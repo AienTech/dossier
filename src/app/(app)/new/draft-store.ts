@@ -3,7 +3,7 @@
 // job runs; closing the tab or "+ New application" clears it. Nothing goes to
 // the server until the application is created.
 
-const KEY = "dossier:new-application";
+const KEY = "hireme:new-application";
 /** Bump when the draft's shape changes, so an old one is dropped rather than misread. */
 const VERSION = 1;
 

@@ -17,7 +17,7 @@ vi.mock("./actions", () => ({
 vi.mock("@/components/toast", () => ({ toast: vi.fn(), toastResult: (result: unknown) => result }));
 vi.mock("@/lib/copy-text", () => ({ copyText: vi.fn(async () => true) }));
 
-const ADDRESS = "https://dossier.example/api/mcp";
+const ADDRESS = "https://hireme.example/api/mcp";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -34,7 +34,7 @@ describe("Settings → MCP connector (#221, #281)", () => {
     await user.click(toggle);
     expect(setConnector).toHaveBeenCalledWith({ on: true });
     expect(screen.getByText(ADDRESS)).toBeInTheDocument();
-    expect(screen.getByText(/claude mcp add --transport http dossier https:\/\/dossier\.example\/api\/mcp/)).toBeInTheDocument();
+    expect(screen.getByText(/claude mcp add --transport http hireme https:\/\/hireme\.example\/api\/mcp/)).toBeInTheDocument();
     // A public HTTPS address needs no warning.
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
 
@@ -54,7 +54,7 @@ describe("Settings → MCP connector (#221, #281)", () => {
 
   it("says Claude on the web and cloud apps need a public HTTPS address, which a local one isn't", () => {
     render(<ConnectorSection initial={{ on: true, redirects: [] }} address="http://localhost:3000/api/mcp" />);
-    expect(screen.getByRole("note")).toHaveTextContent(/This is a local address\. Claude on the web, Desktop and mobile, and apps in the cloud such as n8n Cloud, reach Dossier from their own servers/);
+    expect(screen.getByRole("note")).toHaveTextContent(/This is a local address\. Claude on the web, Desktop and mobile, and apps in the cloud such as n8n Cloud, reach HireMe from their own servers/);
   });
 
   it("adds and removes other apps' callback addresses", async () => {
