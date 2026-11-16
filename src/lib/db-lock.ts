@@ -13,3 +13,17 @@ export async function lockForTransaction(tx: Prisma.TransactionClient, key: numb
   if (usesSqlite()) return;
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(${key}::bigint)::text`;
 }
+
+/**
+ * A stable key for `lockForTransaction`, from a name such as "inbox-check".
+ * The range starts at 1e9 so it cannot meet the few fixed lock ids the app
+ * uses, and stays below 2^31 so it is exact in a JavaScript number.
+ */
+export function lockKeyFor(text: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index++) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return 1_000_000_000 + ((hash >>> 0) % 1_000_000_000);
+}

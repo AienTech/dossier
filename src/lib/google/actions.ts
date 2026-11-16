@@ -7,6 +7,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { ApplicationStatus } from "@/generated/prisma/enums";
 import { action, ActionError } from "@/lib/action";
 import { isAiConfigured } from "@/lib/ai/config";
+import { lockForTransaction, lockKeyFor } from "@/lib/db-lock";
 import { draftReplyJob, replyJobKey } from "@/lib/jobs/draft-reply";
 import { findUnfinishedJobs, startJob } from "@/lib/jobs/runner";
 import { prisma } from "@/lib/prisma";
@@ -128,7 +129,7 @@ export const checkInbox = action(z.object({}), async (_, { toast }) => {
   if (connection.status !== "connected" || !connection.canRead) throw new ActionError("Allow reading email in Settings → Google before checking replies.");
   // Serialize starts across web instances, so repeated clicks reuse one job.
   const id = await prisma.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${INBOX_JOB_KEY}, 0))::text`;
+    await lockForTransaction(tx, lockKeyFor(INBOX_JOB_KEY));
     const existing = await tx.job.findFirst({ where: { key: INBOX_JOB_KEY, status: { in: ["QUEUED", "RUNNING"] } }, select: { id: true } });
     if (existing) return existing.id;
     // Insert in this transaction; startJob would use a separate connection.

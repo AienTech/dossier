@@ -66,7 +66,6 @@ next-env.d.ts
 desktop/**/.yarn
 desktop/**/node_modules
 desktop/**/test-results
-# local application packets and the macOS app build
+# local application packets (the app writes them under ~/Documents/hireme/apply)
 /apply/
 /apply.zip
-/dist/

@@ -2,7 +2,7 @@
   "name": "hireme-desktop",
   "productName": "HireMe",
   "desktopName": "hireme-desktop.desktop",
-  "version": "1.14.0",
+  "version": "2.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "description": "HireMe as a desktop app",

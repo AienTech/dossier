@@ -13,6 +13,7 @@ import { dismissPosting, foundFromPosting, postingStates, savePosting } from "@/
 import { prisma } from "@/lib/prisma";
 import { loadSettings } from "@/lib/settings-data";
 import { advance } from "@/lib/status";
+import { lockForTransaction, lockKeyFor } from "@/lib/db-lock";
 
 const text = (value: unknown): CallToolResult => ({ content: [{ type: "text", text: JSON.stringify(value, null, 2) }] });
 const failure = (message: string): CallToolResult => ({ content: [{ type: "text", text: message }], isError: true });
@@ -123,8 +124,8 @@ export function registerManagementTools(server: McpServer, origin: string) {
     const applicationId = `mcp-${createHash("sha256").update(input.idempotency_key).digest("hex")}`;
     const result = await prisma.$transaction(async (tx) => {
       // Serialize retries and two clients tracking the same saved posting.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${applicationId}, 0))::text`;
-      if (input.posting_id) await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.posting_id}, 0))::text`;
+      await lockForTransaction(tx, lockKeyFor(applicationId));
+      if (input.posting_id) await lockForTransaction(tx, lockKeyFor(input.posting_id));
       const existing = await tx.application.findUnique({ where: { id: applicationId }, select: { id: true, status: true } });
       if (existing) return { ...existing, created: false };
       const posting = input.posting_id ? await tx.posting.findUnique({ where: { id: input.posting_id } }) : null;

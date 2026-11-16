@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { advance } from "@/lib/status";
 import { storeFile } from "@/lib/stored-files";
+import { lockForTransaction, lockKeyFor } from "@/lib/db-lock";
 
 const text = (n: number) => z.string().trim().max(n);
 export const submissionDocument = z.strictObject({ kind: z.enum(["resume", "cover_letter", "email"]), text: z.string().min(1).max(100_000), filename: text(200).optional(), base64: z.string().max(1_500_000).optional(), content_type: z.enum(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"]).optional() });
@@ -46,8 +47,8 @@ export async function recordExternalApplication(raw: z.infer<typeof recordSubmis
     docs.push({ kind: document.kind, text: document.text, filename: document.filename, content_type: document.content_type, ...(fileKey ? { file_key: fileKey } : {}), sha256: digest });
   }
   const result = await prisma.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${deterministicId}, 0))::text`;
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))::text`;
+    await lockForTransaction(tx, lockKeyFor(deterministicId));
+    await lockForTransaction(tx, lockKeyFor(lock));
     let existing = input.id ? await tx.application.findUnique({ where: { id: input.id } }) :
       await tx.application.findFirst({ where: { OR: [{ id: deterministicId }, ...(postingUrl ? [{ postingUrl, company: { equals: input.company, mode: "insensitive" as const }, role: { equals: input.role, mode: "insensitive" as const } }] : [])] } });
     if (!existing && !input.id && postingUrl) {

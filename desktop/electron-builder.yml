@@ -1,5 +1,5 @@
 # How the desktop app is packed. See "The desktop app" in DEVELOPMENT.md.
-appId: me.aien.hireme
+appId: app.hireme.desktop
 productName: HireMe
 copyright: Free software under the AGPL-3.0
 directories:

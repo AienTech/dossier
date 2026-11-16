@@ -1,4 +1,5 @@
 import "server-only";
+import { usesSqlite } from "@/lib/database";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -49,6 +50,8 @@ function workerTarget(): { url: string; region: string } {
 
 /** Fixed project/daemon, 0 or 1 instance only. Never exposes platform credentials. */
 async function scale(count: 0 | 1): Promise<void> {
+  // A SQLite install runs one process: there is no second container to start.
+  if (usesSqlite()) throw new Error("A cloud worker needs PostgreSQL; an SQLite install runs in one process.");
   const token = process.env.HIREME_WORKER_VERCEL_TOKEN;
   if (process.env.VERCEL_ENV !== "production" || !token) throw new Error("Cloud worker scaling is not configured.");
   const { url, region } = workerTarget();

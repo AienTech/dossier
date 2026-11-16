@@ -1,7 +1,11 @@
 // What a window showing the user's server may do. The page comes from
 // elsewhere, so it's treated like any web page.
 
-const EXTERNAL_SCHEMES = new Set(["http:", "https:", "mailto:"]);
+// "Apply with bot" opens the bot's own app through one of these. They are the
+// only custom schemes allowed, because they are the only ones HireMe makes.
+const BOT_SCHEMES = new Set(["hireme-bot:", "grokbot:", "claude:"]);
+
+const EXTERNAL_SCHEMES = new Set(["http:", "https:", "mailto:", ...BOT_SCHEMES]);
 
 const parse = (url: string): URL | null => {
   try {
@@ -30,7 +34,7 @@ export function navigationFor(target: string, { server, current }: { server: str
   if (url.protocol === "http:" || url.protocol === "https:") {
     return url.origin === server || url.origin === parse(current)?.origin ? "stay" : "external";
   }
-  return url.protocol === "mailto:" ? "external" : "refuse";
+  return url.protocol === "mailto:" || BOT_SCHEMES.has(url.protocol) ? "external" : "refuse";
 }
 
 /**

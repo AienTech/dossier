@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { loadDocuments } from "@/lib/application-documents";
+import { lockForTransaction, lockKeyFor } from "@/lib/db-lock";
 import { prisma } from "@/lib/prisma";
 import { loadSettings, saveSettings } from "@/lib/settings-data";
 import { accessToken, googleConnection, loadGoogleAccount } from "./account";
@@ -58,7 +59,7 @@ export async function ensureDriveSync(id: string, retry = false): Promise<DriveS
   if (!current.eligible) return { status: "disabled" };
   const { driveArchiveJob } = await import("@/lib/jobs/drive-archive");
   const queued = await prisma.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`drive-sync:${id}`}, 0))::text`;
+    await lockForTransaction(tx, lockKeyFor(`drive-sync:${id}`));
     const row = await tx.application.findUnique({ where: { id }, select: { driveSync: true, updatedAt: true } });
     if (!row) return null;
     const state = parseDriveSync(row.driveSync);
