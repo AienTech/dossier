@@ -141,12 +141,14 @@ describe("the dashboard (E9-7)", () => {
     expect(screen.queryByRole("region", { name: "Your funnel" })).not.toBeInTheDocument();
   });
 
-  it("shows the calendar after the cards, outside the time filter (E15-6)", () => {
+  it("shows the calendar beside Worth a look, with Where things stand under it (E15-6)", () => {
     const calendar = <section aria-label="Calendar" />;
     const { rerender } = render(<Dashboard {...props} calendar={calendar} />);
     const region = screen.getByRole("region", { name: "Calendar" });
+    const standing = screen.getByRole("region", { name: "Where things stand" });
     expect(screen.getByRole("region", { name: "Worth a look" }).compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Not among the cards, which dim while another period loads.
+    expect(region.compareDocumentPosition(standing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Calendar stays outside the figures that dim while another period loads.
     expect(screen.getByRole("region", { name: "Your funnel" }).parentElement!.contains(region)).toBe(false);
     // A new user has the calendar too.
     rerender(<Dashboard {...props} empty calendar={calendar} />);
