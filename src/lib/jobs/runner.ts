@@ -257,6 +257,7 @@ async function execute(id: string, controller: AbortController): Promise<void> {
     if (!claimed.count) return;
     const job = await prisma.job.findUnique({ where: { id }, select: { type: true, input: true } });
     if (!job) return;
+    type = job.type;
     await notify(id);
     // Job types register when their module loads; make sure they all have.
     await import("./definitions");

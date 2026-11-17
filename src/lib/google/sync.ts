@@ -18,7 +18,7 @@ import { lastKnownTimeZone } from "@/lib/time-zone";
 
 import { googleConnection, loadGoogleAccount } from "./account";
 import { pullInterviewEvents } from "./availability";
-import { GoogleError } from "./errors";
+import { GoogleError, isPassing } from "./errors";
 import { currentHistoryId, getMessage, messagesSince, searchMessages, type ReadMail } from "./gmail";
 import { baseDomain, companyDomains, matchMail, worthSuggesting, type MatchableApplication } from "./matching";
 import { domainOf, parseAddress, stripQuoted } from "./mime";
@@ -31,8 +31,8 @@ import { domainOf, parseAddress, stripQuoted } from "./mime";
 const MAX_BODY = 20_000;
 /** The first check looks this far back. */
 const FIRST_LOOK = "newer_than:21d";
-/** Gmail's tabs for mail that's never about an application. */
-const NOISE_LABELS = ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS", "SPAM", "TRASH", "CHAT"];
+/** Gmail's tabs for mail that's never about an application, and drafts, which weren't sent. */
+const NOISE_LABELS = ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "CATEGORY_FORUMS", "SPAM", "TRASH", "CHAT", "DRAFT"];
 
 export const questionsSchema = z.array(z.string());
 
@@ -66,7 +66,16 @@ async function knownThreads(): Promise<Map<string, string>> {
   ]);
 }
 
-export type SyncResult = { fetched: number; kept: number; read: number; /** Messages Google wouldn't give this time; the next check tries them again (public issue 68). */ unread?: number; updated?: number; reviewNeeded?: number };
+export type SyncResult = {
+  fetched: number;
+  kept: number;
+  read: number;
+  /** Messages Google wouldn't give this time; the next check tries them again (public issue 68). */
+  unread: number;
+  /** Only with `applyUpdates`: status suggestions applied, and ones left for review. */
+  updated?: number;
+  reviewNeeded?: number;
+};
 type SyncOptions = { signal?: AbortSignal; jobOnly?: boolean; lookbackDays?: number; applyUpdates?: boolean; progress?: (step: string) => Promise<void> };
 export function jobMailQuery(applications: readonly MatchableApplication[], days: number): string {
   const companies = [...new Set(applications.map(app => app.company.replace(/[^\p{L}\p{N} -]/gu, " ").trim()).filter(name => name.length >= 4))].slice(0, 100).map(name => `"${name.slice(0, 60)}"`);
@@ -112,27 +121,38 @@ async function runSync(historyId: string | null, ownAddress: string, scope: "kno
 
   const seen = new Set((await prisma.emailMessage.findMany({ where: { gmailId: { in: ids } }, select: { gmailId: true } })).map((entry) => entry.gmailId));
   const fresh = ids.filter((id) => !seen.has(id));
-  const counts: SyncResult = { fetched: fresh.length, kept: 0, read: 0, ...(options.applyUpdates ? { updated: 0, reviewNeeded: 0 } : {}) };
+  const counts: SyncResult = { fetched: fresh.length, kept: 0, read: 0, unread: 0, ...(options.applyUpdates ? { updated: 0, reviewNeeded: 0 } : {}) };
   if (fresh.length === 0) return { historyId: next, counts };
 
-  const kept: string[] = [];
+  const kept: { id: string; tentative: boolean }[] = [];
+  // Threads linked by the company's name or domain rather than the thread itself:
+  // the AI unlinks a mail that turns out to be about something else (public issue 65).
+  const tentativeThreads = new Set<string>();
   // Oldest first, so a thread's first mail links it for the ones after.
   const mails: ReadMail[] = [];
   for (const id of fresh) {
-    // Metadata costs less quota and avoids reading unrelated message bodies.
-    // Pace requests below the current 6,000 units/user/minute limit.
-    await delay(350, undefined, { signal });
-    await options.progress?.(`Checking email headers ${fresh.indexOf(id) + 1} of ${fresh.length}`);
-    const metadata = await getMessage(id, signal, "metadata");
-    if (!metadata || metadata.labels.some(label => NOISE_LABELS.includes(label))) continue;
-    const sender = parseAddress(metadata.from);
-    const match = matchMail({ threadId: metadata.threadId, fromName: sender.name, fromAddress: sender.address, subject: metadata.subject }, applications, threads);
-    const outgoing = metadata.labels.includes("SENT") || sender.address === ownAddress.toLowerCase();
-    if (!match && (outgoing || scope === "known" || !metadata.labels.includes("INBOX"))) continue;
-    if (outgoing && match?.by !== "thread") continue;
-    await delay(650, undefined, { signal });
-    const mail = await getMessage(id, signal);
-    if (mail) mails.push(mail);
+    try {
+      // Metadata costs less quota and avoids reading unrelated message bodies.
+      // Pace requests below the current 6,000 units/user/minute limit.
+      await delay(350, undefined, { signal });
+      await options.progress?.(`Checking email headers ${fresh.indexOf(id) + 1} of ${fresh.length}`);
+      const metadata = await getMessage(id, signal, "metadata");
+      if (!metadata || metadata.labels.some(label => NOISE_LABELS.includes(label))) continue;
+      const sender = parseAddress(metadata.from);
+      const match = matchMail({ threadId: metadata.threadId, fromName: sender.name, fromAddress: sender.address, subject: metadata.subject }, applications, threads);
+      const outgoing = metadata.labels.includes("SENT") || sender.address === ownAddress.toLowerCase();
+      if (!match && (outgoing || scope === "known" || !metadata.labels.includes("INBOX"))) continue;
+      if (outgoing && match?.by !== "thread") continue;
+      await delay(650, undefined, { signal });
+      const mail = await getMessage(id, signal);
+      if (mail) mails.push(mail);
+    } catch (error) {
+      // A message Google won't give right now, even asked again, doesn't stop
+      // the check: the rest is read, and the history stays where it was, so
+      // the message is listed again next time (public issue 68).
+      if (!isPassing(error)) throw error;
+      counts.unread++;
+    }
   }
   mails.sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -165,16 +185,17 @@ async function runSync(historyId: string | null, ownAddress: string, scope: "kno
       update: {},
     });
     if (match) threads.set(mail.threadId, match.applicationId);
+    if (match && match.by !== "thread") tentativeThreads.add(mail.threadId);
     counts.kept++;
-    if (!outgoing) kept.push(created.id);
+    if (!outgoing) kept.push({ id: created.id, tentative: Boolean(match) && tentativeThreads.has(mail.threadId) });
   }
 
   if (aiReady) {
-    for (const id of kept) {
+    for (const { id, tentative } of kept) {
       if (signal?.aborted) break;
       try {
-        await options.progress?.(`Reading job reply ${kept.indexOf(id) + 1} of ${kept.length}`);
-        await readReply(id, signal);
+        await options.progress?.(`Reading job reply ${kept.findIndex((entry) => entry.id === id) + 1} of ${kept.length}`);
+        await readReply(id, signal, { tentative });
         counts.read++;
         if (options.applyUpdates) {
           const email = await prisma.emailMessage.findUniqueOrThrow({ where: { id } });
@@ -192,16 +213,18 @@ async function runSync(historyId: string | null, ownAddress: string, scope: "kno
         }
       } catch (error) {
         // Left unread; "Read again" in the inbox tries once more.
-        counts.unread = (counts.unread ?? 0) + 1;
+        counts.unread++;
         logServerError("reading a reply", error);
       }
     }
   }
-  return { historyId: next, counts };
+  // While a message was left unread, the history stays where it was, so it's
+  // listed again next time; advancing past it would drop it for good.
+  return { historyId: counts.unread && historyId ? historyId : next, counts };
 }
 
 /** Has the AI read a kept mail: what it is, what it asks, and the status it suggests. */
-export async function readReply(emailId: string, signal?: AbortSignal): Promise<void> {
+export async function readReply(emailId: string, signal?: AbortSignal, { tentative = false }: { tentative?: boolean } = {}): Promise<void> {
   const email = await prisma.emailMessage.findUniqueOrThrow({
     where: { id: emailId },
     include: { application: { select: { company: true, role: true, status: true } } },
@@ -221,19 +244,27 @@ export async function readReply(emailId: string, signal?: AbortSignal): Promise<
     { ...options, signal },
   );
   const current = email.application?.status ?? ApplicationStatus.SENT;
-  await prisma.emailMessage.update({
-    where: { id: emailId },
-    data: {
-      kind: data.kind,
-      summary: data.summary,
-      questions: data.questions,
-      suggestedStatus: email.application && worthSuggesting(current, data.suggestedStatus) ? data.suggestedStatus : null,
-      confirmedAt: data.confirmedAt,
-      classifiedWith: promptVersion,
-      // Acknowledgements and rejections need no answer.
-      ...(data.kind === "ACKNOWLEDGEMENT" || data.kind === "REJECTION" ? { handledAt: new Date() } : {}),
-    },
-  });
+  const unlink = tentative && email.applicationId !== null && data.unrelated;
+  await prisma.$transaction([
+    prisma.emailMessage.update({
+      where: { id: emailId },
+      data: {
+        ...(unlink ? { applicationId: null } : {}),
+        kind: data.kind,
+        summary: data.summary,
+        questions: data.questions,
+        suggestedStatus: !unlink && email.application && worthSuggesting(current, data.suggestedStatus) ? data.suggestedStatus : null,
+        confirmedAt: data.confirmedAt,
+        classifiedWith: promptVersion,
+        // Acknowledgements and rejections need no answer.
+        ...(data.kind === "ACKNOWLEDGEMENT" || data.kind === "REJECTION" ? { handledAt: new Date() } : {}),
+      },
+    }),
+    // The thread was linked through this mail, so the rest of it goes with it.
+    ...(unlink
+      ? [prisma.emailMessage.updateMany({ where: { threadId: email.threadId, applicationId: email.applicationId }, data: { applicationId: null, suggestedStatus: null } })]
+      : []),
+  ]);
 }
 
 export const inboxCheckRunning = () => Boolean(globalForSync.inboxRunning);
