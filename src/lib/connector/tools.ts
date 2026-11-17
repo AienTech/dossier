@@ -9,6 +9,7 @@ import { isAiUsable } from "@/lib/ai/config";
 import { profileForPrompt } from "@/lib/ai/tasks/prompt-parts";
 import { scoreFrom } from "@/lib/ai/tasks/score-posting";
 import { unitsSchema } from "@/lib/application-data";
+import { containsCi } from "@/lib/database";
 import { fitBand } from "@/lib/fit";
 import { countryCodeFor, countryName } from "@/lib/job-search/countries";
 import { fullText } from "@/lib/job-search/find";
@@ -324,7 +325,7 @@ export function createHireMeServer(origin: string, clientId = ""): McpServer {
     },
     async ({ status, include_archived, limit, offset, query }) => {
       const rows = await prisma.application.findMany({
-        where: { awaitingReview: false, ...(query ? { OR: ["company", "role", "title"].map((field) => ({ [field]: { contains: query, mode: "insensitive" as const } })) } : {}), ...(status ? { status } : {}), ...(include_archived ? {} : { archivedAt: null }) },
+        where: { awaitingReview: false, ...(query ? { OR: ["company", "role", "title"].map((field) => ({ [field]: containsCi(query) })) } : {}), ...(status ? { status } : {}), ...(include_archived ? {} : { archivedAt: null }) },
         orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
         skip: offset,
         take: limit ?? 30,

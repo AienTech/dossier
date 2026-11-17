@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { advance } from "@/lib/status";
 import { storeFile } from "@/lib/stored-files";
+import { equalsCi } from "@/lib/database";
 import { lockForTransaction, lockKeyFor } from "@/lib/db-lock";
 
 const text = (n: number) => z.string().trim().max(n);
@@ -50,9 +51,9 @@ export async function recordExternalApplication(raw: z.infer<typeof recordSubmis
     await lockForTransaction(tx, lockKeyFor(deterministicId));
     await lockForTransaction(tx, lockKeyFor(lock));
     let existing = input.id ? await tx.application.findUnique({ where: { id: input.id } }) :
-      await tx.application.findFirst({ where: { OR: [{ id: deterministicId }, ...(postingUrl ? [{ postingUrl, company: { equals: input.company, mode: "insensitive" as const }, role: { equals: input.role, mode: "insensitive" as const } }] : [])] } });
+      await tx.application.findFirst({ where: { OR: [{ id: deterministicId }, ...(postingUrl ? [{ postingUrl, company: equalsCi(input.company), role: equalsCi(input.role) }] : [])] } });
     if (!existing && !input.id && postingUrl) {
-      const candidates = await tx.application.findMany({ where: { company: { equals: input.company, mode: "insensitive" }, role: { equals: input.role, mode: "insensitive" } } });
+      const candidates = await tx.application.findMany({ where: { company: equalsCi(input.company), role: equalsCi(input.role) } });
       existing = candidates.find(candidate => { try { return Boolean(candidate.postingUrl && canonicalPostingUrl(candidate.postingUrl) === postingUrl); } catch { return false; } }) ?? null;
     }
     if (input.id && !existing) throw new Error("That application no longer exists.");

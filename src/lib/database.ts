@@ -18,6 +18,19 @@ export function isSqliteUrl(url: string): boolean {
 /** Whether this server keeps its data in SQLite: what DATABASE_URL says, as the app, the desktop app and each test run set it. */
 export const usesSqlite = (): boolean => isSqliteUrl(process.env.DATABASE_URL ?? "");
 
+/**
+ * Prisma's `mode: "insensitive"` is PostgreSQL-only. On SQLite, use a plain
+ * equality / contains filter (ASCII case folding still applies for LIKE).
+ */
+export function equalsCi(value: string): string | { equals: string; mode: "insensitive" } {
+  return usesSqlite() ? value : { equals: value, mode: "insensitive" };
+}
+
+/** Case-insensitive substring match where the provider supports it. */
+export function containsCi(value: string): { contains: string; mode?: "insensitive" } {
+  return usesSqlite() ? { contains: value } : { contains: value, mode: "insensitive" };
+}
+
 /** A client for the database at `url`. */
 export function createPrismaClient(url: string): PrismaClient {
   if (!isSqliteUrl(url)) return new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
