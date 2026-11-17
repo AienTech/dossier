@@ -146,6 +146,11 @@ describe("proxy", () => {
     expect((await proxy(request("/api/desktop/sign-in/more"))).status).toBe(401);
   });
 
+  it("lets apply-packet downloads reach the route, which checks the session or shared password", async () => {
+    expect((await proxy(request("/api/apply-packets/app1"))).headers.get("x-middleware-next")).toBe("1");
+    expect((await proxy(request("/api/apply-packets/app1?password=secret"))).headers.get("x-middleware-next")).toBe("1");
+  });
+
   it("refuses print tokens for another page, forged ones and tokens outside /print", async () => {
     const other = await signPrintToken("/print/resume/1");
     const forged = await signPrintToken("/print/base", "b".repeat(32));

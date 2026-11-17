@@ -202,6 +202,12 @@ const schema = z.object({
   HIREME_API_URL: optional(
     z.url({ protocol: /^https?$/, error: "HIREME_API_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
   ),
+  // Optional shared password so Grok / OpenBot can download apply-packet ZIPs
+  // without a HireMe session (query ?password= or x-hireme-apply-packet-password).
+  // Prefer a long random value; anyone with the link can download the CV while it is set.
+  HIREME_APPLY_PACKET_PASSWORD: optional(z.string().trim().min(8, {
+    error: "HIREME_APPLY_PACKET_PASSWORD must be at least 8 characters when set.",
+  })),
   // Set by the desktop app on a server it starts: the token it signs in with
   // for this launch (desktop.ts). Never set on a server otherwise.
   HIREME_DESKTOP_TOKEN: optional(z.string()),

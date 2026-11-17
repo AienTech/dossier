@@ -34,6 +34,9 @@ const OPEN_ROUTES = new Set([
   // Vercel's own scheduler calls the worker schedule with CRON_SECRET; it has
   // no browser session or origin, and it refuses everything else (401/503).
   "src/app/api/worker-schedule/route.ts",
+  // Apply-packet ZIPs: session (same-origin) or HIREME_APPLY_PACKET_PASSWORD
+  // so Grok / OpenBot can download without a HireMe cookie (cross-origin GET).
+  "src/app/api/apply-packets/[id]/route.ts",
 ]);
 
 const sources = globSync("src/**/*.{ts,tsx}").filter((file) => !/\.test\.tsx?$/.test(file) && !file.startsWith("src/generated/"));
@@ -90,6 +93,12 @@ describe("session checks (E11-5)", () => {
     for (const file of [...OPEN_ROUTES].filter((entry) => /\/api\/(mcp|oauth)\//.test(entry))) {
       expect(read(file), file).toContain("if (!(await connectorSince())) return new Response(null, { status: 404 });");
     }
+  });
+
+  it("checks the session or apply-packet password on ZIP downloads", () => {
+    const source = read("src/app/api/apply-packets/[id]/route.ts");
+    expect(source).toContain("isApplyPacketPassword(");
+    expect(source).toContain("await getSession()");
   });
 
   it("defines every route handler with route()", () => {

@@ -28,6 +28,9 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/api/desktop/sign-in" || pathname === "/api/desktop/browser-link" || pathname === "/api/desktop/browser-sign-in") {
     return NextResponse.next();
   }
+  // Apply-packet ZIPs: the route checks the session or HIREME_APPLY_PACKET_PASSWORD
+  // so Grok / OpenBot can download without a HireMe cookie.
+  if (pathname.startsWith("/api/apply-packets/")) return NextResponse.next();
 
   const session = await decodeSession(
     request.cookies.get(SESSION_COOKIE)?.value,

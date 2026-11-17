@@ -207,6 +207,8 @@ export type ApplicationViewProps = {
   driveSyncKey?: string;
   initialDriveSnapshot?: string;
   driveAutoSave?: boolean;
+  /** Shared password for bot ZIP downloads (HIREME_APPLY_PACKET_PASSWORD). */
+  packetPassword?: string;
   /** Grok Bot id from Settings → Job agent → Application bots, when apply bot is Grok. */
   grokBotId: string | null;
   /** Claude connector on — required when apply bot is Claude. */
@@ -267,6 +269,7 @@ export function ApplicationView({
   driveSyncKey,
   initialDriveSnapshot,
   driveAutoSave = true,
+  packetPassword,
   grokBotId,
 }: ApplicationViewProps) {
   const router = useRouter();
@@ -756,6 +759,7 @@ export function ApplicationView({
               driveSyncKey={driveSyncKey}
               initialDriveSnapshot={initialDriveSnapshot}
               autoSave={driveAutoSave}
+              packetPassword={packetPassword}
               grokBotId={grokBotId}
               jobLocation={application.location}
               postingSalary={application.salary}

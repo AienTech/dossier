@@ -1,4 +1,5 @@
 import { applicationPacketName } from "@/lib/application-packet-name";
+import { applyPacketPassword } from "@/lib/apply-packet-access";
 import { driveSourceHash, parseDriveSync } from "@/lib/google/drive-sync";
 import { applicationBotNotes } from "@/lib/application-bots";
 import { SubmissionRecord } from "@/components/documents/submission-record";
@@ -128,6 +129,7 @@ export default async function ApplicationPage({ params, searchParams }: PageProp
       openbotAgentName={settings.openbotAgentName} openbotAppName={settings.openbotAppName} grokLaunchMode={settings.grokLaunchMode} grokAgentName={settings.grokAgentName} grokAppName={settings.grokAppName}
       packetFolderName={applicationPacketName(application.company, application.role || application.title, application.createdAt)}
       driveAutoSave={settings.driveAutoSave}
+      packetPassword={applyPacketPassword()}
       driveSyncKey={driveKey}
       initialDriveSnapshot={initialDriveSnapshot}
       grokBotId={settings.grokBotId}

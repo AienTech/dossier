@@ -16,6 +16,11 @@ describe("bot launch handoff", () => {
     expect(link.searchParams.get("id")).toBe("bot-123");
     expect(link.searchParams.get("text")).toBe(message.replace(/\s+/g, " "));
   });
+  it("embeds the apply-packet password in the ZIP URL when configured", () => {
+    const message = botLaunchMessage({ ...job, packetPassword: "packet-secret" });
+    expect(message).toContain("ZIP packet: https://hireme.example/api/apply-packets/job-one?password=packet-secret");
+  });
+
   it("uses Grok's primary bot without an ID, Claude's desktop composer, and clipboard for unknown apps", () => {
     const message = botLaunchMessage(job);
     expect(message).not.toContain("Drive first:");

@@ -1,5 +1,6 @@
 import type { ActivityEntry } from "@/lib/activity";
 import { APPLY_BOTS, type ApplyBotNotes, appendBotPreferences } from "@/lib/application-bots";
+import { applyPacketUrl } from "@/lib/apply-packet-url";
 import type { Basics } from "@/lib/profile";
 
 export const DRIVE_SNAPSHOT_NOTE = "Document snapshot saved to Google Drive (not a submission receipt): ";
@@ -60,6 +61,8 @@ export type DriveApplyPromptInput = {
   botInstructions?: string;
   promptTemplate?: string;
   packetFolderName?: string;
+  /** When set (HIREME_APPLY_PACKET_PASSWORD), ZIP links include ?password= for bots. */
+  packetPassword?: string;
 };
 
 /** A complete handoff pinned to one job and one immutable document snapshot. */
@@ -70,7 +73,10 @@ export function driveApplyPrompt(input: DriveApplyPromptInput): string {
   const trackingUrl = input.applicationUrl || `/applications/${encodeURIComponent(input.applicationId)}`;
   let origin = "";
   try { origin = new URL(trackingUrl).origin; } catch { /* Relative links work in the HireMe browser. */ }
-  const zipUrl = `${origin}/api/apply-packets/${encodeURIComponent(input.applicationId)}`;
+  const zipUrl = applyPacketUrl(origin, input.applicationId, input.packetPassword);
+  const zipAccess = input.packetPassword
+    ? "password is in the URL; no HireMe sign-in needed"
+    : "requires HireMe sign-in, or set HIREME_APPLY_PACKET_PASSWORD for bots";
   const folder = input.packetFolderName || input.applicationId;
   const archiveName = input.packetFolderName ? `${folder}.zip` : `hireme-apply-${input.applicationId}.zip`;
   const prompt = [
@@ -78,7 +84,7 @@ export function driveApplyPrompt(input: DriveApplyPromptInput): string {
     "",
     "## 1. Application and links",
     `- Google Drive folder for this job (preferred packet): ${input.snapshotUrl?.trim() || "Not saved to Drive yet; use the ZIP download below."}`,
-    `- ZIP download of the same packet (requires HireMe sign-in): ${zipUrl}`,
+    `- ZIP download of the same packet (${zipAccess}): ${zipUrl}`,
     `- HireMe tracking card: ${trackingUrl}`,
     `- Application ID: ${input.applicationId}`,
     `- Company: ${input.company?.trim() || "Verify in application.md."}`,
@@ -96,7 +102,9 @@ export function driveApplyPrompt(input: DriveApplyPromptInput): string {
     "",
     "## 3. Open and verify the application packet",
     "First choice: Open this exact Google Drive snapshot using my signed-in browser or your already-authorized Drive connection. Do not change sharing permissions or make files public. Do not assume access to HireMe's Google connection grants your bot access.",
-    "Fallback: If the Drive link is missing, unavailable, inaccessible, or its required files cannot be downloaded, use the ZIP download link above instead. Switch to ZIP without waiting for a Drive permission change. Open the ZIP link in my signed-in HireMe browser and download it; if your bot cannot use that browser, ask me to download and attach the ZIP. If the endpoint cannot be reached, open the HireMe tracking card and help me obtain its apply packet. Only pause for access help when neither Drive nor the ZIP can be obtained.",
+    input.packetPassword
+      ? "Fallback: If the Drive link is missing, unavailable, inaccessible, or its required files cannot be downloaded, use the ZIP download link above instead. Switch to ZIP without waiting for a Drive permission change. Open the ZIP URL directly (the password is already in the query string); do not ask me to sign into HireMe for the ZIP. If the endpoint cannot be reached, open the HireMe tracking card and help me obtain its apply packet. Only pause for access help when neither Drive nor the ZIP can be obtained."
+      : "Fallback: If the Drive link is missing, unavailable, inaccessible, or its required files cannot be downloaded, use the ZIP download link above instead. Switch to ZIP without waiting for a Drive permission change. Open the ZIP link in my signed-in HireMe browser and download it; if your bot cannot use that browser, ask me to download and attach the ZIP. If the endpoint cannot be reached, open the HireMe tracking card and help me obtain its apply packet. Only pause for access help when neither Drive nor the ZIP can be obtained.",
     `Extract the ZIP into your working directory and read ${folder}/application.md and ${folder}/instructions.md; the PDFs are in that same folder. Verify the ZIP filename, folder and application ID before attaching anything.`,
     "A fallback ZIP contains the current HireMe documents and may differ from an older Drive snapshot. Use one complete packet as your source, explicitly tell me whether you used Drive or ZIP, check it against the current card, and review its answers and attachments before submission. Do not silently mix versions or attach an old Drive PDF with newer ZIP answers.",
     "Read the actual files, not just folder names or Drive previews. Local paths mentioned in older instructions.md files are not prerequisites. Download the needed PDFs from the chosen packet into your working directory.",

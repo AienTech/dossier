@@ -1,4 +1,5 @@
 import type { ApplyBot } from "@/lib/application-bots";
+import { applyPacketUrl } from "@/lib/apply-packet-url";
 import type { DriveApplyPromptInput } from "@/lib/drive-handoff";
 import { grokBotApplyUrl } from "@/lib/grok-bot";
 
@@ -8,9 +9,10 @@ export function botLaunchMessage(input: DriveApplyPromptInput): string {
   const url = input.applicationUrl || `/applications/${encodeURIComponent(input.applicationId)}`;
   let origin = "";
   try { origin = new URL(url).origin; } catch { /* Relative fallback for local previews. */ }
+  const zipUrl = applyPacketUrl(origin, input.applicationId, input.packetPassword);
   const links = [
     ...(input.snapshotUrl ? [`Drive first: ${input.snapshotUrl}`] : []),
-    `ZIP${input.snapshotUrl ? " fallback" : " packet"}: ${origin}/api/apply-packets/${encodeURIComponent(input.applicationId)}`,
+    `ZIP${input.snapshotUrl ? " fallback" : " packet"}: ${zipUrl}`,
     `HireMe: ${url}`,
   ];
   const message = [

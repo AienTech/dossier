@@ -16,6 +16,8 @@ import {
   locationLine,
   type ApplyPromptAnswers,
 } from "@/lib/apply-prompt";
+import { applyPacketPassword } from "@/lib/apply-packet-access";
+import { applyPacketPath, applyPacketUrl } from "@/lib/apply-packet-url";
 import { applyCandidateContext, candidateContextLines, packetBotPrompt, type DriveApplyPromptInput, type ApplyCandidateContext } from "@/lib/drive-handoff";
 import { applicationBotNotes, type ApplyBotNotes } from "@/lib/application-bots";
 import { loadSettings } from "@/lib/settings-data";
@@ -148,19 +150,21 @@ export async function buildApplyPacket(applicationId: string, mode: "download" |
   const folderName = applicationPacketName(application.company, application.role || application.title, application.createdAt);
   const dir = cloud ? `~/Documents/hireme/apply/${folderName}` : applyPacketDir(folderName);
   const site = env.HIREME_PUBLIC_URL || origin || `http://localhost:${process.env.PORT || "3000"}`;
+  const packetPassword = applyPacketPassword();
   const promptContext = { input: {
     applicationId: application.id, applicationUrl: `${site}/applications/${encodeURIComponent(application.id)}`,
     packetFolderName: folderName, company: application.company, jobTitle: application.role || application.title,
     jobLocation: application.location, postingSalary: application.salary, postingUrl: application.postingUrl,
     postingText: application.postingText, applicationStatus: application.status,
     candidate: applyCandidateContext(profile.basics), promptTemplate: settings.applyBotPromptTemplate,
+    packetPassword,
   }, notes: applicationBotNotes(settings) };
   if (mode === "describe") {
     return {
       packet: {
         dir,
         folderName,
-        downloadUrl: `/api/apply-packets/${encodeURIComponent(application.id)}`,
+        downloadUrl: applyPacketPath(application.id, packetPassword),
         archiveName: `${folderName}.zip`,
         files: ["application.md", "instructions.md", "bot-prompt.md",
           ...application.documents.flatMap(document => document.kind === DocumentKind.RESUME ? ["resume.pdf"] : document.kind === DocumentKind.COVER_LETTER ? ["cover-letter.pdf"] : []),
@@ -233,7 +237,7 @@ export async function buildApplyPacket(applicationId: string, mode: "download" |
       answers,
       applicationId: application.id,
       applicationUrl: `${site}/applications/${encodeURIComponent(application.id)}`,
-      zipUrl: `${site}/api/apply-packets/${encodeURIComponent(application.id)}`,
+      zipUrl: applyPacketUrl(site, application.id, packetPassword),
     }),
   );
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { action, ActionError } from "@/lib/action";
 import { loadDocuments } from "@/lib/application-documents";
 import { applyBotSchema, APPLY_BOTS, applicationBotNotes } from "@/lib/application-bots";
+import { applyPacketPassword } from "@/lib/apply-packet-access";
 import { applyCandidateContext, driveApplyPrompt } from "@/lib/drive-handoff";
 import { driveSourceHash, parseDriveSync } from "@/lib/google/drive-sync";
 import { loadGoogleAccount } from "@/lib/google/account";
@@ -28,5 +29,6 @@ export const previewBotPrompt = action(z.object({ id: z.string().min(1), bot: ap
     jobLocation: a.location, postingSalary: a.salary, applicationStatus: a.status,
     candidate: applyCandidateContext(data.profile.basics), botName: APPLY_BOTS.find(entry => entry.value === bot)!.label,
     botInstructions: notes ?? applicationBotNotes(data.settings)[bot],
+    packetPassword: applyPacketPassword(),
   }) };
 });

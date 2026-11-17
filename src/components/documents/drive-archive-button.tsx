@@ -16,7 +16,7 @@ const browserOrigin = () => window.location.origin;
 const serverOrigin = () => "";
 
 export function DriveArchiveButton({ applicationId, snapshotUrl, defaultBot = "grok", botNotes = EMPTY_BOT_NOTES,
-  driveSyncKey, initialDriveSnapshot, autoSave = true, grokBotId = null, openbotLaunchMode = "clipboard", openbotAgentName = "Job Manager", grokLaunchMode = "app-link", grokAgentName = "Job Finder", openbotAppName = "", grokAppName = "", ...context
+  driveSyncKey, initialDriveSnapshot, autoSave = true, grokBotId = null, openbotLaunchMode = "clipboard", openbotAgentName = "Job Manager", grokLaunchMode = "app-link", grokAgentName = "Job Finder", openbotAppName = "", grokAppName = "", packetPassword, ...context
 }: Omit<DriveApplyPromptInput, "snapshotUrl" | "applicationUrl"> & {
   snapshotUrl?: string | null; defaultBot?: ApplyBot; botNotes?: ApplyBotNotes;
   driveSyncKey?: string; initialDriveSnapshot?: string; autoSave?: boolean; grokBotId?: string | null; openbotLaunchMode?: "clipboard" | "mac-helper"; openbotAgentName?: string; grokLaunchMode?: "app-link" | "mac-helper"; grokAgentName?: string; openbotAppName?: string; grokAppName?: string;
@@ -30,7 +30,7 @@ export function DriveArchiveButton({ applicationId, snapshotUrl, defaultBot = "g
   const url = driveSyncKey ? sync.status === "ready" && sync.sourceHash === driveSyncKey ? sync.url : undefined : snapshotUrl || undefined;
   const settingsUrl = `/settings?section=agent&application=${encodeURIComponent(applicationId)}#bot-${bot}`;
   const prompt = driveApplyPrompt({ ...context, applicationId, snapshotUrl: url, botName: botLabel,
-    botInstructions: botNotes[bot], applicationUrl: `${origin}/applications/${encodeURIComponent(applicationId)}` });
+    botInstructions: botNotes[bot], applicationUrl: `${origin}/applications/${encodeURIComponent(applicationId)}`, packetPassword });
 
   useEffect(() => {
     if (!driveSyncKey || !autoSave) return;
@@ -54,7 +54,7 @@ export function DriveArchiveButton({ applicationId, snapshotUrl, defaultBot = "g
     return () => { stopped = true; clearTimeout(timer); };
   }, [applicationId, driveSyncKey, autoSave, retry]);
 
-  const opening = botLaunchMessage({ ...context, applicationId, applicationUrl: `${origin}/applications/${encodeURIComponent(applicationId)}`, snapshotUrl: url, botName: botLabel });
+  const opening = botLaunchMessage({ ...context, applicationId, applicationUrl: `${origin}/applications/${encodeURIComponent(applicationId)}`, snapshotUrl: url, botName: botLabel, packetPassword });
   const launchUrl = botLaunchUrl(bot, opening, grokBotId, openbotLaunchMode, openbotAgentName, grokLaunchMode, grokAgentName, openbotAppName, grokAppName);
   const copy = async (launch = false) => {
     let copied: Promise<void> | undefined;

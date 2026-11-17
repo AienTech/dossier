@@ -34,7 +34,7 @@ export function SetupSection({ items }: { items: SetupItem[] }) {
     <Card id="server-configuration" className="space-y-2">
       <h3 className="font-medium">Server configuration</h3>
       <p className="text-sm text-muted">Database connections, the public site address and cloud worker credentials are configured in your hosting environment, then applied by redeploying. Their values are never displayed here.</p>
-      <p className="text-sm text-muted">Database: DATABASE_URL and the direct DATABASE_URL_UNPOOLED. Hosted address: HIREME_PUBLIC_URL. Vercel worker control: HIREME_WORKER_VERCEL_TOKEN. Google OAuth credentials can be saved in Settings → Google.</p>
+      <p className="text-sm text-muted">Database: DATABASE_URL and the direct DATABASE_URL_UNPOOLED. Hosted address: HIREME_PUBLIC_URL. Vercel worker control: HIREME_WORKER_VERCEL_TOKEN. Bot ZIP downloads without sign-in: HIREME_APPLY_PACKET_PASSWORD. Google OAuth credentials can be saved in Settings → Google.</p>
     </Card>
   </>;
 }

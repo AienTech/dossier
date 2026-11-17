@@ -82,6 +82,17 @@ describe("Drive bot handoff", () => {
     expect(prompt).not.toContain("job-one");
   });
 
+  it("puts the apply-packet password in the ZIP URL and tells the bot no HireMe sign-in is needed", () => {
+    const prompt = driveApplyPrompt({
+      applicationId: "job-three",
+      applicationUrl: "https://hireme.example/applications/job-three",
+      packetPassword: "packet-secret",
+    });
+    expect(prompt).toContain("https://hireme.example/api/apply-packets/job-three?password=packet-secret");
+    expect(prompt).toContain("password is in the URL; no HireMe sign-in needed");
+    expect(prompt).toContain("do not ask me to sign into HireMe for the ZIP");
+  });
+
   it("copies only application contact fields from the profile", () => {
     const basics = { name: "Jane", email: "jane@example.com", phone: "", city: "Lisbon", country: "Portugal", headline: "Mobile engineer", summary: "Ships mobile apps", website: "", linkedin: "", dob: "1990-01-01", address: "Private street" };
     const candidate = applyCandidateContext(basics);
