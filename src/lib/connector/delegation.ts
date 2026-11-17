@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { connectorSince, readClient } from "./oauth";
 
@@ -61,7 +62,12 @@ export async function legacyAllowed(clientId: string, name: string) {
   if (!grant) {
     const client = await readClient(clientId); if (!client) return false;
     // Upsert rather than createMany(skipDuplicates): SQLite has no skipDuplicates.
-    await prisma.connectorGrant.upsert({ where: { id }, create: { id, name: client.name, generation, permissions: BASELINE_PERMISSIONS, requested: [] }, update: {} });
+    // Concurrent first calls can still race on create and throw P2002; treat that as done.
+    try {
+      await prisma.connectorGrant.upsert({ where: { id }, create: { id, name: client.name, generation, permissions: BASELINE_PERMISSIONS, requested: [] }, update: {} });
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
+    }
     grant = await prisma.connectorGrant.findUnique({ where: { id } });
   }
   return grant?.generation === generation && Array.isArray(grant.permissions) && grant.permissions.includes(permission);
