@@ -77,7 +77,7 @@ jobs:
         env:
           BUILT: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
         run: |
-          echo "a password" | docker run --rm -i "$BUILT" hash-password | grep -q '^argon2id:'
+          echo "a password for ci" | docker run --rm -i "$BUILT" hash-password | grep -q '^argon2id:'
           docker run --rm --entrypoint node -w /app "$BUILT" -e '
             const { chromium } = require("playwright-core");
             (async () => {
