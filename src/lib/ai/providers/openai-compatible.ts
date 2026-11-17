@@ -82,7 +82,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
   private readonly server: Server | undefined;
 
   constructor(
-    readonly kind: "OPENAI" | "LOCAL" | "MISTRAL" | "LMSTUDIO",
+    readonly kind: "OPENAI" | "LOCAL" | "MISTRAL" | "LMSTUDIO" | "DEEPSEEK" | "XAI",
     baseURL: string,
     apiKey: string | null,
     model: string | null,

@@ -66,6 +66,26 @@ describe("resolveAiConfig", () => {
     });
   });
 
+  it("knows DeepSeek's address and a default model", () => {
+    expect(resolveAiConfig(nothingSaved, { HIREME_AI_PROVIDER: "deepseek", HIREME_AI_KEY: "sk-ds" })).toMatchObject({
+      provider: "DEEPSEEK",
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-flash",
+      apiKey: "sk-ds",
+      timeoutMs: 120_000,
+    });
+  });
+
+  it("knows xAI's address and a default model", () => {
+    expect(resolveAiConfig(nothingSaved, { HIREME_AI_PROVIDER: "xai", HIREME_AI_KEY: "xai-key" })).toMatchObject({
+      provider: "XAI",
+      baseUrl: "https://api.x.ai/v1",
+      model: "grok-4",
+      apiKey: "xai-key",
+      timeoutMs: 120_000,
+    });
+  });
+
   it("prefers what's saved in Settings, with its own key", () => {
     const saved = { provider: "OPENAI" as const, baseUrl: "https://llm.example/v1", model: "gpt-x", apiKeyEnc: encryptApiKey("sk-saved") };
     const config = resolveAiConfig(saved, { HIREME_AI_PROVIDER: "local", HIREME_AI_URL: "http://ollama:11434", HIREME_AI_KEY: "sk-env" });
@@ -103,6 +123,8 @@ describe("createProvider", () => {
     expect(createProvider({ ...base, provider: "ANTHROPIC" }).kind).toBe("ANTHROPIC");
     expect(createProvider({ ...base, provider: "MISTRAL" }).kind).toBe("MISTRAL");
     expect(createProvider({ ...base, provider: "LMSTUDIO" }).kind).toBe("LMSTUDIO");
+    expect(createProvider({ ...base, provider: "DEEPSEEK" }).kind).toBe("DEEPSEEK");
+    expect(createProvider({ ...base, provider: "XAI" }).kind).toBe("XAI");
   });
 });
 
@@ -124,6 +146,10 @@ describe("isAiUsable (#221)", () => {
     expect(await usable({ provider: "ANTHROPIC" })).toBe(false);
     expect(await usable({ provider: "ANTHROPIC", apiKeyEnc: encryptApiKey("sk-saved") })).toBe(true);
     expect(await usable({ provider: "MISTRAL", apiKeyEnc: encryptApiKey("sk", "b".repeat(32)) })).toBe(false);
+    expect(await usable({ provider: "DEEPSEEK", model: "deepseek-flash" })).toBe(false);
+    expect(await usable({ provider: "DEEPSEEK", model: "deepseek-flash", apiKeyEnc: encryptApiKey("sk-ds") })).toBe(true);
+    expect(await usable({ provider: "XAI", model: "grok-4" })).toBe(false);
+    expect(await usable({ provider: "XAI", model: "grok-4", apiKeyEnc: encryptApiKey("xai-key") })).toBe(true);
   });
 });
 

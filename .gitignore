@@ -69,3 +69,9 @@ desktop/**/test-results
 # local application packets (the app writes them under ~/Documents/hireme/apply)
 /apply/
 /apply.zip
+
+# JobSpy sidecar virtualenv, personal watchlist, scrape state
+/jobspy-sidecar/.venv/
+/jobspy-sidecar/__pycache__/
+/jobspy-sidecar/companies.yml
+/jobspy-sidecar/state/

@@ -26,6 +26,8 @@ export const PROVIDER_DEFAULTS: Record<AiProvider, { baseUrl: string; model: str
   [AiProvider.ANTHROPIC]: { baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5-5", timeoutSeconds: DEFAULT_TIMEOUT_SECONDS.hosted },
   [AiProvider.MISTRAL]: { baseUrl: "https://api.mistral.ai/v1", model: "mistral-small-2603", timeoutSeconds: DEFAULT_TIMEOUT_SECONDS.hosted },
   [AiProvider.LMSTUDIO]: { baseUrl: "http://host.docker.internal:1234", model: null, timeoutSeconds: DEFAULT_TIMEOUT_SECONDS.local },
+  [AiProvider.DEEPSEEK]: { baseUrl: "https://api.deepseek.com", model: "deepseek-flash", timeoutSeconds: DEFAULT_TIMEOUT_SECONDS.hosted },
+  [AiProvider.XAI]: { baseUrl: "https://api.x.ai/v1", model: "grok-4", timeoutSeconds: DEFAULT_TIMEOUT_SECONDS.hosted },
 };
 
 const FROM_ENV: Record<NonNullable<Env["HIREME_AI_PROVIDER"]>, AiProvider> = {
@@ -34,6 +36,8 @@ const FROM_ENV: Record<NonNullable<Env["HIREME_AI_PROVIDER"]>, AiProvider> = {
   anthropic: AiProvider.ANTHROPIC,
   mistral: AiProvider.MISTRAL,
   lmstudio: AiProvider.LMSTUDIO,
+  deepseek: AiProvider.DEEPSEEK,
+  xai: AiProvider.XAI,
 };
 
 type SavedSettings = {
@@ -60,7 +64,9 @@ type AiEnv = Pick<
 export function resolveAiConfig(saved: SavedSettings | null, source: AiEnv, secret?: string): AiConfig {
   const envProvider = source.HIREME_AI_PROVIDER ? FROM_ENV[source.HIREME_AI_PROVIDER] : null;
   const useSaved = Boolean(saved?.provider);
-  const provider = (useSaved ? saved!.provider : envProvider) ?? AiProvider.LOCAL;
+  const chosen = (useSaved ? saved!.provider : envProvider) ?? AiProvider.LOCAL;
+  // Unknown / stale enum values (e.g. before a provider was wired in defaults) fall back to LOCAL.
+  const provider = PROVIDER_DEFAULTS[chosen] ? chosen : AiProvider.LOCAL;
   const defaults = PROVIDER_DEFAULTS[provider];
 
   let apiKey: string | null = null;
@@ -145,6 +151,10 @@ export async function isAiUsable(): Promise<boolean> {
   if (!(await isAiConfigured())) return false;
   const config = await loadAiConfig();
   if (!config.model || config.apiKeyProblem) return false;
-  const needsKey = config.provider === AiProvider.ANTHROPIC || config.provider === AiProvider.MISTRAL;
+  const needsKey =
+    config.provider === AiProvider.ANTHROPIC ||
+    config.provider === AiProvider.MISTRAL ||
+    config.provider === AiProvider.DEEPSEEK ||
+    config.provider === AiProvider.XAI;
   return !needsKey || Boolean(config.apiKey);
 }

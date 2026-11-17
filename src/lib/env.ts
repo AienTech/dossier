@@ -10,7 +10,7 @@ const SECRET_MIN_LENGTH = 32;
 const GENERATE_SECRET = "for example the output of `openssl rand -base64 32`";
 const HASH_PASSWORD = "Make one with `docker run --rm -it ghcr.io/shahzadafridi/hireme hash-password`";
 
-export const AI_PROVIDERS = ["local", "openai", "anthropic", "mistral", "lmstudio"] as const;
+export const AI_PROVIDERS = ["local", "openai", "anthropic", "mistral", "lmstudio", "deepseek", "xai"] as const;
 export const JOB_SOURCE_NAMES = ["jsearch", "adzuna", "arbeitsagentur", "freehire", "off"] as const;
 export const SCORER_NAMES = ["ai", "jev"] as const;
 
@@ -134,7 +134,8 @@ const schema = z.object({
   HIREME_ADZUNA_APP_ID: optional(z.string()),
   HIREME_ADZUNA_KEY: optional(z.string()),
   // FreeHire origin; unset uses https://freehire.me. Point at a self-hosted
-  // FreeHire, or leave unset for the public catalogue.
+  // FreeHire or the local JobSpy sidecar (jobspy-sidecar/), or leave unset
+  // for the public catalogue.
   HIREME_FREEHIRE_URL: optional(
     z.url({ protocol: /^https?$/, error: "HIREME_FREEHIRE_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
   ),

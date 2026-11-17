@@ -377,6 +377,10 @@ enum AiProvider {
   MISTRAL
   /// LM Studio on the user's own hardware (#210).
   LMSTUDIO
+  /// DeepSeek's OpenAI-compatible API.
+  DEEPSEEK
+  /// xAI (Grok) OpenAI-compatible API.
+  XAI
 }
 
 enum Creativity {

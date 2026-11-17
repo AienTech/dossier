@@ -18,6 +18,15 @@ import { deleteAllBackups } from "@/lib/backups";
 import { env } from "@/lib/env";
 import { JobSearchError, testSource } from "@/lib/job-search";
 import { credentialsFor, jobSearchView, loadJobSearchConfig, requestContext } from "@/lib/job-search/config";
+import {
+  addDiscovererCompany,
+  discovererBaseUrl,
+  discovererScrapeStatus,
+  listDiscovererCompanies,
+  pauseDiscovererScrape,
+  removeDiscovererCompany,
+  startDiscovererScrape,
+} from "@/lib/job-search/discoverer";
 import { JOB_SOURCES, JSEARCH_HOSTS } from "@/lib/job-search/search";
 import { cancelJob, startJob } from "@/lib/jobs/runner";
 import { checkForUpdate } from "@/lib/update-check";
@@ -192,6 +201,80 @@ export const testJobSource = action(z.object({}), async () => {
   } catch (error) {
     if (error instanceof JobSearchError) return { connected: false as const, message: error.message };
     throw error;
+  }
+});
+
+function requireDiscoverer() {
+  if (!discovererBaseUrl()) {
+    throw new ActionError("Point HIREME_FREEHIRE_URL at your local discoverer (e.g. http://127.0.0.1:8787) first.");
+  }
+}
+
+/** Local discoverer watchlist (Settings → Job search). */
+export const listWatchlistCompanies = action(z.object({}), async () => {
+  requireDiscoverer();
+  try {
+    return await listDiscovererCompanies();
+  } catch (error) {
+    throw new ActionError(error instanceof Error ? error.message : "Couldn’t reach the local discoverer.");
+  }
+});
+
+export const addWatchlistCompany = action(
+  z.object({
+    name: z.string().trim().min(1).max(200),
+    ats: z.string().trim().max(80).optional(),
+    slug: z.string().trim().max(200).optional(),
+    url: z.string().trim().max(2000).optional(),
+  }),
+  async (input) => {
+    requireDiscoverer();
+    try {
+      await addDiscovererCompany(input);
+      return await listDiscovererCompanies();
+    } catch (error) {
+      throw new ActionError(error instanceof Error ? error.message : "Couldn’t add that company.");
+    }
+  },
+);
+
+export const removeWatchlistCompany = action(z.object({ id: z.string().trim().min(1).max(200) }), async ({ id }) => {
+  requireDiscoverer();
+  try {
+    await removeDiscovererCompany(id);
+    return await listDiscovererCompanies();
+  } catch (error) {
+    throw new ActionError(error instanceof Error ? error.message : "Couldn’t remove that company.");
+  }
+});
+
+export const watchlistScrapeStatus = action(z.object({}), async () => {
+  requireDiscoverer();
+  try {
+    return await discovererScrapeStatus();
+  } catch (error) {
+    throw new ActionError(error instanceof Error ? error.message : "Couldn’t read scrape progress.");
+  }
+});
+
+export const startWatchlistScrape = action(
+  z.object({ resume: z.boolean().optional(), forceNew: z.boolean().optional() }),
+  async ({ resume, forceNew }) => {
+    requireDiscoverer();
+    try {
+      return await startDiscovererScrape({ resume, forceNew });
+    } catch (error) {
+      throw new ActionError(error instanceof Error ? error.message : "Couldn’t start the scrape.");
+    }
+  },
+);
+
+export const pauseWatchlistScrape = action(z.object({}), async () => {
+  requireDiscoverer();
+  try {
+    return await pauseDiscovererScrape();
+  } catch (error) {
+    throw new ActionError(error instanceof Error ? error.message : "Couldn’t pause the scrape.");
   }
 });
 

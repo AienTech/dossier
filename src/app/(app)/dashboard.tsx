@@ -62,37 +62,35 @@ export function Dashboard({
       />
 
       {empty ? (
-        <Columns calendar={calendar}>
-          <Welcome />
-        </Columns>
+        <div className="@container px-10 pb-[72px]">
+          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 @min-[780px]:grid-cols-[minmax(0,1fr)_minmax(280px,400px)]">
+            <Welcome />
+            {calendar}
+          </div>
+        </div>
       ) : (
         <PeriodFilter period={range}>
-          <Columns calendar={calendar}>
-            <PeriodScoped className="grid max-w-[1200px] grid-cols-[repeat(auto-fit,minmax(min(100%,380px),1fr))] items-start gap-5">
+          <div className="@container flex flex-col gap-5 px-10 pb-[72px]">
+            <PeriodScoped className="flex max-w-[1200px] flex-col gap-5">
               <Funnel figures={figures} />
               <ActivityChart weeks={figures.weeks} />
-              <WhereThingsStand byStatus={figures.byStatus} />
-              <WorthALook items={figures.attention} quietDays={quietDays} />
             </PeriodScoped>
-          </Columns>
+            <div className="grid max-w-[1600px] grid-cols-1 items-stretch gap-5 @min-[780px]:grid-cols-[minmax(0,1fr)_minmax(280px,400px)]">
+              {/* h-0 + min-h-full: row height follows Calendar + Where things stand; the list scrolls. */}
+              <PeriodScoped className="flex min-h-0 flex-col @min-[780px]:h-0 @min-[780px]:min-h-full">
+                <WorthALook items={figures.attention} quietDays={quietDays} />
+              </PeriodScoped>
+              <div className="flex min-w-0 flex-col gap-5">
+                {calendar}
+                <PeriodScoped>
+                  <WhereThingsStand byStatus={figures.byStatus} />
+                </PeriodScoped>
+              </div>
+            </div>
+          </div>
         </PeriodFilter>
       )}
     </>
-  );
-}
-
-/**
- * The cards, with the calendar beside them where there's room for both.
- * Where there isn't, it comes after them, as wide as one card.
- */
-function Columns({ calendar, children }: { calendar?: ReactNode; children: ReactNode }) {
-  return (
-    <div className="@container px-10 pb-[72px]">
-      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 @min-[1240px]:grid-cols-[minmax(0,1200px)_400px]">
-        {children}
-        {calendar && <div className="min-w-0 @min-[780px]:max-w-[calc(50%-10px)] @min-[1240px]:max-w-none">{calendar}</div>}
-      </div>
-    </div>
   );
 }
 
@@ -100,7 +98,7 @@ function Columns({ calendar, children }: { calendar?: ReactNode; children: React
 function Funnel({ figures }: { figures: DashboardFigures }) {
   const { funnel, sent, heardBackPercent, reachedInterview } = figures;
   return (
-    <section aria-labelledby="funnel-heading" className={`${card} col-span-full gap-6 p-7`}>
+    <section aria-labelledby="funnel-heading" className={`${card} gap-6 p-7`}>
       <div className="flex flex-wrap items-baseline justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h2 id="funnel-heading" className="font-serif text-section">
@@ -163,8 +161,8 @@ function WhereThingsStand({ byStatus }: { byStatus: Record<ApplicationStatus, nu
 /** "Worth a look" (DSH-5): offers, drafts, quiet applications and interviews. */
 function WorthALook({ items, quietDays }: { items: DashboardFigures["attention"]; quietDays: number }) {
   return (
-    <section aria-labelledby="attention-heading" className={`${card} px-7 pt-[26px] pb-3.5`}>
-      <div className="flex items-baseline justify-between gap-3 pb-3">
+    <section aria-labelledby="attention-heading" className={`${card} min-h-0 max-h-[70vh] px-7 pt-[26px] pb-3.5 @min-[780px]:h-full @min-[780px]:max-h-none`}>
+      <div className="flex shrink-0 items-baseline justify-between gap-3 pb-3">
         <h2 id="attention-heading" className="text-[15px] font-medium">
           Worth a look
         </h2>
@@ -173,7 +171,7 @@ function WorthALook({ items, quietDays }: { items: DashboardFigures["attention"]
       {items.length === 0 ? (
         <p className="border-t border-line py-5 text-sm text-muted">All caught up. Nice.</p>
       ) : (
-        <ul>
+        <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
           {items.map((item) => (
             <li key={item.id} className="-mx-2.5 border-t border-line">
               <Link href={`/applications/${item.id}${item.tab ? `?tab=${item.tab}` : ""}`} className="flex items-start gap-3 rounded-control px-2.5 py-[13px] text-ink hover:bg-hover">
@@ -191,7 +189,9 @@ function WorthALook({ items, quietDays }: { items: DashboardFigures["attention"]
           ))}
         </ul>
       )}
-      <QuietDays days={quietDays} />
+      <div className="shrink-0">
+        <QuietDays days={quietDays} />
+      </div>
     </section>
   );
 }

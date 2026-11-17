@@ -1,0 +1,131 @@
+# Company watchlist for HireMe's local discoverer.
+# Copy to companies.yml (gitignored) and edit.
+#
+# Focus of this starter list:
+# - Mobile / consumer product startups
+# - Europe (often relocation-friendly HQ roles)
+# - Middle East growth startups
+# - A few global product companies that hire remotely / EU
+#
+# Prefer ats + slug, or a careers url for auto-detect.
+
+companies:
+  # ── Global product / mobile ─────────────────────────────────────────
+  - name: Anthropic
+    ats: greenhouse
+    slug: anthropic
+  - name: OpenAI
+    ats: ashby
+    slug: openai
+  - name: Stripe
+    ats: greenhouse
+    slug: stripe
+  - name: Notion
+    ats: ashby
+    slug: notion
+  - name: Vercel
+    ats: ashby
+    slug: vercel
+  - name: Figma
+    ats: greenhouse
+    slug: figma
+  - name: Linear
+    ats: ashby
+    slug: linear
+  - name: Discord
+    ats: greenhouse
+    slug: discord
+  - name: Duolingo
+    ats: greenhouse
+    slug: duolingo
+  - name: Canva
+    url: https://careers.smartrecruiters.com/canva
+  - name: Miro
+    ats: ashby
+    slug: miro
+  - name: Intercom
+    ats: greenhouse
+    slug: intercom
+  - name: Typeform
+    ats: greenhouse
+    slug: typeform
+
+  # ── Europe · fintech / mobility / consumer (relocation common) ─────
+  - name: N26
+    ats: greenhouse
+    slug: n26
+  - name: Monzo
+    ats: greenhouse
+    slug: monzo
+  - name: Wise
+    url: https://careers.smartrecruiters.com/Wise
+  - name: Adyen
+    ats: greenhouse
+    slug: adyen
+  - name: SumUp
+    ats: greenhouse
+    slug: sumup
+  - name: Checkout.com
+    ats: ashby
+    slug: checkout.com
+  - name: Trade Republic
+    ats: greenhouse
+    slug: traderepublic
+  - name: Bolt
+    ats: ashby
+    slug: bolt
+  - name: Deliveroo
+    ats: ashby
+    slug: deliveroo
+  - name: Spotify
+    ats: lever
+    slug: spotify
+  - name: GetYourGuide
+    ats: greenhouse
+    slug: getyourguide
+  - name: DeepL
+    ats: ashby
+    slug: deepl
+  - name: Contentful
+    ats: greenhouse
+    slug: contentful
+  - name: Celonis
+    ats: greenhouse
+    slug: celonis
+  - name: HelloFresh
+    ats: greenhouse
+    slug: hellofresh
+  - name: Booking.com
+    url: https://careers.smartrecruiters.com/Bookingcom1
+  - name: Wolt
+    url: https://careers.smartrecruiters.com/wolt
+  - name: Flink
+    url: https://careers.smartrecruiters.com/flink
+
+  # ── Middle East · mobile / marketplace / fintech ───────────────────
+  - name: Careem
+    ats: greenhouse
+    slug: careem
+  - name: Tamara
+    ats: greenhouse
+    slug: tamara
+  - name: Yassir
+    ats: lever
+    slug: Yassir
+  - name: Tabby
+    url: https://tabby.bamboohr.com/careers
+  - name: Anghami
+    url: https://anghami.breezy.hr
+  - name: Swvl
+    url: https://careers.smartrecruiters.com/swvl
+
+  # ── US product (often EU/remote roles too) ─────────────────────────
+  - name: Brex
+    ats: greenhouse
+    slug: brex
+  - name: Plaid
+    ats: ashby
+    slug: plaid
+  - name: Ramp
+    ats: ashby
+    slug: ramp

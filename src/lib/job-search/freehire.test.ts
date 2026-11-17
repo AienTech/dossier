@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { json, stubFetch } from "@/lib/ai/test-http";
 import { freehireLastPage, freehirePage } from "@/test/job-search-fixtures";
 
-import { freehire } from "./freehire";
+import { freehire, freehireTimeoutMs } from "./freehire";
+import { REQUEST_TIMEOUT_MS } from "./http";
 import { EMPTY_QUERY } from "./search";
 
 const fetchPosting = vi.hoisted(() => vi.fn());
@@ -14,6 +15,19 @@ const query = { ...EMPTY_QUERY, keywords: "product designer", place: "Hamburg", 
 afterEach(() => {
   vi.unstubAllGlobals();
   fetchPosting.mockReset();
+});
+
+describe("freehireTimeoutMs", () => {
+  it("keeps the default for the public catalogue and remote hosts", () => {
+    expect(freehireTimeoutMs()).toBe(REQUEST_TIMEOUT_MS);
+    expect(freehireTimeoutMs("https://jobs.example")).toBe(REQUEST_TIMEOUT_MS);
+  });
+
+  it("waits longer for a local JobSpy / FreeHire sidecar", () => {
+    expect(freehireTimeoutMs("http://127.0.0.1:8787")).toBe(120_000);
+    expect(freehireTimeoutMs("http://localhost:8787")).toBe(120_000);
+    expect(freehireTimeoutMs("http://host.docker.internal:8787")).toBe(120_000);
+  });
 });
 
 describe("FreeHire search", () => {
@@ -137,5 +151,12 @@ describe("FreeHire details and test", () => {
     expect(requests[0].url.pathname).toBe("/api/v1/agent/jobs/search");
     expect(requests[0].url.searchParams.get("q")).toBe("developer");
     expect(requests[0].url.searchParams.get("countries")).toBe("US");
+  });
+
+  it("tests a local discoverer with /health instead of a full search", async () => {
+    const requests = stubFetch(() => json({ ok: true, sites: [], companies: 0 }));
+    await freehire.test({}, { baseUrl: "http://127.0.0.1:8787" });
+    expect(requests).toHaveLength(1);
+    expect(`${requests[0].url.origin}${requests[0].url.pathname}`).toBe("http://127.0.0.1:8787/health");
   });
 });

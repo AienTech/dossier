@@ -34,6 +34,10 @@ export function createProvider(config: AiConfig): AIProvider {
       return new MistralProvider(baseUrl, apiKey, model, timeoutMs, recordUsage);
     case AiProvider.LMSTUDIO:
       return new LmStudioProvider(baseUrl, apiKey, model, timeoutMs, recordUsage);
+    case AiProvider.DEEPSEEK:
+      return new OpenAICompatibleProvider("DEEPSEEK", baseUrl, apiKey, model, timeoutMs, recordUsage);
+    case AiProvider.XAI:
+      return new OpenAICompatibleProvider("XAI", baseUrl, apiKey, model, timeoutMs, recordUsage);
   }
 }
 

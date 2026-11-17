@@ -84,10 +84,34 @@ export const PROVIDER_OPTIONS: readonly {
     defaultModel: "mistral-small-2603",
     apiKey: { label: "API key" },
   },
+  {
+    value: AiProvider.DEEPSEEK,
+    name: "DeepSeek",
+    vendor: "DeepSeek",
+    description: "DeepSeek models through your own API key.",
+    tag: "Hosted · pay per use",
+    local: false,
+    defaultUrl: "https://api.deepseek.com",
+    urlPlaceholder: "https://api.deepseek.com",
+    defaultModel: "deepseek-flash",
+    apiKey: { label: "API key" },
+  },
+  {
+    value: AiProvider.XAI,
+    name: "xAI",
+    vendor: "xAI",
+    description: "Grok models through your own API key.",
+    tag: "Hosted · pay per use",
+    local: false,
+    defaultUrl: "https://api.x.ai/v1",
+    urlPlaceholder: "https://api.x.ai/v1",
+    defaultModel: "grok-4",
+    apiKey: { label: "API key" },
+  },
 ];
 
 export function providerOption(provider: AiProvider) {
-  return PROVIDER_OPTIONS.find((option) => option.value === provider)!;
+  return PROVIDER_OPTIONS.find((option) => option.value === provider) ?? PROVIDER_OPTIONS[0]!;
 }
 
 /** What one AI request may take, in seconds, unless Settings or HIREME_AI_TIMEOUT_SECONDS says otherwise. */

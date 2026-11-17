@@ -138,7 +138,7 @@ describe("JobSearchSection", () => {
     expect(screen.getByRole("button", { name: "Test connection" })).toBeInTheDocument();
     unmount();
     render(<JobSearchSection initial={withSource({ source: "FREEHIRE", freehire: { host: "jobs.example" } })} />);
-    expect(screen.getByText("No key needed. HireMe searches your own FreeHire at jobs.example.")).toBeInTheDocument();
+    expect(screen.getByText("No key needed. HireMe searches jobs.example (self-hosted FreeHire or a JobSpy sidecar).")).toBeInTheDocument();
   });
 
   it("shows keys from the environment and keys that can't be read", () => {
