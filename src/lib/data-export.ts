@@ -529,6 +529,21 @@ export async function buildExport(
       submission: application.submission ? submissionSnapshot.parse(application.submission) : null,
     }));
 
+    // Original submitted files belong to user data. Unlike cached PDFs and
+    // backups, include only the originals referenced by application records.
+    const originalKeys = exportedApplications.flatMap((application) =>
+      application.submission?.documents?.flatMap((document) => (document.file_key ? [`submission-files/${document.file_key}`] : [])) ?? [],
+    );
+    const originalFiles = originalKeys.length
+      ? await tx.storedFile.findMany({ where: { key: { in: originalKeys } }, select: { key: true, data: true } })
+      : [];
+    const originalData = new Map(originalFiles.map((file) => [file.key, Buffer.from(file.data).toString("base64")]));
+    for (const application of exportedApplications) {
+      for (const document of application.submission?.documents ?? []) {
+        if (document.file_key) document.original_base64 = originalData.get(`submission-files/${document.file_key}`);
+      }
+    }
+
     return {
       format: EXPORT_FORMAT,
       schemaVersion: EXPORT_SCHEMA_VERSION,
