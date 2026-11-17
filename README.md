@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/app/icon.svg" alt="" width="80" height="80">
+  <img src="desktop/assets/icon.png" alt="" width="80" height="80">
 </p>
 
 <h1 align="center">HireMe</h1>
