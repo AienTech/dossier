@@ -196,10 +196,12 @@ describe("the inbox check (E15-3)", () => {
     expect(await syncInbox()).toEqual({ fetched: 1, kept: 1, read: 1, unread: 0 });
     expect(await prisma().googleAccount.findUniqueOrThrow({ where: { id: "google" } })).toMatchObject({ historyId: "300", syncProblem: null });
 
-    // A 403 for a missing permission still stops the check, as before.
+    // A 403 for a missing permission still stops the check, as before, and says which permission.
     mailbox.push({ id: "m9", threadId: "thread-new", from: "Anna Keller <a.keller@northwind.example>", subject: "Re: Application", text: "Hi", history: 350, forbid: true });
-    await expect(syncInbox()).rejects.toThrow("Google refused that. Check the permissions in Settings → Google.");
-    expect(await prisma().googleAccount.findUniqueOrThrow({ where: { id: "google" } })).toMatchObject({ syncProblem: "Google refused that. Check the permissions in Settings → Google." });
+    await expect(syncInbox()).rejects.toThrow("Google has not granted the permission needed for this action.");
+    expect(await prisma().googleAccount.findUniqueOrThrow({ where: { id: "google" } })).toMatchObject({
+      syncProblem: "Google has not granted the permission needed for this action. In Settings → Google, allow reading email again and accept Google's requested permission.",
+    });
   });
 
   it("stops asking Google once it refuses the saved access, until the account is connected again (#136)", async () => {

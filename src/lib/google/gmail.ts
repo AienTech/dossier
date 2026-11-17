@@ -103,7 +103,7 @@ export function readMessage(json: unknown): ReadMail {
 /** One message, or null when it was deleted after Gmail listed it. */
 export async function getMessage(id: string, signal?: AbortSignal, format: "full" | "metadata" = "full"): Promise<ReadMail | null> {
   try {
-    return readMessage(await googleFetch("read", api(`/messages/${encodeURIComponent(id)}?format=${format}${format === "metadata" ? "&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=Message-ID&metadataHeaders=References" : ""}`), { signal }));
+    return readMessage(await googleFetch("read", api(`/messages/${encodeURIComponent(id)}?format=${format}${format === "metadata" ? "&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=Message-ID&metadataHeaders=References" : ""}`), { signal, retry: true }));
   } catch (error) {
     if (isGone(error)) return null;
     throw error;
@@ -112,7 +112,7 @@ export async function getMessage(id: string, signal?: AbortSignal, format: "full
 
 /** Where the mailbox is now, to check from next time. */
 export async function currentHistoryId(signal?: AbortSignal): Promise<string> {
-  const profile = await googleFetch<{ historyId: string }>("read", api("/profile"), { signal });
+  const profile = await googleFetch<{ historyId: string }>("read", api("/profile"), { signal, retry: true });
   return profile.historyId;
 }
 
@@ -133,7 +133,7 @@ export async function messagesSince(historyId: string, signal?: AbortSignal): Pr
     if (pageToken) url.searchParams.set("pageToken", pageToken);
     let page: { history?: { messagesAdded?: { message: { id: string } }[] }[]; nextPageToken?: string; historyId: string };
     try {
-      page = await googleFetch("read", url, { signal });
+      page = await googleFetch("read", url, { signal, retry: true });
     } catch (error) {
       if (error instanceof Error && "detail" in error && String((error as { detail?: string }).detail).endsWith("404")) return null;
       throw error;
@@ -150,6 +150,6 @@ export async function searchMessages(query: string, { max = 100, signal }: { max
   const url = new URL(api("/messages"));
   url.searchParams.set("q", query);
   url.searchParams.set("maxResults", String(Math.min(max, 500)));
-  const page = await googleFetch<{ messages?: { id: string }[] }>("read", url, { signal });
+  const page = await googleFetch<{ messages?: { id: string }[] }>("read", url, { signal, retry: true });
   return (page.messages ?? []).map((message) => message.id);
 }
