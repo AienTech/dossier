@@ -81,9 +81,12 @@ test("connects Google, sends an application through Gmail, and answers the reply
   await expectAccessible(page);
 
   // The conversation: its suggested status, then the answer with times from the calendar.
+  // Inbox "Check now" may already have applied a trusted INTERVIEW suggestion.
   await page.goto(`/applications/${ledgerly}?tab=conversation`);
   await expect(page.getByText("What is your notice period?", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Move to Interview" }).click();
+  if ((await status()) !== "INTERVIEW") {
+    await page.getByRole("button", { name: "Move to Interview" }).click();
+  }
   await expect.poll(status).toBe("INTERVIEW");
   await page.getByRole("button", { name: "Draft an answer" }).click();
   const answer = page.getByRole("textbox", { name: "Your answer" });

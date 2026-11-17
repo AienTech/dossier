@@ -69,7 +69,7 @@ test.afterAll(async () => {
 });
 
 test("shows the most severe first, and each next one after a dismiss, for good", async ({ page }) => {
-  const link = { label: "What's new", url: "https://github.com/shahzadafridi/HireMe/releases/tag/v99.0.0" };
+  const link = { label: "What's new", url: "https://github.com/Realtime-Coding/HireMe/releases/tag/v99.0.0" };
   const security = notice("security", { severity: "security", link, body: "First line.\nSecond line." });
   const important = notice("important", { severity: "important" });
   const info = notice("info");
@@ -193,7 +193,7 @@ test("changes nothing while the backend is down", async ({ page }) => {
 test("floats over the page, leaving the sidebar to the update notice, and stays within reach", async ({ page, context, baseURL }) => {
   const security = notice("security", { severity: "security", body: "x".repeat(500) });
   await publish(page, security);
-  for (const [key, value] of [["latestVersion", "99.0.0"], ["latestVersionUrl", "https://github.com/shahzadafridi/HireMe/releases/tag/v99.0.0"]]) {
+  for (const [key, value] of [["latestVersion", "99.0.0"], ["latestVersionUrl", "https://github.com/Realtime-Coding/HireMe/releases/tag/v99.0.0"]]) {
     await sql(`INSERT INTO "Setting" (key, value, "updatedAt") VALUES ($1, $2, now())`, [key, value]);
   }
 

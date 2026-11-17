@@ -168,7 +168,7 @@ createServer((request, response) => {
   }
   // The update check (HIREME_UPDATES_TEST_BASE_URL): no release is out, so
   // what a test stores as the latest release stays as it is.
-  if (url.pathname === "/github/repos/shahzadafridi/HireMe/releases/latest") return send(response, 404, { message: "Not Found" });
+  if (url.pathname === "/github/repos/Realtime-Coding/HireMe/releases/latest") return send(response, 404, { message: "Not Found" });
 
   if (url.pathname === "/jsearch/search-v2") {
     if (request.headers["x-api-key"] !== JSEARCH_KEY) return send(response, 401, { status: "ERROR", error: { message: "Invalid API key" } });
