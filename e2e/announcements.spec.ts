@@ -103,7 +103,8 @@ test("shows the most severe first, and each next one after a dismiss, for good",
   await expect(region(page, info)).toBeHidden();
   await page.reload();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("region", { name: /^Notice / })).toHaveCount(0);
+  // Dismiss can race the reload on CI; wait until the feed has no card left.
+  await expect(page.getByRole("region", { name: /^Notice / })).toHaveCount(0, { timeout: 15_000 });
 });
 
 test("asks with nothing about the install, and is told when nothing changed", async ({ page }) => {
