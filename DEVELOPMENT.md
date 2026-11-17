@@ -265,7 +265,7 @@ The backend is the project's own service and isn't published with the app. `src/
 A production server asks `https://api.hireme.example/v1`. A development server only asks while `HIREME_API_URL` is set, and then on every page, so a change shows without the wait: the first reload asks, and the next one shows it. To try it against a local copy of the backend, set that variable, for example in an untracked `compose.override.yml`. The variable isn't in `.env.example` or `compose.production.yml`, because nobody running the image needs it. `e2e/announcements.spec.ts` points it at the fake job sources.
 ## The desktop app
 
-`desktop/` is the app for Linux and Windows, built with Electron. One download, two modes, chosen on first launch: **On my server** opens the user's own HireMe in a window, and **On this computer** runs HireMe itself. There's no auto-update: people download each new version from the release page.
+`desktop/` is the app for Mac, Linux and Windows, built with Electron. One download, two modes, chosen on first launch: **On my server** opens the user's own HireMe in a window, and **On this computer** runs HireMe itself. Every push to `main` builds an unsigned Mac DMG and zip (`desktop-mac.yml`), tags `v2.0.<run>`, and publishes a GitHub release. The packaged app uses `electron-updater` against that feed to download the zip and replace itself. Mac builds are unsigned (no Apple Developer ID): first open may need right-click → Open. Linux and Windows installers still ship from human-created version tags via `release.yml` / `desktop.yml`.
 
 It has its own `package.json` and `yarn.lock`, so the image doesn't carry Electron.
 

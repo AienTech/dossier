@@ -20,7 +20,7 @@ function renderLink(initialCollapsed = false) {
 describe("RepositoryLink", () => {
   it("opens the repository in a new tab", () => {
     const link = renderLink();
-    expect(link).toHaveAttribute("href", "https://github.com/shahzadafridi/HireMe");
+    expect(link).toHaveAttribute("href", "https://github.com/Realtime-Coding/HireMe");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(link).not.toHaveAttribute("title");

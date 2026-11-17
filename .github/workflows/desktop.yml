@@ -84,7 +84,7 @@ jobs:
       # .deb, and Wine for the Windows installer, are in it.
       - name: Linux (AppImage and .deb)
         run: |
-          (cd desktop && yarn prepare-server --next build-input --seed build-input/desktop-seed.mjs --platform linux)
+          (cd desktop && yarn prepare-server --next build-input --seed build-input/desktop-seed.mjs --platform linux --arch x64)
           docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp/home -v "$PWD:/repo" -w /repo/desktop "$BUILDER" \
             sh -c 'mkdir -p /tmp/home && node node_modules/electron-builder/cli.js --linux --x64 --publish never'
 
@@ -94,7 +94,7 @@ jobs:
       # so this container runs without it.
       - name: Windows (installer)
         run: |
-          (cd desktop && yarn prepare-server --next build-input --seed build-input/desktop-seed.mjs --platform win32)
+          (cd desktop && yarn prepare-server --next build-input --seed build-input/desktop-seed.mjs --platform win32 --arch x64)
           docker run --rm --security-opt seccomp=unconfined -u "$(id -u):$(id -g)" -e HOME=/tmp/home -v "$PWD:/repo" -w /repo/desktop "$BUILDER" \
             sh -c 'mkdir -p /tmp/home && node node_modules/electron-builder/cli.js --win --x64 --publish never'
 

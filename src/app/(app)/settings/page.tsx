@@ -5,6 +5,7 @@ import { loadAiConfig, loadAiSettingsView } from "@/lib/ai/config";
 import { jobSearchView, loadJobSearchConfig } from "@/lib/job-search/config";
 import { COUNTRIES } from "@/lib/job-search/countries";
 import { isDesktopApp } from "@/lib/desktop";
+import { latestDesktopDownload } from "@/lib/desktop-download";
 import { loadSearch } from "@/lib/posting-searches";
 import { listAgentSearches } from "@/lib/agent/searches";
 import { providerOption } from "@/lib/ai/provider-options";
@@ -152,6 +153,8 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
           facts={await aboutFacts()}
           usagePing={await usagePingView()}
           updates={{ daily: settings.updateCheck, available: availableUpdate(settings) }}
+          desktopDownload={isDesktopApp() ? undefined : await latestDesktopDownload("mac")}
+          inDesktopApp={isDesktopApp()}
         />
       )}
     </SettingsScreen>

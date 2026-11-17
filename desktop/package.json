@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "prepare-server": "node scripts/prepare-server.mjs",
     "package:linux": "yarn build && electron-builder --linux --x64",
-    "package:windows": "yarn build && electron-builder --win --x64"
+    "package:windows": "yarn build && electron-builder --win --x64",
+    "package:mac": "yarn build && electron-builder --mac --arm64 --publish never"
   },
   "devDependencies": {
     "@types/node": "^24",
@@ -28,7 +29,10 @@
   "packageManager": "yarn@4.18.1",
   "author": {
     "name": "HireMe",
-    "email": "the issue tracker at https://github.com/shahzadafridi/HireMe/issues"
+    "email": "the issue tracker at https://github.com/Realtime-Coding/HireMe/issues"
   },
-  "homepage": "https://hireme.example"
+  "homepage": "https://github.com/Realtime-Coding/HireMe",
+  "dependencies": {
+    "electron-updater": "^6"
+  }
 }

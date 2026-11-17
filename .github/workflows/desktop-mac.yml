@@ -1,0 +1,129 @@
+name: Desktop Mac
+
+# Every push to main gets a versioned GitHub release with an unsigned Mac DMG
+# and zip (for electron-updater). Linux/Windows stay on the human-tagged
+# release.yml path. Bot-created tags skip that full release pipeline.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-mac-main
+  cancel-in-progress: true
+
+jobs:
+  mac:
+    name: Mac DMG and release
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: corepack enable
+
+      - name: Version for this build
+        id: version
+        run: |
+          version="2.0.${GITHUB_RUN_NUMBER}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          node -e "
+            const fs = require('fs');
+            for (const file of ['package.json', 'desktop/package.json']) {
+              const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+              pkg.version = process.env.VERSION;
+              fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+            }
+          "
+        env:
+          VERSION: 2.0.${{ github.run_number }}
+
+      - run: yarn install --immutable
+      - run: yarn generate
+      - run: yarn build
+
+      - name: The database setup, as one file
+        run: |
+          node_modules/.bin/esbuild prisma/seed.ts --bundle --platform=node --format=esm --target=node24 \
+            --external:pg-native --external:better-sqlite3 --outfile=.next/desktop-seed.mjs \
+            --banner:js='import { createRequire } from "node:module"; const require = createRequire(import.meta.url);'
+
+      - name: Hand it to the desktop app
+        run: |
+          mkdir -p desktop/build-input
+          cp -R .next/standalone desktop/build-input/standalone
+          rm -f desktop/build-input/standalone/.env*
+          cp -R .next/static desktop/build-input/static
+          cp .next/desktop-seed.mjs desktop/build-input/desktop-seed.mjs
+
+      - run: yarn install --immutable
+        working-directory: desktop
+
+      - run: yarn build
+        working-directory: desktop
+
+      - name: Prepare On this computer (darwin arm64)
+        run: yarn prepare-server --next build-input --seed build-input/desktop-seed.mjs --platform darwin --arch arm64
+        working-directory: desktop
+
+      - name: Pack Mac (unsigned DMG + zip)
+        working-directory: desktop
+        run: |
+          # Unsigned on purpose: no Apple Developer ID in this project.
+          CSC_IDENTITY_AUTO_DISCOVERY=false \
+            node node_modules/electron-builder/cli.js --mac --arm64 --publish never
+
+      - name: Checksums
+        working-directory: desktop/release
+        run: |
+          ls -l HireMe-* latest-mac.yml 2>/dev/null || ls -l
+          shasum -a 256 HireMe-*.dmg HireMe-*.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Tag, release, and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; refreshing its release assets."
+          else
+            git tag -a "$TAG" "$GITHUB_SHA" -m "[desktop-auto] HireMe $VERSION Mac desktop"
+            git push origin "refs/tags/$TAG"
+          fi
+          cd desktop/release
+          shopt -s nullglob
+          assets=(HireMe-*.dmg HireMe-*.zip SHA256SUMS.txt)
+          [ -f latest-mac.yml ] && assets+=(latest-mac.yml)
+          if [ ${#assets[@]} -lt 3 ]; then
+            echo "::error::Expected DMG, zip and checksums in desktop/release; found: ${assets[*]}"
+            ls -la
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            gh release edit "$TAG" --latest
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --title "HireMe $VERSION" \
+              --notes "Mac desktop build from main (\`${GITHUB_SHA:0:7}\`). Unsigned: first open may need right-click → Open. The zip is used for in-app updates." \
+              --latest
+          fi

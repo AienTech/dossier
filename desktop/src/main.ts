@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, session, shell, WebContentsView, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from "electron";
 
 import { checkServer, parseAddress } from "./address";
+import { startAutoUpdates } from "./auto-update";
 import { barColors, fallbackColors, READ_PAGE_COLORS, type BarColors } from "./bar-colors";
 import { localBundle, LocalServerError, startLocalServer, type LocalProblem, type RunningServer } from "./local-server";
 import { readPreferences, writePreferences, type Preferences } from "./preferences";
@@ -14,8 +15,8 @@ import { googleConnectPath, mayOpenExternally, navigationFor, permissionAllowed,
 // its start screen or HireMe, from the user's server or from a server the app
 // starts on this computer. HireMe is the same either way, as a web page in a view.
 
-const RELEASES_URL = "https://github.com/shahzadafridi/HireMe/releases/latest";
-const REPOSITORY_URL = "https://github.com/shahzadafridi/HireMe";
+const RELEASES_URL = "https://github.com/Realtime-Coding/HireMe/releases/latest";
+const REPOSITORY_URL = "https://github.com/Realtime-Coding/HireMe";
 const SERVER_SESSION = "persist:hireme";
 const LOCAL_SESSION = "persist:local";
 const DESKTOP_TOKEN_HEADER = "x-hireme-desktop-token";
@@ -404,6 +405,7 @@ function start() {
   if (preferences.mode === "server" && preferences.serverOrigin) showServer(preferences.serverOrigin);
   else if (preferences.mode === "local" && localBundle(RESOURCES)) void openLocal();
   else showStart({ screen: "choose" });
+  if (app.isPackaged) startAutoUpdates();
 }
 
 app.setName("HireMe");

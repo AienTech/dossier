@@ -90,13 +90,13 @@ export function UpdateNotice({
       </h2>
       <p className="text-xs text-muted">
         {desktop
-          ? `You have ${currentVersion}. Download the new one and install it over this one: your data stays as it is.`
+          ? `You have ${currentVersion}. Install the new one over this one: your data stays as it is. The desktop app also offers the update itself when a build is ready.`
           : `You have ${currentVersion}. Update to get its fixes and features.`}
       </p>
       <div className="flex flex-wrap gap-x-3 text-xs">
         {desktop ? (
           <a href={release.url} target="_blank" rel="noopener noreferrer" className={LINK}>
-            Download {release.version}{" "}
+            Install update {release.version}{" "}
             <span className="sr-only">(opens in your browser)</span>
           </a>
         ) : (

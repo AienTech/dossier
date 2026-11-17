@@ -177,7 +177,7 @@ for (const link of playLinks) {
 }
 
 // Stars and the latest release, from GitHub's API. Left out if it doesn't answer.
-const repo = "https://api.github.com/repos/shahzadafridi/HireMe";
+const repo = "https://api.github.com/repos/Realtime-Coding/HireMe";
 const getJson = (url) => fetch(url, { headers: { Accept: "application/vnd.github+json" } }).then((r) => (r.ok ? r.json() : null));
 
 getJson(repo)
@@ -190,15 +190,20 @@ getJson(repo)
   })
   .catch(() => {});
 
-// The desktop app's files in a release, by the names release.yml gives them.
-const DESKTOP_FILES = { windows: /-win-x64\.exe$/, deb: /-linux-amd64\.deb$/, appimage: /-linux-x86_64\.AppImage$/ };
+// The desktop app's files in a release, by the names desktop-mac.yml / desktop.yml give them.
+const DESKTOP_FILES = {
+  mac: /-mac-.*\.dmg$/i,
+  windows: /-win-x64\.exe$/,
+  deb: /-linux-amd64\.deb$/,
+  appimage: /-linux-x86_64\.AppImage$/,
+};
 
-/** "windows" or "linux" when the visitor is on one, as far as the browser says. */
+/** "mac", "windows" or "linux" when the visitor is on one, as far as the browser says. */
 function desktopSystem() {
   const said = `${navigator.userAgentData?.platform ?? ""} ${navigator.platform ?? ""} ${navigator.userAgent}`;
   if (/android|iphone|ipad|mobile/i.test(said)) return null;
+  if (/mac/i.test(said)) return "mac";
   if (/win/i.test(said)) return "windows";
-  if (/mac/i.test(said)) return null;
   if (/linux|x11/i.test(said)) return "linux";
   return null;
 }
@@ -215,21 +220,26 @@ function offerDownloads(release) {
     if (file) link.href = file;
   }
   const system = desktopSystem();
-  const file = system && fileFor(system === "windows" ? "windows" : "deb");
+  const kind = system === "mac" ? "mac" : system === "windows" ? "windows" : system === "linux" ? "deb" : null;
+  const file = kind && fileFor(kind);
   const hero = document.querySelector("[data-download]");
   const note = document.querySelector("[data-download-note]");
   if (!file || !hero || !note) return;
   hero.href = file;
-  hero.querySelector("[data-download-label]").textContent = system === "windows" ? "Download for Windows" : "Download for Linux";
-  // The other system, and the AppImage, are on the install section's Desktop app tab.
+  hero.querySelector("[data-download-label]").textContent =
+    system === "mac" ? "Download for Mac" : system === "windows" ? "Download for Windows" : "Download for Linux";
   const other = document.createElement("a");
   other.href = "#install";
-  other.textContent = system === "windows" ? "Linux" : "an AppImage";
+  other.textContent = system === "mac" ? "Windows and Linux" : system === "windows" ? "Mac and Linux" : "Mac, Windows, and an AppImage";
   other.addEventListener("click", () => document.getElementById("tab-desktop")?.click());
   note.replaceChildren(
-    system === "windows" ? "Free. One click to install, nothing to set up. Also for " : "Free. A .deb for Ubuntu and Debian, nothing to set up. Also as ",
+    system === "mac"
+      ? "Free. Unsigned Mac build: first open may need right-click → Open. Also for "
+      : system === "windows"
+        ? "Free. One click to install, nothing to set up. Also for "
+        : "Free. A .deb for Ubuntu and Debian, nothing to set up. Also for ",
     other,
-    system === "windows" ? "." : ", and for Windows.",
+    ".",
   );
 }
 

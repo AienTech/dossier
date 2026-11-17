@@ -8,7 +8,8 @@ import { toast } from "@/components/toast";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
-import { UPGRADE_GUIDE_URL, type Release } from "@/lib/releases";
+import type { DesktopDownload } from "@/lib/desktop-download";
+import { REPOSITORY_URL, UPGRADE_GUIDE_URL, type Release } from "@/lib/releases";
 
 import { chooseUsagePing } from "../actions";
 import { USAGE_PING_PRIVACY_URL } from "../usage-ping-dialog";
@@ -50,11 +51,16 @@ export function AboutSection({
   facts,
   usagePing,
   updates,
+  desktopDownload,
+  inDesktopApp = false,
 }: {
   facts: AboutFacts;
   usagePing: UsagePingView;
   updates: UpdatesView;
-
+  /** Latest Mac DMG (or release page fallback) for the hosted app. */
+  desktopDownload?: DesktopDownload;
+  /** Hide the download CTA inside the desktop app itself. */
+  inDesktopApp?: boolean;
 }) {
   const [check, setCheck] = useState<Check>(updates.available ? { status: "newer", ...updates.available } : { status: "idle" });
   const [daily, setDaily] = useState(updates.daily);
@@ -124,6 +130,21 @@ export function AboutSection({
           Open the setup guide
         </Link>
       </Card>
+      {!inDesktopApp && desktopDownload && (
+        <Card padding="none" className="flex flex-wrap items-center justify-between gap-3 px-7 py-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">Desktop app for Mac</span>
+            <span className="text-meta text-muted">
+              {desktopDownload.version
+                ? `Version ${desktopDownload.version}. Unsigned build: first open may need right-click → Open. Your data stays on this computer.`
+                : "Runs HireMe on your Mac with nothing else to install. Unsigned: first open may need right-click → Open."}
+            </span>
+          </div>
+          <a href={desktopDownload.url} className={buttonClassName("secondary", "sm")} {...(desktopDownload.direct ? { download: true } : { target: "_blank", rel: "noopener noreferrer" })}>
+            {desktopDownload.direct ? "Download for Mac" : "Get the desktop app"}
+          </a>
+        </Card>
+      )}
       <Card padding="none" className="px-7 py-4">
         <Toggle
           label="Send the daily usage ping"
@@ -171,8 +192,8 @@ export function AboutSection({
       <p className="text-meta text-muted">Checking asks GitHub for the latest release and sends nothing about you or this install, daily or when you press it.</p>
       <p className="text-meta text-muted">
         The usage ping only goes once you agree. It tells the HireMe project&apos;s maintainer, on the project&apos;s own server, how many installs are in use and how often. The ID is random and says nothing about you, and what&apos;s kept is deleted after a year. To have the rows already kept for this install removed sooner, note its ID, switch the ping off, and send the ID to{" "}
-        <a href="mailto:the issue tracker at https://github.com/shahzadafridi/HireMe/issues" className={LINK}>
-          the issue tracker at https://github.com/shahzadafridi/HireMe/issues
+        <a href={`mailto:the issue tracker at ${REPOSITORY_URL}/issues`} className={LINK}>
+          the issue tracker at {REPOSITORY_URL}/issues
         </a>
         ; you get a confirmation once they&apos;re gone.{" "}
         <a href={USAGE_PING_PRIVACY_URL} target="_blank" rel="noopener noreferrer" className={LINK}>

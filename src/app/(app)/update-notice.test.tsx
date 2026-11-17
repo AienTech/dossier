@@ -11,7 +11,7 @@ import { UpdateNotice } from "./update-notice";
 vi.mock("@/lib/update-actions", () => ({ dismissUpdate: vi.fn(async () => ({ ok: true, data: null })) }));
 vi.mock("@/components/toast", () => ({ toast: vi.fn() }));
 
-const release = { version: "1.6.0", url: "https://github.com/shahzadafridi/HireMe/releases/tag/v1.6.0" };
+const release = { version: "1.6.0", url: "https://github.com/Realtime-Coding/HireMe/releases/tag/v1.6.0" };
 const renderNotice = () =>
   render(
     <aside>
@@ -30,14 +30,14 @@ describe("UpdateNotice", () => {
     const notice = screen.getByRole("region", { name: "HireMe 1.6.0 is out" });
     expect(notice).toHaveTextContent("You have 1.5.0. Update to get its fixes and features.");
     expect(screen.getByRole("link", { name: "What's new (opens in a new tab)" })).toHaveAttribute("href", release.url);
-    expect(screen.getByRole("link", { name: "How to update (opens in a new tab)" })).toHaveAttribute("href", "https://github.com/shahzadafridi/HireMe/wiki/Upgrading");
+    expect(screen.getByRole("link", { name: "How to update (opens in a new tab)" })).toHaveAttribute("href", "https://github.com/Realtime-Coding/HireMe/wiki/Upgrading");
   });
 
   it("offers the download in the desktop app on this computer, and no server guide (#326)", () => {
     render(<UpdateNotice release={release} currentVersion="1.5.0" desktop />);
     const notice = screen.getByRole("region", { name: "HireMe 1.6.0 is out" });
-    expect(notice).toHaveTextContent("You have 1.5.0. Download the new one and install it over this one: your data stays as it is.");
-    expect(screen.getByRole("link", { name: "Download 1.6.0 (opens in your browser)" })).toHaveAttribute("href", release.url);
+    expect(notice).toHaveTextContent("You have 1.5.0. Install the new one over this one: your data stays as it is. The desktop app also offers the update itself when a build is ready.");
+    expect(screen.getByRole("link", { name: "Install update 1.6.0 (opens in your browser)" })).toHaveAttribute("href", release.url);
     expect(screen.queryByRole("link", { name: /How to update/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Not now" })).toBeVisible();
   });

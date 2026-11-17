@@ -21,8 +21,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Auto Mac releases from desktop-mac.yml push tags as github-actions[bot].
+  # Human-created version tags still run the full image + Linux/Windows path.
   release:
     name: Release
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -66,6 +69,7 @@ jobs:
   # fails, start Desktop app by hand for the tag: no new tag needed.
   desktop:
     name: Desktop app
+    if: github.actor != 'github-actions[bot]'
     needs: release
     uses: ./.github/workflows/desktop.yml
     with:

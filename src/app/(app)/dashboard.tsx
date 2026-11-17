@@ -6,6 +6,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
 import type { ApplicationStatus } from "@/generated/prisma/enums";
 import { DASHBOARD_PERIODS, DEFAULT_QUIET_DAYS, type DashboardFigures, type DashboardPeriod } from "@/lib/dashboard";
+import type { DesktopDownload } from "@/lib/desktop-download";
 import type { DayPeriod } from "@/lib/greeting";
 import { STATUSES } from "@/lib/status";
 
@@ -27,6 +28,7 @@ export function Dashboard({
   quietDays = DEFAULT_QUIET_DAYS,
   empty,
   calendar,
+  desktopDownload,
 }: {
   figures: DashboardFigures;
   firstName: string;
@@ -39,6 +41,8 @@ export function Dashboard({
   empty: boolean;
   /** The calendar (E15-6), which the time filter doesn't scope. */
   calendar?: ReactNode;
+  /** Mac desktop download for the hosted app (hidden in the desktop app). */
+  desktopDownload?: DesktopDownload | null;
 }) {
   const { sent, heardBack } = figures;
   // The summary follows the time filter, so it says which period it covers.
@@ -60,6 +64,26 @@ export function Dashboard({
           </Link>
         }
       />
+
+      {desktopDownload && (
+        <div className="px-10 pb-4">
+          <div className="flex max-w-[1200px] flex-wrap items-center justify-between gap-3 rounded-panel border border-line-card bg-card px-5 py-3.5">
+            <p className="text-sm text-muted">
+              Prefer a Mac app?{" "}
+              <span className="text-ink">
+                {desktopDownload.version ? `Version ${desktopDownload.version} is ready to download.` : "Download the desktop app for Mac."}
+              </span>
+            </p>
+            <a
+              href={desktopDownload.url}
+              className={buttonClassName("secondary", "sm")}
+              {...(desktopDownload.direct ? { download: true } : { target: "_blank", rel: "noopener noreferrer" })}
+            >
+              Download for Mac
+            </a>
+          </div>
+        </div>
+      )}
 
       {empty ? (
         <div className="@container px-10 pb-[72px]">

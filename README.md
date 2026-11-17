@@ -23,7 +23,7 @@ It's for one person on a small server: one password, your data in your own Postg
 
 **Get started:** [run it on your computer](#run-it-on-your-computer) in a few minutes, or [self-host it](#self-hosting) on a server. The [installation guide](https://github.com/shahzadafridi/HireMe/wiki) covers every way: Docker with or without Compose, Node.js, a plain Ubuntu server, CapRover, Coolify and Dokploy.
 
-**Or download the desktop app** for Windows or Linux from the [latest release](https://github.com/shahzadafridi/HireMe/releases/latest). It runs HireMe on your computer with nothing else to install, or opens a HireMe you host. See [Desktop app](https://github.com/shahzadafridi/HireMe/wiki/Desktop-app).
+**Or download the desktop app** for Mac, Windows or Linux from the [latest release](https://github.com/Realtime-Coding/HireMe/releases/latest). Mac builds refresh on every push to `main` (unsigned: first open may need right-click → Open). The app can detect a newer build and replace itself. See [Desktop app](https://github.com/Realtime-Coding/HireMe/wiki/Desktop-app).
 
 ## Demo
 
@@ -124,7 +124,7 @@ To put HireMe on a server, on your own domain with HTTPS, follow the [installati
 The [wiki](https://github.com/shahzadafridi/HireMe/wiki) has what comes after installing. It is being carried over from the upstream wiki, which documents the same screens while it is:
 
 - [Choosing an AI provider](https://github.com/shahzadafridi/HireMe/wiki/Choosing-an-AI-provider): a hosted model, or a local one with Ollama or LM Studio.
-- [Choosing a job source](https://github.com/shahzadafridi/HireMe/wiki/Choosing-a-job-source): JSearch, Adzuna or FreeHire (and an unofficial one for Germany), and the job agent.
+- [Choosing a job source](https://github.com/shahzadafridi/HireMe/wiki/Choosing-a-job-source): JSearch, Adzuna or FreeHire (and an unofficial one for Germany), and the job agent. For a local JobSpy scrape that speaks FreeHire’s API, see [jobspy-sidecar/README.md](jobspy-sidecar/README.md).
 - [Connecting Gmail and Calendar](https://github.com/shahzadafridi/HireMe/wiki/Connecting-Gmail-and-Calendar): your own Google OAuth client, step by step.
 - [Connecting Claude](https://github.com/shahzadafridi/HireMe/wiki/Connecting-Claude): the MCP connector, in Claude's apps and on the command line.
 - [Backups and restore](https://github.com/shahzadafridi/HireMe/wiki/Backups-and-restore): exports, nightly backups and database dumps.

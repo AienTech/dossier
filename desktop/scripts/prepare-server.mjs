@@ -3,6 +3,7 @@
 // download is checked against a hash pinned here. Run after the app's own build:
 //
 //   node scripts/prepare-server.mjs --next ../.next --seed ../.next/desktop-seed.mjs --platform win32
+//   node scripts/prepare-server.mjs --platform darwin --arch arm64
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -15,14 +16,23 @@ const NODE_VERSION = "24.22.3";
 const NODE_ABI = "137";
 const BETTER_SQLITE3_VERSION = "12.11.1";
 
+/** Node and better-sqlite3 prebuilds, keyed by `${platform}-${arch}`. */
 const DOWNLOADS = {
-  linux: {
+  "linux-x64": {
     node: { url: `https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.gz`, sha256: "061ec3e3062115705b56b51fa9cc330ab50d34b6969387d4e4b1a50c6809acc2" },
     sqlite: { sha256: "99c43785639d5d3690c396ba245ee680ac8b469a46b19233a3546f0eb7f8e312" },
   },
-  win32: {
+  "win32-x64": {
     node: { url: `https://nodejs.org/dist/v${NODE_VERSION}/win-x64/node.exe`, sha256: "86fc4785327db5f5c7558dc6156c543b433c313e813a222e088086222ab4afa6" },
     sqlite: { sha256: "4ee5e653174d6ddd301605d351798cdae2613da06c4f37ecdce263021fcf1255" },
+  },
+  "darwin-arm64": {
+    node: { url: `https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-arm64.tar.gz`, sha256: "ff6e17d4874b76d272212b908cc020d6e815fba5a6c7eaaa06add725840307fd" },
+    sqlite: { sha256: "6eaefc8a9c088fea873365f7db2c0f89be6ea021ede62f6a71832f5130826a93" },
+  },
+  "darwin-x64": {
+    node: { url: `https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-darwin-x64.tar.gz`, sha256: "977614af0504c81045e7fd85596dbca0e5f951b96681516dadafedcca8c447f7" },
+    sqlite: { sha256: "f9fe570a2ef7d6069196dd595f49bc8592574963dd1f249dcaa8878626773fc9" },
   },
 };
 
@@ -32,10 +42,12 @@ const { values } = parseArgs({
     next: { type: "string", default: path.join(desktop, "..", ".next") },
     seed: { type: "string", default: path.join(desktop, "..", ".next", "desktop-seed.mjs") },
     platform: { type: "string", default: process.platform },
+    arch: { type: "string", default: process.arch === "arm64" ? "arm64" : "x64" },
   },
 });
-const downloads = DOWNLOADS[values.platform];
-if (!downloads) throw new Error(`There's no desktop app for ${values.platform}.`);
+const target = `${values.platform}-${values.arch}`;
+const downloads = DOWNLOADS[target];
+if (!downloads) throw new Error(`There's no desktop app for ${target}.`);
 
 async function download(url, sha256) {
   const response = await fetch(url);
@@ -67,13 +79,13 @@ function replaceLinks(folder, topLevel) {
     const entryPath = path.join(folder, entry);
     const stat = lstatSync(entryPath);
     if (stat.isSymbolicLink()) {
-      const target = realpathSync(entryPath);
+      const targetPath = realpathSync(entryPath);
       rmSync(entryPath);
-      cpSync(target, entryPath, { recursive: true, dereference: true });
-      const parent = path.dirname(target);
+      cpSync(targetPath, entryPath, { recursive: true, dereference: true });
+      const parent = path.dirname(targetPath);
       if (path.basename(parent) !== "node_modules" || parent === topLevel) continue;
       for (const sibling of readdirSync(parent)) {
-        if (sibling !== path.basename(target)) cpSync(path.join(parent, sibling), path.join(entryPath, "node_modules", sibling), { recursive: true, dereference: true });
+        if (sibling !== path.basename(targetPath)) cpSync(path.join(parent, sibling), path.join(entryPath, "node_modules", sibling), { recursive: true, dereference: true });
       }
     } else if (stat.isDirectory()) {
       replaceLinks(entryPath, topLevel);
@@ -106,8 +118,8 @@ for (const entry of readdirSync(server)) {
 // Nothing uses sharp, which is only for next/image, and it's the other native package.
 for (const unused of ["node_modules/sharp", "node_modules/@img"]) rmSync(path.join(server, unused), { recursive: true, force: true });
 
-// The SQLite driver, for this platform.
-const sqliteAsset = `better-sqlite3-v${BETTER_SQLITE3_VERSION}-node-v${NODE_ABI}-${values.platform}-x64.tar.gz`;
+// The SQLite driver, for this platform and arch.
+const sqliteAsset = `better-sqlite3-v${BETTER_SQLITE3_VERSION}-node-v${NODE_ABI}-${values.platform}-${values.arch}.tar.gz`;
 const sqliteArchive = path.join(scratch, sqliteAsset);
 writeFileSync(sqliteArchive, await download(`https://github.com/WiseLibs/better-sqlite3/releases/download/v${BETTER_SQLITE3_VERSION}/${sqliteAsset}`, downloads.sqlite.sha256));
 run("tar", ["-xzf", sqliteArchive, "-C", scratch]);
@@ -136,7 +148,8 @@ if (values.platform === "win32") {
 } else {
   const archive = path.join(scratch, "node.tar.gz");
   writeFileSync(archive, await download(downloads.node.url, downloads.node.sha256));
-  run("tar", ["-xzf", archive, "-C", scratch, "--strip-components=2", `node-v${NODE_VERSION}-linux-x64/bin/node`]);
+  const nodeName = `node-v${NODE_VERSION}-${values.platform}-${values.arch}`;
+  run("tar", ["-xzf", archive, "-C", scratch, "--strip-components=2", `${nodeName}/bin/node`]);
   cpSync(path.join(scratch, "node"), path.join(nodeFolder, "node"));
   chmodSync(path.join(nodeFolder, "node"), 0o755);
 }
@@ -148,4 +161,4 @@ for (const file of filesUnder(out)) {
   if (/^\.env/.test(path.basename(file))) throw new Error(`${file} must never ship: it can hold secrets.`);
   if (lstatSync(file).isSymbolicLink()) throw new Error(`${file} is a link, which an installer can't carry.`);
 }
-console.log(`Ready for ${values.platform}: ${out}`);
+console.log(`Ready for ${target}: ${out}`);

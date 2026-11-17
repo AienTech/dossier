@@ -11,8 +11,12 @@ files:
 # leaves out every node_modules folder.
 afterPack: scripts/after-pack.mjs
 artifactName: HireMe-${version}-${os}-${arch}.${ext}
-# There's no auto-update: people download each new version from the release page.
-publish: null
+# GitHub releases feed electron-updater; CI still builds with --publish never and
+# uploads assets itself. Mac builds are unsigned (no Apple Developer ID).
+publish:
+  provider: github
+  owner: Realtime-Coding
+  repo: HireMe
 linux:
   category: Office
   # The window belongs to the menu entry the .deb installs, hireme-desktop.desktop.
@@ -28,3 +32,13 @@ nsis:
   oneClick: true
   perMachine: false
   deleteAppDataOnUninstall: false
+mac:
+  category: public.app-category.productivity
+  icon: assets/icon.png
+  # Unsigned: first open may need right-click → Open. zip is what electron-updater replaces.
+  identity: null
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: false
+  gatekeeperAssess: false
