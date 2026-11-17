@@ -5,8 +5,8 @@ import { z } from "zod";
 import { fetchPosting } from "@/lib/posting-fetch";
 
 import type { JobSourceAdapter, RequestContext } from "./adapter";
-import { pingDiscoverer } from "./discoverer";
-import { isLocalDiscovererHost } from "./discoverer-host";
+import { discovererAuthHeaders, discovererEnabled, pingDiscoverer } from "./discoverer";
+import { isDiscovererHost, isLocalDiscovererHost } from "./discoverer-host";
 import { jobSearchError } from "./errors";
 import { REQUEST_TIMEOUT_MS, requestJson } from "./http";
 import { POSTED_WITHIN, safeLink, type FoundPosting, type SearchPage, type SearchQuery } from "./search";
@@ -28,18 +28,26 @@ const MAX_RESULTS = 10_000;
 /** Local FreeHire / JobSpy sidecars often scrape; public freehire.me stays at the default. */
 const LOCAL_TIMEOUT_MS = 120_000;
 
-/** How long to wait for one FreeHire search; longer on loopback for JobSpy. */
+/** How long to wait for one FreeHire search; longer for JobSpy (loopback or cloud tunnel). */
 export function freehireTimeoutMs(baseUrl?: string): number {
+  if (discovererEnabled()) return LOCAL_TIMEOUT_MS;
   if (!baseUrl) return REQUEST_TIMEOUT_MS;
   try {
-    const host = new URL(baseUrl).hostname;
-    if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "host.docker.internal") {
-      return LOCAL_TIMEOUT_MS;
-    }
+    if (isLocalDiscovererHost(new URL(baseUrl).host)) return LOCAL_TIMEOUT_MS;
   } catch {
     /* keep the default */
   }
   return REQUEST_TIMEOUT_MS;
+}
+
+function freehireRequestHeaders(baseUrl?: string): Record<string, string> {
+  if (!baseUrl) return {};
+  try {
+    if (isDiscovererHost(new URL(baseUrl).host, discovererEnabled())) return discovererAuthHeaders();
+  } catch {
+    /* no auth */
+  }
+  return {};
 }
 
 const maybeText = z.string().nullish().catch(null);
@@ -151,7 +159,11 @@ async function searchPage(query: SearchQuery, _credentials: Record<string, never
   const offset = pageOffset(next);
   const url = searchUrl(query, offset, context.baseUrl);
   const answer = responseSchema.safeParse(
-    await requestJson("FREEHIRE", url, { signal: context.signal, timeoutMs: freehireTimeoutMs(context.baseUrl) }),
+    await requestJson("FREEHIRE", url, {
+      signal: context.signal,
+      timeoutMs: freehireTimeoutMs(context.baseUrl),
+      headers: freehireRequestHeaders(context.baseUrl),
+    }),
   );
   if (!answer.success) throw jobSearchError("changed", "FREEHIRE", { detail: `${url.pathname}: unexpected answer` });
 
@@ -183,7 +195,7 @@ export const freehire: JobSourceAdapter<"FREEHIRE"> = {
     // Local discoverer: /health is instant. A full search can scrape the whole watchlist and time out.
     if (context.baseUrl) {
       try {
-        if (isLocalDiscovererHost(new URL(context.baseUrl).host)) {
+        if (isDiscovererHost(new URL(context.baseUrl).host, discovererEnabled())) {
           await pingDiscoverer(context.baseUrl);
           return;
         }

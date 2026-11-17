@@ -206,7 +206,9 @@ export const testJobSource = action(z.object({}), async () => {
 
 function requireDiscoverer() {
   if (!discovererBaseUrl()) {
-    throw new ActionError("Point HIREME_FREEHIRE_URL at your local discoverer (e.g. http://127.0.0.1:8787) first.");
+    throw new ActionError(
+      "Point HIREME_FREEHIRE_URL at the JobSpy discoverer (e.g. http://127.0.0.1:8787, or a Cloudflare tunnel with HIREME_DISCOVERER=on) first.",
+    );
   }
 }
 

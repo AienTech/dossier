@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { JOB_SOURCES, type JobSource, type JSearchHost } from "@/lib/job-search/search";
-import { isLocalDiscovererHost } from "@/lib/job-search/discoverer-host";
+import { isDiscovererHost } from "@/lib/job-search/discoverer-host";
 import { FREEHIRE_URL, JSEARCH_KEY_URLS, SOURCE_INFO, type JobSearchSettingsView } from "@/lib/job-search/sources";
 import { cn } from "@/lib/cn";
 
@@ -176,9 +176,11 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
             )}
             {source === "FREEHIRE" && (
               <p className="text-sm text-muted">
-                {view.freehire.host === new URL(FREEHIRE_URL).host
-                  ? `No key needed. HireMe searches FreeHire's public catalogue at ${view.freehire.host}.`
-                  : `No key needed. HireMe searches ${view.freehire.host} (self-hosted FreeHire or a JobSpy sidecar).`}
+                {view.freehire.discoverer
+                  ? `No key needed. HireMe searches the JobSpy discoverer at ${view.freehire.host} (company watchlist + scrape).`
+                  : view.freehire.host === new URL(FREEHIRE_URL).host
+                    ? `No key needed. HireMe searches FreeHire's public catalogue at ${view.freehire.host}.`
+                    : `No key needed. HireMe searches ${view.freehire.host} (self-hosted FreeHire or a JobSpy sidecar).`}
               </p>
             )}
 
@@ -192,7 +194,9 @@ export function JobSearchSection({ initial }: { initial: JobSearchSettingsView }
             )}
           </Card>
 
-          {source === "FREEHIRE" && isLocalDiscovererHost(view.freehire.host) && <WatchlistSection host={view.freehire.host} />}
+          {source === "FREEHIRE" && isDiscovererHost(view.freehire.host, view.freehire.discoverer) && (
+            <WatchlistSection host={view.freehire.host} />
+          )}
         </>
       )}
     </>

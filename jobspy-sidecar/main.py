@@ -21,20 +21,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 import scrape as scrape_runner
 import store
 
-HOST = os.environ.get("JOBSPY_HOST", "127.0.0.1")
+
+def _env_on(name: str, default: str = "1") -> bool:
+    return os.environ.get(name, default).strip().lower() not in {"0", "false", "off", "no"}
+
+
+BRIDGE_TOKEN = os.environ.get("JOBSPY_BRIDGE_TOKEN", "").strip()
+BRIDGE = _env_on("JOBSPY_BRIDGE", "0") if "JOBSPY_BRIDGE" in os.environ else bool(BRIDGE_TOKEN)
+HOST = os.environ.get("JOBSPY_HOST") or ("0.0.0.0" if BRIDGE else "127.0.0.1")
 PORT = int(os.environ.get("JOBSPY_PORT", "8787"))
 CACHE_TTL_SEC = int(os.environ.get("JOBSPY_CACHE_TTL_SEC", "900"))
 RESULTS_PER_SITE = int(os.environ.get("JOBSPY_RESULTS_PER_SITE", "20"))
-ENABLE_JOBSPY = os.environ.get("JOBSPY_ENABLE_BOARDS", "1").strip().lower() not in {"0", "false", "off", "no"}
-ENABLE_ATS = os.environ.get("JOBSPY_ENABLE_ATS", "1").strip().lower() not in {"0", "false", "off", "no"}
-AUTO_SCRAPE_ON_EMPTY = os.environ.get("JOBSPY_AUTO_SCRAPE_ON_EMPTY", "1").strip().lower() not in {"0", "false", "off", "no"}
+ENABLE_JOBSPY = _env_on("JOBSPY_ENABLE_BOARDS")
+ENABLE_ATS = _env_on("JOBSPY_ENABLE_ATS")
+AUTO_SCRAPE_ON_EMPTY = _env_on("JOBSPY_AUTO_SCRAPE_ON_EMPTY")
 
 SITES = [
     part.strip()
@@ -95,8 +104,30 @@ app = FastAPI(title="HireMe local job discoverer", version="2.0.0")
 store.ensure_dirs()
 
 
+class BridgeAuthMiddleware(BaseHTTPMiddleware):
+    """When JOBSPY_BRIDGE_TOKEN is set, API routes require that token (cloud bridge)."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
+        if not BRIDGE_TOKEN:
+            return await call_next(request)
+        path = request.url.path
+        if request.method == "GET" and path in {"/", "/health"}:
+            return await call_next(request)
+        header = (request.headers.get("x-hireme-discoverer-token") or "").strip()
+        auth = (request.headers.get("authorization") or "").strip()
+        bearer = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+        if header != BRIDGE_TOKEN and bearer != BRIDGE_TOKEN:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        return await call_next(request)
+
+
+app.add_middleware(BridgeAuthMiddleware)
+
+
 class Health(BaseModel):
     ok: bool = True
+    discoverer: bool = True
+    bridge: bool = False
     sites: list[str] = Field(default_factory=list)
     ats_enabled: bool = True
     boards_enabled: bool = True
@@ -485,6 +516,8 @@ def home() -> str:
 def health() -> Health:
     return Health(
         ok=True,
+        discoverer=True,
+        bridge=BRIDGE or bool(BRIDGE_TOKEN),
         sites=list(SITES),
         ats_enabled=ENABLE_ATS,
         boards_enabled=ENABLE_JOBSPY,

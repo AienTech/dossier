@@ -26,7 +26,7 @@ describe("resolveJobSearchConfig", () => {
       jsearch: { host: "openwebninja", keyState: "none" },
       adzuna: { appId: "", keyState: "none" },
       arbeitsagentur: { offered: true, acceptedAt: null },
-      freehire: { host: "freehire.me" },
+      freehire: { host: "freehire.me", discoverer: false },
     });
   });
 
@@ -149,9 +149,18 @@ describe("FreeHire from the environment", () => {
   });
 
   it("searches freehire.me, or the self-hosted FreeHire HIREME_FREEHIRE_URL names", () => {
-    expect(resolveJobSearchConfig(nothingSaved, noEnv).freehire).toEqual({ url: "https://freehire.me" });
+    expect(resolveJobSearchConfig(nothingSaved, noEnv).freehire).toEqual({ url: "https://freehire.me", discoverer: false });
     const own = resolveJobSearchConfig(nothingSaved, { HIREME_FREEHIRE_URL: "https://jobs.example:8443" });
-    expect(own.freehire).toEqual({ url: "https://jobs.example:8443" });
-    expect(jobSearchView(own).freehire).toEqual({ host: "jobs.example:8443" });
+    expect(own.freehire).toEqual({ url: "https://jobs.example:8443", discoverer: false });
+    expect(jobSearchView(own).freehire).toEqual({ host: "jobs.example:8443", discoverer: false });
+  });
+
+  it("treats a tunnel FreeHire URL as the discoverer when HIREME_DISCOVERER is on", () => {
+    const bridged = resolveJobSearchConfig(nothingSaved, {
+      HIREME_FREEHIRE_URL: "https://jobspy.example.com",
+      HIREME_DISCOVERER: "on",
+    });
+    expect(bridged.freehire).toEqual({ url: "https://jobspy.example.com", discoverer: true });
+    expect(jobSearchView(bridged).freehire).toEqual({ host: "jobspy.example.com", discoverer: true });
   });
 });

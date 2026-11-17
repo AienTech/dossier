@@ -20,7 +20,7 @@ const off: JobSearchSettingsView = {
   jsearch: { host: "openwebninja", keyState: "none" },
   adzuna: { appId: "", keyState: "none" },
   arbeitsagentur: { offered: true, acceptedAt: null },
-  freehire: { host: "freehire.me" },
+  freehire: { host: "freehire.me", discoverer: false },
 };
 const ACCEPTED = "2026-10-23T09:00:00.000Z";
 const withSource = (view: Partial<JobSearchSettingsView>): JobSearchSettingsView => ({ ...off, ...view });
@@ -137,8 +137,11 @@ describe("JobSearchSection", () => {
     expect(screen.queryByLabelText(/key/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Test connection" })).toBeInTheDocument();
     unmount();
-    render(<JobSearchSection initial={withSource({ source: "FREEHIRE", freehire: { host: "jobs.example" } })} />);
+    const selfHosted = render(<JobSearchSection initial={withSource({ source: "FREEHIRE", freehire: { host: "jobs.example", discoverer: false } })} />);
     expect(screen.getByText("No key needed. HireMe searches jobs.example (self-hosted FreeHire or a JobSpy sidecar).")).toBeInTheDocument();
+    selfHosted.unmount();
+    render(<JobSearchSection initial={withSource({ source: "FREEHIRE", freehire: { host: "jobspy.example.com", discoverer: true } })} />);
+    expect(screen.getByText("No key needed. HireMe searches the JobSpy discoverer at jobspy.example.com (company watchlist + scrape).")).toBeInTheDocument();
   });
 
   it("shows keys from the environment and keys that can't be read", () => {

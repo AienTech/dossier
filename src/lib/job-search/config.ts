@@ -7,6 +7,7 @@ import { loadSettings } from "@/lib/settings-data";
 
 import type { RequestContext, SourceCredentials } from "./adapter";
 import { JobSearchError, jobSearchError } from "./errors";
+import { isDiscovererHost } from "./discoverer-host";
 import type { JobSource, JSearchHost } from "./search";
 import { ARBEITSAGENTUR_NOTE, FREEHIRE_URL, SOURCE_INFO, type JobKeyState, type JobSearchSettingsView } from "./sources";
 
@@ -26,8 +27,8 @@ export type JobSearchConfig = {
    * when its note was accepted. Its searches wait until then.
    */
   arbeitsagentur: { offered: boolean; acceptedAt: string | null };
-  /** The FreeHire to search: freehire.me, or a self-hosted one (HIREME_FREEHIRE_URL). */
-  freehire: { url: string };
+  /** The FreeHire to search: freehire.me, or a self-hosted / discoverer one (HIREME_FREEHIRE_URL). */
+  freehire: { url: string; discoverer: boolean };
 };
 
 type SavedJobSettings = Pick<SettingsData, "jobSource" | "jsearchKeyEnc" | "jsearchHost" | "adzunaAppId" | "adzunaKeyEnc" | "arbeitsagenturAcceptedAt">;
@@ -39,6 +40,7 @@ type JobEnv = Pick<
   | "HIREME_ADZUNA_APP_ID"
   | "HIREME_ADZUNA_KEY"
   | "HIREME_FREEHIRE_URL"
+  | "HIREME_DISCOVERER"
   | "HIREME_JOBS_ARBEITSAGENTUR"
 >;
 
@@ -81,7 +83,16 @@ export function resolveJobSearchConfig(saved: SavedJobSettings, source: JobEnv, 
       ...keyOf(saved.adzunaKeyEnc, source.HIREME_ADZUNA_KEY, secret),
     },
     arbeitsagentur: { offered, acceptedAt: saved.arbeitsagenturAcceptedAt },
-    freehire: { url: source.HIREME_FREEHIRE_URL ?? FREEHIRE_URL },
+    freehire: (() => {
+      const url = source.HIREME_FREEHIRE_URL ?? FREEHIRE_URL;
+      let host = "freehire.me";
+      try {
+        host = new URL(url).host;
+      } catch {
+        /* keep default */
+      }
+      return { url, discoverer: isDiscovererHost(host, source.HIREME_DISCOVERER === "on") };
+    })(),
   };
 }
 
@@ -107,7 +118,7 @@ export function jobSearchView(config: JobSearchConfig): JobSearchSettingsView {
     jsearch: { host: config.jsearch.host, keyState: config.jsearch.keyState },
     adzuna: { appId: config.adzuna.appId, keyState: config.adzuna.keyState },
     arbeitsagentur: config.arbeitsagentur,
-    freehire: { host: new URL(config.freehire.url).host },
+    freehire: { host: new URL(config.freehire.url).host, discoverer: config.freehire.discoverer },
   };
 }
 

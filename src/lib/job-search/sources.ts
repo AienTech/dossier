@@ -10,8 +10,12 @@ export type JobSearchSettingsView = {
   adzuna: { appId: string; keyState: JobKeyState };
   /** Whether this server offers the Bundesagentur für Arbeit, and when its note was accepted (#223). */
   arbeitsagentur: { offered: boolean; acceptedAt: string | null };
-  /** The FreeHire it searches: "freehire.me", or a self-hosted one's host (HIREME_FREEHIRE_URL). */
-  freehire: { host: string };
+  /** The FreeHire it searches: "freehire.me", or a self-hosted / JobSpy discoverer host. */
+  freehire: {
+    host: string;
+    /** True for loopback JobSpy or when HIREME_DISCOVERER=on (cloud tunnel). */
+    discoverer: boolean;
+  };
 };
 
 /** Where to get a JSearch key, by where it's from. */

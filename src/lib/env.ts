@@ -135,10 +135,22 @@ const schema = z.object({
   HIREME_ADZUNA_KEY: optional(z.string()),
   // FreeHire origin; unset uses https://freehire.me. Point at a self-hosted
   // FreeHire or the local JobSpy sidecar (jobspy-sidecar/), or leave unset
-  // for the public catalogue.
+  // for the public catalogue. For a cloud tunnel to the sidecar, also set
+  // HIREME_DISCOVERER=on (and HIREME_DISCOVERER_TOKEN to match JOBSPY_BRIDGE_TOKEN).
   HIREME_FREEHIRE_URL: optional(
     z.url({ protocol: /^https?$/, error: "HIREME_FREEHIRE_URL must be an http:// or https:// URL." }).transform((url) => url.replace(/\/+$/, "")),
   ),
+  // Treat HIREME_FREEHIRE_URL as the JobSpy / local discoverer even when the
+  // host is not loopback (Cloudflare named tunnel to the Mac sidecar).
+  HIREME_DISCOVERER: optional(
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .pipe(z.enum(["on", "off"], { error: (issue) => `HIREME_DISCOVERER must be on or off (got "${String(issue.input)}").` })),
+  ),
+  // Shared with JOBSPY_BRIDGE_TOKEN on the sidecar when bridging over the internet.
+  HIREME_DISCOVERER_TOKEN: optional(z.string().trim()),
   // Off takes the Bundesagentur für Arbeit out everywhere (#223): it isn't an
   // official API, so a server can choose not to offer it. Unset means on.
   HIREME_JOBS_ARBEITSAGENTUR: optional(

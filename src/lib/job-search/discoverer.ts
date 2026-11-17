@@ -2,15 +2,26 @@ import "server-only";
 
 import { env } from "@/lib/env";
 
-import { isLocalDiscovererHost, type DiscovererCompany, type DiscovererProgress } from "./discoverer-host";
+import { isDiscovererHost, isLocalDiscovererHost, type DiscovererCompany, type DiscovererProgress } from "./discoverer-host";
 
-export { isLocalDiscovererHost, type DiscovererCompany, type DiscovererProgress } from "./discoverer-host";
+export { isDiscovererHost, isLocalDiscovererHost, type DiscovererCompany, type DiscovererProgress } from "./discoverer-host";
+
+/** Whether this install treats FreeHire as the JobSpy discoverer (local or tunnel). */
+export function discovererEnabled(): boolean {
+  return env.HIREME_DISCOVERER === "on";
+}
+
+export function discovererAuthHeaders(): Record<string, string> {
+  const token = env.HIREME_DISCOVERER_TOKEN;
+  return token ? { "x-hireme-discoverer-token": token } : {};
+}
 
 export function discovererBaseUrl(): string | null {
   const url = env.HIREME_FREEHIRE_URL;
   if (!url) return null;
   try {
-    if (!isLocalDiscovererHost(new URL(url).host)) return null;
+    const host = new URL(url).host;
+    if (!isDiscovererHost(host, discovererEnabled())) return null;
   } catch {
     return null;
   }
@@ -24,7 +35,7 @@ async function discovererFetch(path: string, init?: RequestInit): Promise<Respon
     ...init,
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
-    headers: { accept: "application/json", ...(init?.headers ?? {}) },
+    headers: { accept: "application/json", ...discovererAuthHeaders(), ...(init?.headers ?? {}) },
   });
   return response;
 }
@@ -83,9 +94,9 @@ export async function pingDiscoverer(baseUrl: string): Promise<void> {
   const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/health`, {
     cache: "no-store",
     signal: AbortSignal.timeout(5_000),
-    headers: { accept: "application/json" },
+    headers: { accept: "application/json", ...discovererAuthHeaders() },
   });
   if (!response.ok) throw new Error(`health HTTP ${response.status}`);
-  const body = (await response.json()) as { ok?: boolean };
+  const body = (await response.json()) as { ok?: boolean; discoverer?: boolean };
   if (!body.ok) throw new Error("health not ok");
 }

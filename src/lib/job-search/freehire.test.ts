@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { json, stubFetch } from "@/lib/ai/test-http";
 import { freehireLastPage, freehirePage } from "@/test/job-search-fixtures";
 
+vi.mock("@/lib/env", () => ({ env: { HIREME_DISCOVERER: undefined, HIREME_DISCOVERER_TOKEN: undefined, HIREME_FREEHIRE_URL: undefined } }));
+
 import { freehire, freehireTimeoutMs } from "./freehire";
 import { REQUEST_TIMEOUT_MS } from "./http";
 import { EMPTY_QUERY } from "./search";
