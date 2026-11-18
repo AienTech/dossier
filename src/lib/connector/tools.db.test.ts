@@ -297,8 +297,40 @@ describe("the Claude connector's tools (#221)", () => {
     ]);
     await prisma().postingScore.createMany({
       data: [
-        { source: "JSEARCH", externalId: "a1", profileId: TEST_PROFILE_ID, score: 72, reasons: ["Figma"], redFlags: ["Junior"], scoredWith: "test" },
-        { source: "JSEARCH", externalId: "a2", profileId: TEST_PROFILE_ID, score: 92, reasons: ["Design systems"], redFlags: [], scoredWith: "test" },
+        {
+          source: "JSEARCH",
+          externalId: "a1",
+          profileId: TEST_PROFILE_ID,
+          score: 72,
+          reasons: ["Figma"],
+          redFlags: ["Junior"],
+          breakdown: {
+            factors: [],
+            cap: null,
+            requirements: [
+              { text: "Figma", mustHave: true, covered: true, evidence: null },
+              { text: "Design systems", mustHave: true, covered: false, evidence: null },
+            ],
+          },
+          scoredWith: "test",
+        },
+        {
+          source: "JSEARCH",
+          externalId: "a2",
+          profileId: TEST_PROFILE_ID,
+          score: 92,
+          reasons: ["Design systems"],
+          redFlags: [],
+          breakdown: {
+            factors: [],
+            cap: null,
+            requirements: [
+              { text: "Figma", mustHave: true, covered: true, evidence: null },
+              { text: "Design systems", mustHave: true, covered: true, evidence: null },
+            ],
+          },
+          scoredWith: "test",
+        },
       ],
     });
     const draft = await prisma().application.findFirstOrThrow({ where: { company: "Ledgerly" } });
