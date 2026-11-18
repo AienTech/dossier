@@ -110,7 +110,12 @@ export function sectionGapParagraph(ctx: DocContext, before: number): Paragraph 
   });
 }
 
-/** A section heading, with the gap above it when there is one. */
+/**
+ * Keep a non-keeping paragraph before every heading, even at a column's top.
+ * Word treats a cell starting with `keepNext` as keeping the table with what
+ * follows, which can move the whole columns table onto the next page. One
+ * twip (0.05 pt) breaks that chain without restoring the visible section gap.
+ */
 export function sectionTitle(ctx: DocContext, title: string, before: number): Paragraph[] {
-  return [...(before > 0 ? [sectionGapParagraph(ctx, before)] : []), sectionHeading(ctx, title)];
+  return [sectionGapParagraph(ctx, Math.max(1, before)), sectionHeading(ctx, title)];
 }

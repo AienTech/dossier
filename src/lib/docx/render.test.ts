@@ -366,15 +366,27 @@ describe("renderResumeDocx", () => {
     expect(paragraphs(photoCell)[0] ?? "").toContain("<w:drawing>");
     expect(paragraphs(photoCell)[1] ?? "").toContain(gapLine);
     expect(paragraphs(photoCell)[2] ?? "").toContain(">Contact</w:t>");
-    expect(paragraphs(mainCell)[0] ?? "").toContain(">Profile</w:t>");
+    const firstMain = paragraphs(mainCell)[0] ?? "";
+    expect(firstMain).toContain('w:line="1" w:lineRule="exact"');
+    expect(firstMain).not.toContain("<w:keepNext");
+    expect(paragraphs(mainCell)[1] ?? "").toContain(">Profile</w:t>");
 
-    const withoutPhoto = xml(
-      unzip(await renderResumeDocx(prepareResume({ ...options, profile: { ...profile, references: [] } }))),
-      "word/document.xml",
-    );
-    const [contactCell = "", , mainCellNoPhoto = ""] = cells(withoutPhoto);
-    expect(paragraphs(contactCell)[0] ?? "").toContain(">Contact</w:t>");
-    expect(paragraphs(mainCellNoPhoto)[0] ?? "").toContain(">Profile</w:t>");
+    // These layouts regressed in real Word when both cells began directly
+    // with a keep-with-next heading: page 1 held only the resume's header.
+    for (const id of ["modern", "technical", "ledger", "studio", "console"]) {
+      const withoutPhoto = xml(
+        unzip(await renderResumeDocx(prepareResume({ ...options, theme: theme(id), profile: { ...profile, references: [] } }))),
+        "word/document.xml",
+      );
+      const [contactCell = "", , mainCellNoPhoto = ""] = cells(withoutPhoto);
+      for (const [cell, heading] of [[contactCell, "Contact"], [mainCellNoPhoto, "Profile"]]) {
+        const [boundary = "", title = ""] = paragraphs(cell);
+        expect(boundary, id).toContain('w:line="1" w:lineRule="exact"');
+        expect(boundary, id).not.toContain("<w:keepNext");
+        expect(title, id).toContain(`>${heading}</w:t>`);
+        expect(title, id).toContain("<w:keepNext");
+      }
+    }
   });
 
   it("ends a layout table with a zero-height paragraph so Word does not add a blank page", async () => {

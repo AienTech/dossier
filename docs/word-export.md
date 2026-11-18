@@ -152,3 +152,20 @@ Use a private output directory; the normal test run writes no comparison bundle.
 Generated documents, comparison images, VM automation and machine-specific
 logs stay outside version control. This run does not certify other Word
 versions, every glyph in every script, or pixel-identical pagination.
+
+### Column headings and pagination
+
+A column's first heading has no visible section gap above it, but must not
+be its cell's first paragraph. When both cells started with keep-with-next
+headings, real Word moved some columns tables to page 2, leaving only the
+resume header on page 1. A non-keeping, 1-twip (0.05 pt) boundary paragraph
+prevents that without restoring the old visible gap. Headings still keep
+with their first item. Regression tests check the boundary in Modern,
+Technical, Ledger, Studio and Console without photos, and preserve Modern's
+photo-to-contact gap.
+
+Real Word verification repeated all 45 fixtures after this fix: all 10
+header-only first pages were eliminated, all page counts matched Chromium,
+and none exceeded the pre-spacing-change baseline. Modern and Studio with
+sidebar photos retained their tighter heading positions within 0.12 pt.
+The DOCX text and Chromium reference renders were unchanged.
