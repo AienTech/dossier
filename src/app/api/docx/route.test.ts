@@ -7,6 +7,8 @@ import { renderLetterDocx, renderResumeDocx } from "@/lib/docx/render";
 import { renderPdf } from "@/lib/pdf/render";
 import { prisma } from "@/lib/prisma";
 import { loadProfile, loadProfileName } from "@/lib/profile-data";
+import { profileSettingsFrom } from "@/lib/profile-settings";
+import { loadProfileSettings, profileIdOr } from "@/lib/profiles";
 import { settingsFromRows } from "@/lib/settings";
 import { loadSettings } from "@/lib/settings-data";
 import { loadTheme } from "@/lib/theme-data";
@@ -21,6 +23,7 @@ vi.mock("@/lib/docx/render", () => ({
   renderLetterDocx: vi.fn(async () => new Uint8Array([80, 75, 3, 4])),
 }));
 vi.mock("@/lib/profile-data", () => ({ loadProfile: vi.fn(), loadProfileName: vi.fn() }));
+vi.mock("@/lib/profiles", () => ({ loadProfileSettings: vi.fn(), profileIdOr: vi.fn() }));
 vi.mock("@/lib/settings-data", () => ({ loadSettings: vi.fn() }));
 vi.mock("@/lib/theme-data", () => ({ loadTheme: vi.fn(), THEME_FIELDS: {} }));
 vi.mock("@/lib/prisma", () => ({ prisma: { application: { findUnique: vi.fn() } } }));
@@ -85,6 +88,8 @@ beforeEach(() => {
   vi.mocked(loadProfileName).mockResolvedValue("Jane Doe");
   vi.mocked(loadProfile).mockClear().mockResolvedValue(profile as never);
   vi.mocked(loadSettings).mockResolvedValue(settingsFromRows([]));
+  vi.mocked(profileIdOr).mockImplementation(async (id) => id || "profile1");
+  vi.mocked(loadProfileSettings).mockResolvedValue(profileSettingsFrom({}));
   vi.mocked(loadTheme).mockResolvedValue(BUILT_IN_THEMES[0]);
   vi.mocked(prisma.application.findUnique).mockReset().mockResolvedValue(application as never);
   vi.mocked(renderResumeDocx).mockClear();
@@ -103,6 +108,19 @@ describe("GET /api/docx", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([80, 75, 3, 4]));
     expect(renderPdf).not.toHaveBeenCalled();
+  });
+
+  it("uses the selected profile and its own base resume settings", async () => {
+    vi.mocked(loadProfileSettings).mockResolvedValue(profileSettingsFrom({
+      baseThemeId: "studio",
+      resumeLanguage: "German",
+    }));
+    await get("?doc=base&profile=second-profile");
+    expect(profileIdOr).toHaveBeenCalledWith("second-profile");
+    expect(loadProfileSettings).toHaveBeenCalledWith("second-profile");
+    expect(loadProfile).toHaveBeenCalledWith("second-profile");
+    expect(loadTheme).toHaveBeenCalledWith("studio");
+    expect(renderResumeDocx).toHaveBeenCalledWith(expect.objectContaining({ lang: "de" }));
   });
 
   it("downloads a tailored resume and cover letter, named for the application", async () => {
@@ -163,23 +181,23 @@ describe("GET /api/docx", () => {
 
   it("passes base sections through and shares PDF's first fitting level", async () => {
     const sections = { order: ["skills", "summary"], off: ["education"], titles: { skills: "Expertise" } };
-    vi.mocked(loadSettings).mockResolvedValue(settingsFromRows([
-      { key: "resumeSections", value: JSON.stringify(sections) },
-      { key: "fitBaseResume", value: "true" },
-    ]));
+    vi.mocked(loadProfileSettings).mockResolvedValue(profileSettingsFrom({
+      resumeSections: JSON.stringify(sections),
+      fitBaseResume: "true",
+    }));
     vi.mocked(renderPdf).mockImplementation(async (path) => new TextEncoder().encode(
-      `%PDF ${"/Type /Page ".repeat(path === "/print/base?fit=2" ? 1 : 2)}`,
+      `%PDF ${"/Type /Page ".repeat(path === "/print/base?profile=profile1&fit=2" ? 1 : 2)}`,
     ));
     await get("?doc=base");
     expect(renderResumeDocx).toHaveBeenCalledWith(expect.objectContaining({
       sections,
       resolved: resolveTheme(BUILT_IN_THEMES[0], undefined, 2),
     }));
-    expect(vi.mocked(renderPdf).mock.calls.map(([path]) => path)).toEqual(["/print/base", "/print/base?fit=1", "/print/base?fit=2"]);
+    expect(vi.mocked(renderPdf).mock.calls.map(([path]) => path)).toEqual(["/print/base?profile=profile1", "/print/base?profile=profile1&fit=1", "/print/base?profile=profile1&fit=2"]);
   });
 
   it("keeps normal formatting when PDF already fits, and uses the tightest level when it cannot fit", async () => {
-    vi.mocked(loadSettings).mockResolvedValue(settingsFromRows([{ key: "fitBaseResume", value: "true" }]));
+    vi.mocked(loadProfileSettings).mockResolvedValue(profileSettingsFrom({ fitBaseResume: "true" }));
     await get("?doc=base");
     expect(renderResumeDocx).toHaveBeenLastCalledWith(expect.objectContaining({
       resolved: resolveTheme(BUILT_IN_THEMES[0], undefined, 0),
@@ -195,14 +213,14 @@ describe("GET /api/docx", () => {
   });
 
   it("does not apply base fitting to tailored resumes or letters", async () => {
-    vi.mocked(loadSettings).mockResolvedValue(settingsFromRows([{ key: "fitBaseResume", value: "true" }]));
+    vi.mocked(loadProfileSettings).mockResolvedValue(profileSettingsFrom({ fitBaseResume: "true" }));
     await get("?doc=resume&application=app1");
     await get("?doc=letter&application=app1");
     expect(renderPdf).not.toHaveBeenCalled();
   });
 
   it("does not silently export unfitted Word when PDF measurement fails", async () => {
-    vi.mocked(loadSettings).mockResolvedValue(settingsFromRows([{ key: "fitBaseResume", value: "true" }]));
+    vi.mocked(loadProfileSettings).mockResolvedValue(profileSettingsFrom({ fitBaseResume: "true" }));
     vi.mocked(renderPdf).mockRejectedValueOnce(new Error("Chromium unavailable"));
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
@@ -222,7 +240,7 @@ describe("GET /api/docx", () => {
 
   it("falls back to base sections for an application without a valid layout", async () => {
     const sections = { order: ["languages", "skills"], off: ["projects"] };
-    vi.mocked(loadSettings).mockResolvedValue(settingsFromRows([{ key: "resumeSections", value: JSON.stringify(sections) }]));
+    vi.mocked(loadProfileSettings).mockResolvedValue(profileSettingsFrom({ resumeSections: JSON.stringify(sections) }));
     vi.mocked(prisma.application.findUnique).mockResolvedValue({ ...application, sections: { invalid: true } } as never);
     await get("?doc=resume&application=app1");
     expect(renderResumeDocx).toHaveBeenCalledWith(expect.objectContaining({ sections }));

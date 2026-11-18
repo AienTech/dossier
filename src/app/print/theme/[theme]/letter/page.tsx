@@ -5,6 +5,7 @@ import { CoverLetterDocument } from "@/components/documents/cover-letter-documen
 import { Tone } from "@/generated/prisma/enums";
 import { demoLetterDate, demoLetterUnits, demoProfile } from "@/lib/demo-profile";
 import { verifyPrintAccess } from "@/lib/pdf/print-access";
+import { loadProfileSettings } from "@/lib/profiles";
 import { loadSettings } from "@/lib/settings-data";
 import { BUILT_IN_THEMES, printCss } from "@/lib/themes";
 
@@ -21,7 +22,8 @@ export default async function PrintThemeLetterPage({ params }: PageProps<"/print
   await verifyPrintAccess(`/print/theme/${id}/letter`);
   const theme = BUILT_IN_THEMES.find((entry) => entry.id === id);
   if (!theme) notFound();
-  const settings = await loadSettings();
+  const [globalSettings, own] = await Promise.all([loadSettings(), loadProfileSettings()]);
+  const settings = { ...globalSettings, ...own };
   const profile = demoProfile();
 
   return (

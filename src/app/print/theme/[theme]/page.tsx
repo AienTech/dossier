@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ResumeDocument } from "@/components/documents/resume-document";
 import { verifyPrintAccess } from "@/lib/pdf/print-access";
 import { loadProfile } from "@/lib/profile-data";
+import { loadProfileSettings } from "@/lib/profiles";
 import { loadSettings } from "@/lib/settings-data";
 import { BUILT_IN_THEMES, printCss } from "@/lib/themes";
 
@@ -20,7 +21,8 @@ export default async function PrintThemeSamplePage({ params }: PageProps<"/print
   await verifyPrintAccess(`/print/theme/${id}`);
   const theme = BUILT_IN_THEMES.find((entry) => entry.id === id);
   if (!theme) notFound();
-  const [profile, settings] = await Promise.all([loadProfile(), loadSettings()]);
+  const [profile, globalSettings, own] = await Promise.all([loadProfile(), loadSettings(), loadProfileSettings()]);
+  const settings = { ...globalSettings, ...own };
 
   return (
     <>

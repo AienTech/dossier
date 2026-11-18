@@ -11,6 +11,7 @@ import { renderLetterDocx, renderResumeDocx } from "@/lib/docx/render";
 import { contentDisposition } from "@/lib/file-name";
 import { renderPdf } from "@/lib/pdf/render";
 import { loadProfile } from "@/lib/profile-data";
+import { loadProfileSettings } from "@/lib/profiles";
 import { route } from "@/lib/route";
 import { loadSettings } from "@/lib/settings-data";
 import { BUILT_IN_THEMES } from "@/lib/themes";
@@ -27,7 +28,8 @@ const WINDOWS_SCRIPT = join(process.cwd(), "scripts", "docx-to-pdf.ps1");
  */
 export const GET = route(async () => {
   if (process.env.NODE_ENV === "production") return new NextResponse("Not found", { status: 404 });
-  const [profile, settings] = await Promise.all([loadProfile(), loadSettings()]);
+  const [profile, globalSettings, own] = await Promise.all([loadProfile(), loadSettings(), loadProfileSettings()]);
+  const settings = { ...globalSettings, ...own };
   const today = new Date();
   const demo = demoProfile();
   const themeById = (id: string) => {

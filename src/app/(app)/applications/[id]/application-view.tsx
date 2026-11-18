@@ -1,13 +1,12 @@
 "use client";
 
-import { Download, FileCheck, FileText, NotebookPen, Reply, Send, type LucideIcon } from "lucide-react";
+import { FileCheck, FileText, NotebookPen, Reply, Send, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 
 import { plainUnit, type UnitRenderer } from "@/components/documents/document-page";
 import { DocumentPreview } from "@/components/documents/document-preview";
-import { DownloadPdfButton } from "@/components/documents/download-pdf-button";
 import { DownloadSplitButton } from "@/components/documents/download-split-button";
 import { TailoredLetter, TailoredResume } from "@/components/documents/tailored-documents";
 import { toast, toastResult } from "@/components/toast";
@@ -1073,7 +1072,9 @@ export function ApplicationView({
         wordHref={`/api/docx?doc=${doc}&application=${application.id}`}
         pdfProgress={`Rendering your ${what} as a PDF…`}
         wordProgress={`Preparing your ${what} as a Word document…`}
-      />
+      >
+        <span className="sr-only">Download the {what} as a</span> PDF
+      </DownloadSplitButton>
     );
   };
   const historyButton = (document: DocumentKind) => (

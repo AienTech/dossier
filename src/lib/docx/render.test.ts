@@ -115,6 +115,7 @@ const expandedProfile: ProfileData = {
     id: format,
     title: `${format} heading`,
     format,
+    countsAs: "EXTRA_ACTIVITIES" as const,
     items: [{ id: `${format}-item`, title: format === "LINES" ? "**Award** for *service*" : `${format} item`, subtitle: "Award foundation", startYear: 2022, startMonth: null, endYear: null, endMonth: null, current: false, details: "Won the regional award", link: "https://example.org/award", onResumes: true }],
   })),
 };

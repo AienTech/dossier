@@ -8,6 +8,7 @@ import { renderLetterDocx, renderResumeDocx } from "@/lib/docx/render";
 import { resolveFileName } from "@/lib/file-name";
 import { renderBaseResumePdf } from "@/lib/pdf/base-resume";
 import { loadProfile, loadProfileName } from "@/lib/profile-data";
+import { loadProfileSettings, profileIdOr } from "@/lib/profiles";
 import { loadSettings } from "@/lib/settings-data";
 import { loadTheme } from "@/lib/theme-data";
 import { BUILT_IN_THEMES, withoutSidebar } from "@/lib/themes";
@@ -37,16 +38,18 @@ export const GET = route(async (request) => {
   const date = new Date();
 
   if (doc === "base") {
-    const [profile, theme] = await Promise.all([loadProfile(), loadTheme(settings.baseThemeId)]);
+    const profileId = await profileIdOr(request.nextUrl.searchParams.get("profile"));
+    const own = await loadProfileSettings(profileId);
+    const [profile, theme] = await Promise.all([loadProfile(profileId), loadTheme(own.baseThemeId)]);
     // Match PDF's compact formatting; Word still determines its own page breaks.
-    const fit = settings.fitBaseResume ? (await renderBaseResumePdf(true)).fit : 0;
+    const fit = own.fitBaseResume ? (await renderBaseResumePdf(true, profileId)).fit : 0;
     const prepared = prepareResume({
       theme: theme ?? BUILT_IN_THEMES[0],
       profile,
       paper: settings.paper,
-      language: settings.resumeLanguage,
+      language: own.resumeLanguage,
       includeReferences: settings.includeRefs,
-      sections: settings.resumeSections,
+      sections: own.resumeSections,
       fit,
     });
     return docxDownload(

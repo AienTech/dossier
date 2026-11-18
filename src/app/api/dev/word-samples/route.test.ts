@@ -6,6 +6,8 @@ import { getSession } from "@/lib/auth/session";
 import { renderLetterDocx, renderResumeDocx } from "@/lib/docx/render";
 import { renderPdf } from "@/lib/pdf/render";
 import { loadProfile } from "@/lib/profile-data";
+import { loadProfileSettings } from "@/lib/profiles";
+import { profileSettingsFrom } from "@/lib/profile-settings";
 import { loadSettings } from "@/lib/settings-data";
 import { DEFAULT_SECTION_LAYOUT } from "@/lib/resume-sections";
 import { BUILT_IN_THEMES } from "@/lib/themes";
@@ -19,6 +21,7 @@ vi.mock("@/lib/docx/render", () => ({
 }));
 vi.mock("@/lib/pdf/render", () => ({ renderPdf: vi.fn(async () => new Uint8Array([37, 80, 68, 70])) }));
 vi.mock("@/lib/profile-data", () => ({ loadProfile: vi.fn() }));
+vi.mock("@/lib/profiles", () => ({ loadProfileSettings: vi.fn() }));
 vi.mock("@/lib/settings-data", () => ({ loadSettings: vi.fn() }));
 
 const profile = {
@@ -56,6 +59,10 @@ describe("GET /api/dev/word-samples", () => {
     vi.clearAllMocks();
     vi.mocked(getSession).mockResolvedValue({ persistent: false, issuedAt: new Date(), expiresAt: new Date() });
     vi.mocked(loadProfile).mockResolvedValue(profile);
+    vi.mocked(loadProfileSettings).mockResolvedValue(profileSettingsFrom({
+      resumeLanguage: "English",
+      resumeSections: JSON.stringify({ ...DEFAULT_SECTION_LAYOUT, off: ["skills"], titles: { summary: "About me" } }),
+    }));
     vi.mocked(loadSettings).mockResolvedValue({
       paper: "A4",
       resumeLanguage: "English",
