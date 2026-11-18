@@ -123,6 +123,9 @@ Use a private output directory; the normal test run writes no comparison bundle.
 
 - Full Vitest run, including PostgreSQL: 2,873 passed, 28 opt-in/platform
   tests skipped. Production build, typecheck and full lint passed.
+- Separate SQLite database run: 803 passed, 3 skipped, across 88 test files.
+  This completed on an isolated tmpfs database; an earlier disk-backed run
+  exceeded the command timeout and was not counted as a pass.
 - The three browser specs above: 12 passed, including sign-in setup.
 - Windows 11 / Word 2024, version 16.0.20527.20150: all 37 DOCX files opened
   and converted successfully. This includes all twelve themes on A4 with
