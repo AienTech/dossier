@@ -84,6 +84,17 @@ const firstItemGap = (ctx: DocContext) => (ctx.resolved.sideHeadings ? 0 : secti
 function headerText(ctx: DocContext, prepared: PreparedResume, color: { name: string; headline: string; contact: string }): Paragraph[] {
   const { content, resolved } = prepared;
   const alignment = resolved.centered ? AlignmentType.CENTER : undefined;
+  // The space below the headline. With a contact line in the header it is the
+  // header's 4-unit flex gap plus the contact line's 4-unit margin. In a
+  // sidebar layout the columns table follows the header's last line directly
+  // and a table has no margin, so that line carries `.header`'s own
+  // margin-bottom, the theme's gap. Otherwise the first section's gap
+  // paragraph is that margin (see `renderSections`) and the headline none.
+  const headlineAfter = !resolved.split && content.contacts.length > 0
+    ? twipsIn(ctx.paper, 8)
+    : resolved.split
+      ? twipsIn(ctx.paper, resolved.density.gap)
+      : 0;
   const paragraphs: Paragraph[] = [
     new Paragraph({
       alignment,
@@ -103,8 +114,7 @@ function headerText(ctx: DocContext, prepared: PreparedResume, color: { name: st
       new Paragraph({
         alignment,
         bidirectional: bidi(ctx),
-        // The header's 4-unit gap plus the contact line's 4-unit margin.
-        spacing: { before: 0, after: twipsIn(ctx.paper, 8), ...lineBox(ctx, BODY(ctx, 1.15)) },
+        spacing: { before: 0, after: headlineAfter, ...lineBox(ctx, BODY(ctx, 1.15)) },
         children: runsFor(ctx, content.headline, { units: BODY(ctx, 1.15), color: color.headline }),
       }),
     );
@@ -490,18 +500,23 @@ function renderSections(ctx: DocContext, sections: readonly Section[]): Block[] 
 }
 
 /** One group per entry, with its section heading on the first. */
-function sectionRows(ctx: DocContext, sections: readonly Section[], gap: number): Block[][] {
-  return sections.flatMap((section) =>
-    section.items.map((item, index) => [...(index === 0 ? sectionTitle(ctx, section.title, gap) : []), ...item]),
+function sectionRows(ctx: DocContext, sections: readonly Section[], gap: number, firstGap: number): Block[][] {
+  return sections.flatMap((section, sectionIndex) =>
+    section.items.map((item, index) => [
+      ...(index === 0 ? sectionTitle(ctx, section.title, sectionIndex === 0 ? firstGap : gap) : []),
+      ...item,
+    ]),
   );
 }
 
 /**
  * One group per section, all its items together: a sidebar's few short
- * sections read as one continuous column.
+ * sections read as one continuous column. `firstGap` is 0 unless something
+ * (the photo) sits above the column's first section: a column's first section
+ * starts at its top, the flex gap only separates siblings.
  */
-function sectionGroupRows(ctx: DocContext, sections: readonly Section[], gap: number): Block[][] {
-  return sections.map((section) => [...sectionTitle(ctx, section.title, gap), ...flat(section)]);
+function sectionGroupRows(ctx: DocContext, sections: readonly Section[], gap: number, firstGap: number): Block[][] {
+  return sections.map((section, index) => [...sectionTitle(ctx, section.title, index === 0 ? firstGap : gap), ...flat(section)]);
 }
 
 /**
@@ -557,7 +572,10 @@ export async function resumeChildren(ctx: DocContext, prepared: PreparedResume):
     const sidebar = [...contactSection(ctx, prepared), ...sections.filter((section) => inSidebar(section.key, content.customSections))];
     const gap = twipsIn(ctx.paper, resolved.density.gap);
     const photo = resolved.photo.position === PhotoPosition.SIDEBAR ? await photoImage(ctx, content.photo, content.name, "sidebar") : null;
-    const sidebarRows = sectionGroupRows(ctx, sidebar, gap);
+    // A column's first section starts at the table top, where the photo and
+    // the main column's first heading sit too; only a photo above the first
+    // sidebar section keeps the gap between them.
+    const sidebarRows = sectionGroupRows(ctx, sidebar, gap, photo ? gap : 0);
     if (photo) {
       if (sidebarRows.length > 0) sidebarRows[0] = [photoParagraph(ctx, photo, 0), ...sidebarRows[0]];
       else sidebarRows.push([photoParagraph(ctx, photo, 0)]);
@@ -566,7 +584,7 @@ export async function resumeChildren(ctx: DocContext, prepared: PreparedResume):
       ...header,
       columnTable(ctx, {
         sidebar: sidebarRows,
-        main: sectionRows(ctx, main, gap),
+        main: sectionRows(ctx, main, gap, 0),
         sidebarEnd: resolved.sidebarEnd,
         tinted: resolved.tintedSidebar && sidebarRows.length > 0,
       }),

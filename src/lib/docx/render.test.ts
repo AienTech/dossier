@@ -339,6 +339,44 @@ describe("renderResumeDocx", () => {
     expect(text.indexOf("Skills")).toBeLessThan(text.indexOf("Profile"));
   });
 
+  it("starts a column's first heading at the top of the columns table", async () => {
+    // A column's first section has no gap above it: the flex gap only
+    // separates siblings. The main column's first heading therefore lines up
+    // with the sidebar photo, and with the Contact heading when there is no
+    // photo. The sidebar photo keeps the gap before Contact, as the preview
+    // does, and the header's last line carries `.header`'s margin-bottom.
+    const cells = (document: string) => document.match(/<w:tc>(?:(?!<\/w:tc>)[\s\S])*<\/w:tc>/g) ?? [];
+    const paragraphs = (cell: string) => cell.match(/<w:p>(?:(?!<\/w:p>)[\s\S])*<\/w:p>/g) ?? [];
+    const paragraph = (document: string, needle: string) =>
+      document.match(new RegExp(`<w:p>(?:(?!<\\/w:p>)[\\s\\S])*?${needle}(?:(?!<\\/w:p>)[\\s\\S])*?<\\/w:p>`))?.[0] ?? "";
+    const gapLine = `w:line="${unitsToTwips(20, PaperSize.A4)}" w:lineRule="exact"`;
+
+    const options = {
+      theme: theme("modern"),
+      paper: PaperSize.A4,
+      includeReferences: false,
+    } as const;
+
+    const withPhoto = xml(
+      unzip(await renderResumeDocx(prepareResume({ ...options, profile: { ...photoProfile(PHOTO), references: [] } }))),
+      "word/document.xml",
+    );
+    const [photoCell = "", , mainCell = ""] = cells(withPhoto);
+    expect(paragraph(withPhoto, "Product designer")).toContain(`w:after="${unitsToTwips(20, PaperSize.A4)}"`);
+    expect(paragraphs(photoCell)[0] ?? "").toContain("<w:drawing>");
+    expect(paragraphs(photoCell)[1] ?? "").toContain(gapLine);
+    expect(paragraphs(photoCell)[2] ?? "").toContain(">Contact</w:t>");
+    expect(paragraphs(mainCell)[0] ?? "").toContain(">Profile</w:t>");
+
+    const withoutPhoto = xml(
+      unzip(await renderResumeDocx(prepareResume({ ...options, profile: { ...profile, references: [] } }))),
+      "word/document.xml",
+    );
+    const [contactCell = "", , mainCellNoPhoto = ""] = cells(withoutPhoto);
+    expect(paragraphs(contactCell)[0] ?? "").toContain(">Contact</w:t>");
+    expect(paragraphs(mainCellNoPhoto)[0] ?? "").toContain(">Profile</w:t>");
+  });
+
   it("ends a layout table with a zero-height paragraph so Word does not add a blank page", async () => {
     const files = unzip(await renderResumeDocx(resume("technical")));
     const document = xml(files, "word/document.xml");
