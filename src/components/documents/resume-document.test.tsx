@@ -20,6 +20,23 @@ describe("ResumeDocument", () => {
     expect(container.firstChild).toMatchSnapshot();
   });
 
+  it.each(["matcher-single", "matcher-modern", "matcher-latex", "matcher-clean"])("preserves the source entry rows and locations in %s", (id) => {
+    const sample = { ...profile, experience: [{ ...profile.experience[0], role: "Test Role", company: "Test Company", location: "Test City" }] };
+    render(<ResumeDocument theme={theme(id)} profile={sample} paper="A4" today={today} />);
+    const role = screen.getByText("Test Role");
+    const company = screen.getByText("Test Company");
+    const location = screen.getByText(id === "matcher-clean" ? /Test City \|/ : "Test City");
+    expect(location).toBeVisible();
+    if (id === "matcher-clean") {
+      expect(role.closest("p")).toBe(company.closest("p"));
+      expect(role.closest("p")).toHaveTextContent("Test Company | Test Role");
+    } else {
+      expect(role.closest("p")).not.toBe(company.closest("p"));
+      const primary = id === "matcher-latex" ? company : role;
+      expect(primary.closest("div")?.textContent).not.toContain("Test City");
+    }
+  });
+
   it("puts contact details in the header of single-column layouts", () => {
     render(<ResumeDocument theme={theme("editorial")} profile={profile} paper="A4" today={today} />);
     expect(screen.getByText("jane.doe@example.com").closest("p")?.textContent).toBe(

@@ -47,7 +47,7 @@ export function ThemePicker({ themes, activeId, userName, onSelect, onCustomize,
   return (
     <div className="flex flex-col gap-3.5">
       <h2 className="text-label text-muted">Built-in</h2>
-      <div className="grid grid-cols-2 gap-3.5">
+      <div className="flex gap-3.5 overflow-x-auto px-1 py-1 snap-x snap-proximity">
         {builtIn.map((theme) => (
           <ThemeThumbnail
             key={theme.id}
@@ -61,7 +61,7 @@ export function ThemePicker({ themes, activeId, userName, onSelect, onCustomize,
 
       <h2 className="mt-2.5 text-label text-muted">Your themes</h2>
       {custom.length > 0 && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex gap-2 overflow-x-auto py-1">
           {custom.map((theme) => {
             const active = theme.id === activeId;
             return (
@@ -71,7 +71,7 @@ export function ThemePicker({ themes, activeId, userName, onSelect, onCustomize,
                 data-in-use={active || undefined}
                 onClick={() => onSelect(theme.id)}
                 className={cn(
-                  "flex items-center gap-3 rounded-[10px] border bg-card px-3.5 py-3 text-left",
+                  "flex shrink-0 items-center gap-3 rounded-[10px] border bg-card px-3.5 py-3 text-left",
                   active ? "border-primary" : "border-line-card hover:border-line-strong",
                 )}
               >
@@ -100,7 +100,7 @@ export function ThemePicker({ themes, activeId, userName, onSelect, onCustomize,
       </button>
 
       {actions && active && (
-        <div className="mt-2 flex flex-col gap-2 border-t border-line pt-4">
+        <div className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line pt-3">
           <p className="text-meta text-muted">
             In use: <span className="text-ink">{active.name}</span>
           </p>
@@ -182,7 +182,7 @@ function ThemeThumbnail({
       type="button"
       data-in-use={active || undefined}
       onClick={onSelect}
-      className="group flex flex-col gap-2 text-left"
+      className="group flex w-[140px] shrink-0 snap-start flex-col gap-2 text-left"
     >
       <span
         aria-hidden

@@ -45,8 +45,8 @@ export type ResumeWorkspaceProps = {
 export type Panel = "themes" | "customize" | "sections";
 
 /**
- * The Base resume screen: the preview on the left and the theme panel on the
- * right, which moves below the preview on narrow windows. Picking a theme
+ * The Base resume screen: theme, customization and section controls above
+ * the full-width preview. Picking a theme
  * shows it right away and saves it in the background; while you customise
  * one, the preview shows the draft.
  */
@@ -217,29 +217,11 @@ export function ResumeWorkspace({
           </>
         }
       />
-      <div className="@container flex flex-1 flex-wrap border-t border-line">
-        <DocumentPreview
-          label={theme.name}
-          meta={(pages) => `${PAPER_SIZES[paper].label} · ${pages} ${pages === 1 ? "page" : "pages"}${fit > 0 ? " · squeezed to fit" : ""}`}
-          onPages={onPages}
-          notice={() =>
-            empty ? (
-              // E11-4: an empty page needs a way forward.
-              <p role="note" className="rounded-card bg-card px-4 py-2.5 text-meta text-muted">
-                Your resume fills in from your profile. Add your name and a role or two, and it takes shape here.{" "}
-                <Link href="/profile" className="text-ink underline underline-offset-2">
-                  Go to your profile
-                </Link>
-              </p>
-            ) : null
-          }
-        >
-          <ResumeDocument theme={theme} profile={profile} paper={paper} includeReferences={includeReferences} language={language} sections={sections} fit={fitToPage ? fit : 0} />
-        </DocumentPreview>
+      <div className="@container flex min-w-0 flex-1 flex-col border-t border-line">
         <aside
           ref={panelArea}
           aria-label="Theme and sections"
-          className="flex flex-[1_0_300px] flex-col gap-6 border-t border-line bg-paper px-7 pt-7 pb-12 @min-[780px]:border-t-0 @min-[780px]:border-l"
+          className="flex min-w-0 flex-col gap-4 border-b border-line bg-paper px-4 py-5 sm:px-7"
         >
           <Toggle
             label="Fit to one page"
@@ -298,6 +280,25 @@ export function ResumeWorkspace({
             </TabsContent>
           </Tabs>
         </aside>
+        <DocumentPreview
+          label={theme.name}
+          meta={(pages) => `${PAPER_SIZES[paper].label} · ${pages} ${pages === 1 ? "page" : "pages"}${fit > 0 ? " · squeezed to fit" : ""}`}
+          onPages={onPages}
+          notice={() =>
+            empty ? (
+              // E11-4: an empty page needs a way forward.
+              <p role="note" className="rounded-card bg-card px-4 py-2.5 text-meta text-muted">
+                Your resume fills in from your profile. Add your name and a role or two, and it takes shape here.{" "}
+                <Link href="/profile" className="text-ink underline underline-offset-2">
+                  Go to your profile
+                </Link>
+              </p>
+            ) : null
+          }
+        >
+          <ResumeDocument theme={theme} profile={profile} paper={paper} includeReferences={includeReferences} language={language} sections={sections} fit={fitToPage ? fit : 0} />
+        </DocumentPreview>
+
       </div>
       <ConfirmDialog
         open={deleting !== null}

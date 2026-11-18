@@ -82,6 +82,15 @@ describe("layouts and colours", () => {
 });
 
 describe("printCss", () => {
+  it("uses the reference templates' 10 mm margins on both paper sizes and tightens them when fitting", () => {
+    for (const id of ["matcher-single", "matcher-modern", "matcher-latex", "matcher-clean"]) {
+      expect(printCss(theme(id), "A4")).toContain("margin: 10mm;");
+      expect(printCss(theme(id), "LETTER")).toContain("margin: 10mm;");
+      expect(printCss(theme(id), "A4", 1)).toContain("margin: 9mm;");
+      expect(resolveTheme(theme(id)).headFamily).toContain(id === "matcher-clean" ? "Matcher Noto Sans" : "Matcher Noto Serif");
+      expect(resolveTheme(theme(id)).bodyFamily).toContain(id === "matcher-latex" ? "Matcher Noto Serif" : "Matcher Noto Sans");
+    }
+  });
   it("prints on the configured paper with the theme's padding as page margins", () => {
     // Regular: 50 × 54 units; a unit is 210 / 640 mm on A4.
     expect(printCss(theme("editorial"), "A4")).toMatch(

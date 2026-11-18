@@ -24,9 +24,9 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { LanguageLevel } from "@/generated/prisma/enums";
 import { LANGUAGE_LEVELS, languageLevelLabel, sameName, type ProfileData, type SkillItem } from "@/lib/profile";
-import { inEditorOrder, skillGroups } from "@/lib/skill-groups";
+import { basicSkillCategory, inEditorOrder, skillGroups } from "@/lib/skill-groups";
 
-import { addLanguage, addSkill, removeLanguage, removeSkill, renameSkillGroup, reorderSkills, setLanguageLevel, setSkillGroup, setSkillOrder } from "./actions";
+import { setSkillCategoryVisibility, organizeSkills, addLanguage, addSkill, removeLanguage, removeSkill, renameSkillGroup, reorderSkills, setLanguageLevel, setSkillGroup, setSkillOrder } from "./actions";
 import { useTrackSave } from "@/components/save-tracker";
 
 export type UpdateProfile = (change: (profile: ProfileData) => ProfileData) => void;
@@ -69,6 +69,27 @@ function SkillsCard({ profile, update, order }: { profile: ProfileData; update: 
   const [emptyGroups, setEmptyGroups] = useState<string[]>([]);
   const [mode, setMode] = useState<SkillOrder>(order);
   const [announcement, setAnnouncement] = useState("");
+  const [organizing, setOrganizing] = useState(false);
+  const organized = profile.skills.some((skill) => skill.group);
+  async function toggleOrganization(next: boolean) {
+    setOrganizing(true);
+    try {
+      const result = await track(organizeSkills({ organized: next }));
+      if (!result.ok) { toast(result.error); return; }
+      const groups = new Map(result.data.map((skill) => [skill.id, skill.group]));
+      update((current) => ({ ...current, skills: current.skills.map((skill) => ({ ...skill, group: groups.get(skill.id) ?? skill.group })) }));
+      setEmptyGroups([]);
+    } finally { setOrganizing(false); }
+  }
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
+  async function toggleVisibility(group: string, visible: boolean) {
+    setVisibilitySaving(true);
+    try {
+      const result = await track(setSkillCategoryVisibility({ group, visible }));
+      if (!result.ok) { toast(result.error); return; }
+      update((current) => ({ ...current, skills: current.skills.map((skill) => skill.group === group ? { ...skill, hidden: !visible } : skill) }));
+    } finally { setVisibilitySaving(false); }
+  }
   const dndId = useId();
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
@@ -231,6 +252,11 @@ function SkillsCard({ profile, update, order }: { profile: ProfileData; update: 
 
   return (
     <ChipCard title="Skills" count={profile.skills.length}>
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Skills display">
+        <Button variant={organized ? "secondary" : "primary"} size="sm" disabled={organizing || !profile.skills.length} aria-pressed={!organized} onClick={() => void toggleOrganization(false)}>Flat list</Button>
+        <Button variant={organized ? "primary" : "secondary"} size="sm" disabled={organizing || !profile.skills.length} aria-pressed={organized} onClick={() => void toggleOrganization(true)}>{organizing ? "Saving…" : "Organized list"}</Button>
+        <p className="text-meta text-muted">Organized skills appear as labeled category rows on your resume. You can rename groups and move skills below. Flat list removes the groups.</p>
+      </div>
       {profile.skills.length > 1 && (
         <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-meta text-muted">
           {mode === "manual" ? (
@@ -245,11 +271,17 @@ function SkillsCard({ profile, update, order }: { profile: ProfileData; update: 
           )}
         </div>
       )}
+      <p className="text-meta text-muted">Hidden categories stay available when tailoring a resume to a job.</p>
       {chips("", ungrouped, "Your skills")}
-      <AddSkillField label="Add a skill" placeholder="e.g. Accessibility" onAdd={(name) => add(name, "")} />
+      <AddSkillField label="Add a skill" placeholder="e.g. Accessibility" onAdd={(name) => add(name, organized && !profile.skills.some((skill) => sameName(skill.name, name)) ? basicSkillCategory(name) : "")} />
       {named.map(({ group, skills }) => (
         <div key={group} className="flex flex-col gap-3 border-t border-line pt-4">
+          <div className="flex items-center justify-between gap-3">
           <GroupHeading name={group} others={groupNames.filter((name) => name !== group)} onRename={(to) => void rename(group, to)} />
+          <Button variant="secondary" size="sm" disabled={visibilitySaving || !skills.length} aria-pressed={skills.some((skill) => !skill.hidden)} aria-label={`Show ${group} on base resume`} onClick={() => void toggleVisibility(group, !skills.some((skill) => !skill.hidden))}>
+            {skills.some((skill) => !skill.hidden) ? "Visible" : "Hidden"}
+          </Button>
+          </div>
           {chips(group, skills, `Skills in ${group}`)}
           <AddSkillField label={`Add to ${group}`} placeholder={`A skill for ${group}`} onAdd={(name) => add(name, group)} />
         </div>

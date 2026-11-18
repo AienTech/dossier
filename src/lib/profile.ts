@@ -108,7 +108,7 @@ export function fieldsFromBasics(basics: Basics): Record<ProfileKey, string | nu
 }
 
 /** `group` is the group it's printed under on resumes, empty for none (#280). */
-export type SkillItem = { id: string; name: string; group: string };
+export type SkillItem = { id: string; name: string; group: string; hidden?: boolean };
 export type LanguageItem = { id: string; name: string; level: LanguageLevel };
 export type ExperienceItem = DateSpan & {
   id: string;

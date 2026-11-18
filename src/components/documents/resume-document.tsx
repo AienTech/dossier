@@ -63,7 +63,7 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
       {renderUnit({
         id: `experience:${entry.id}`,
         className: styles.entry,
-        head: <EntryHead title={entry.role} at={entry.company} dates={entry.dates} timeline={resolved.timeline} />,
+        head: <MatcherEntryHead title={entry.role} at={entry.company} location={entry.location} dates={entry.dates} timeline={resolved.timeline} variant={resolved.matcherStyle} kind="role" />,
         children: (
           <>
             {entry.descriptor && <p className={styles.descriptor}>{entry.descriptor}</p>}
@@ -76,7 +76,7 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
                 ))}
               </ul>
             )}
-            {entry.skills.length > 0 && (
+            {!resolved.matcherStyle && entry.skills.length > 0 && (
               <p className={styles.entrySkills}>
                 <span className={styles.accent}>{`${labels.skills} · `}</span>
                 {entry.skills.join(", ")}
@@ -133,6 +133,7 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
                   at={project.link && <DocumentLink link={project.link} href={project.href} />}
                   dates={project.dates}
                   timeline={resolved.timeline}
+                  separator={resolved.matcherStyle ? " " : ", "}
                 />
               ),
               children: (
@@ -166,7 +167,7 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
             {renderUnit({
               id: `education:${entry.id}`,
               className: styles.entry,
-              head: <EntryHead title={entry.degree} at={entry.school} dates={entry.dates} timeline={resolved.timeline} />,
+              head: <MatcherEntryHead title={entry.degree} at={entry.school} dates={entry.dates} timeline={resolved.timeline} variant={resolved.matcherStyle} kind="education" />,
               children: entry.notes && <p className={styles.muted}>{entry.notes}</p>,
             })}
           </Fragment>
@@ -269,11 +270,14 @@ export function ResumeDocument({ theme, profile, paper, layout, sections = DEFAU
   // A tinted sidebar is drawn as a panel, unless there's nothing in it.
   const panel = resolved.tintedSidebar && sidebar.length > 0 ? sidebar : null;
 
+  const headerLocation = [profile.basics.city, profile.basics.country].map((part) => part.trim()).filter(Boolean).join(", ");
+  const headerContacts = resolved.matcherStyle === "latex" ? content.contacts.filter((item) => item !== headerLocation) : content.contacts;
   const title = (
     <>
       <h1 className={styles.name}>{content.name}</h1>
       {content.headline && <p className={styles.headline}>{content.headline}</p>}
-      {!resolved.split && content.contacts.length > 0 && <ContactLine items={content.contacts} />}
+      {resolved.matcherStyle === "latex" && headerLocation && <p>{headerLocation}</p>}
+      {!resolved.split && headerContacts.length > 0 && <ContactLine items={headerContacts} separator={resolved.matcherStyle === "clean" ? "  |  " : resolved.matcherStyle === "single" || resolved.matcherStyle === "modern" ? ", " : undefined} />}
     </>
   );
   // A photo beside the name puts the name, headline and contacts in a block of their own.
@@ -332,7 +336,20 @@ const breakAfterDash = (dates: string) =>
  * the line, or before it in a timeline column (the dates come first then, so
  * they float into the column next to the title).
  */
-function EntryHead({ title, at, dates, timeline }: { title: string; at: ReactNode; dates: string; timeline: boolean }) {
+function MatcherEntryHead({ title, at, dates, timeline, variant, kind, location = "" }: { title: string; at: string; dates: string; timeline: boolean; variant: "single" | "modern" | "latex" | "clean" | null; kind: "role" | "education"; location?: string }) {
+  if (!variant) return <EntryHead title={title} at={at} dates={dates} timeline={timeline} />;
+  const primary = (variant === "latex" || variant === "clean" || kind === "education") ? at || title : title || at;
+  const secondary = (variant === "latex" || variant === "clean" || kind === "education") ? (at ? title : "") : (title ? at : "");
+  return <div className={styles.matcherEntry}>
+    <div className={styles.entryHead}>
+      <p><span className={styles.entryTitle}>{primary}</span>{variant === "clean" && secondary && <> <span aria-hidden="true">|</span> <span className={styles.matcherSecondary}>{secondary}</span></>}</p>
+      {(dates || (variant === "clean" && location)) && <span className={styles.dates}>{variant === "clean" ? [location, dates].filter(Boolean).join(" | ") : dates}</span>}
+    </div>
+    {variant !== "clean" && (secondary || location) && <p className={styles.matcherSecondary}><span>{secondary}</span>{location && <span>{location}</span>}</p>}
+  </div>;
+}
+
+function EntryHead({ title, at, dates, timeline, separator = ", " }: { title: string; at: ReactNode; dates: string; timeline: boolean; separator?: string }) {
   const datesSpan = dates && <span className={styles.dates}>{timeline ? breakAfterDash(dates) : dates}</span>;
   return (
     <div className={styles.entryHead}>
@@ -341,7 +358,7 @@ function EntryHead({ title, at, dates, timeline }: { title: string; at: ReactNod
         <span className={styles.entryTitle}>{title}</span>
         {at && (
           <>
-            {title && ", "}
+            {title && separator}
             {at}
           </>
         )}

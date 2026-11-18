@@ -1,5 +1,7 @@
 "use server";
 
+import { basicSkillCategory } from "@/lib/skill-groups";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -106,6 +108,33 @@ export const addSkill = action(z.object({ name: skillName, group: skillGroup.def
 export const setSkillGroup = action(z.object({ id, group: skillGroup }), async ({ id, group }) => {
   await prisma.skill.updateMany({ where: { id }, data: { group } });
   return null;
+});
+
+/** Visibility affects the base resume only; all skills remain available to tailoring. */
+export const setSkillCategoryVisibility = action(z.object({ group: skillGroup, visible: z.boolean() }), async ({ group, visible }) => {
+  const skills = await prisma.skill.findMany({ where: { group }, select: { id: true } });
+  await prisma.$transaction(async (tx) => {
+    for (const skill of skills) {
+      const key = `hiddenSkill:${skill.id}`;
+      if (visible) await tx.setting.deleteMany({ where: { key } });
+      else await tx.setting.upsert({ where: { key }, create: { key, value: "true" }, update: { value: "true" } });
+    }
+  });
+  revalidatePath("/profile");
+  revalidatePath("/resume");
+  return null;
+});
+
+/** Switches the profile and resume between flat skills and editable categories. */
+export const organizeSkills = action(z.object({ organized: z.boolean() }), async ({ organized }) => {
+  const skills = await prisma.skill.findMany();
+  await prisma.$transaction(skills.map((skill) => prisma.skill.update({
+    where: { id: skill.id },
+    data: { group: organized ? skill.group || basicSkillCategory(skill.name) : "" },
+  })));
+  revalidatePath("/profile");
+  revalidatePath("/resume");
+  return skills.map((skill) => ({ id: skill.id, group: organized ? skill.group || basicSkillCategory(skill.name) : "" }));
 });
 
 /** Renames a group: its skills move with it, into another group of that name if there is one (#280). */

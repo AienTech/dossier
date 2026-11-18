@@ -63,6 +63,10 @@ export const BUILT_IN_THEMES: ThemeData[] = (
     { id: "folio", name: "Folio", headFont: "PLAYFAIR", bodyFont: "LORA", accent: "#1d1c1a", layout: "SIDE_HEADINGS", align: "LEFT", headingStyle: "PLAIN", density: "AIRY", photoShape: "ROUNDED", photoPosition: "HEADER_START" },
     { id: "console", name: "Console", headFont: "JETBRAINS_MONO", bodyFont: "WORK_SANS", accent: "#4a5563", layout: "SPLIT", align: "LEFT", headingStyle: "BAND", density: "COMPACT", sidebarStyle: "TINTED", photoShape: "SQUARE", photoPosition: "SIDEBAR" },
     { id: "atlas", name: "Atlas", headFont: "LIBRE_CASLON", bodyFont: "INTER", accent: "#a14a1f", layout: "SINGLE", align: "CENTER", headingStyle: "CAPS", density: "REGULAR", headerStyle: "BANNER", dateStyle: "TIMELINE", photoPosition: "ABOVE_NAME" },
+    { id: "matcher-single", name: "Single Column", headFont: "GARAMOND", bodyFont: "INTER", accent: "#1d1c1a", layout: "SINGLE", align: "CENTER", headingStyle: "RULE", density: "COMPACT" },
+    { id: "matcher-modern", name: "Modern Single", headFont: "GARAMOND", bodyFont: "INTER", accent: "#244db5", layout: "SINGLE", align: "CENTER", headingStyle: "RULE", density: "COMPACT" },
+    { id: "matcher-latex", name: "LaTeX", headFont: "GARAMOND", bodyFont: "GARAMOND", accent: "#1d1c1a", layout: "SINGLE", align: "CENTER", headingStyle: "RULE", density: "COMPACT" },
+    { id: "matcher-clean", name: "Clean", headFont: "INTER", bodyFont: "INTER", accent: "#4a5563", layout: "SINGLE", align: "CENTER", headingStyle: "RULE", density: "COMPACT" },
   ] satisfies (Omit<ThemeData, "builtIn" | StyleField> & Partial<Pick<ThemeData, StyleField>>)[]
 ).map((theme) => ({ ...THEME_STYLE_DEFAULTS, ...theme, builtIn: true }));
 
@@ -288,6 +292,8 @@ export function resolveTheme(theme: ThemeData, layout: ThemeLayout = theme.layou
   const split = hasSidebar(layout);
   const serifHeading = THEME_FONTS[theme.headFont].serif;
   return {
+    matcherMarginMm: theme.id.startsWith("matcher-") ? 10 * [1, 0.9, 0.85, 0.8, 0.75][Math.max(0, Math.min(FIT_LEVELS, fit))] : null,
+    matcherStyle: theme.id === "matcher-modern" ? "modern" as const : theme.id === "matcher-latex" ? "latex" as const : theme.id === "matcher-single" ? "single" as const : theme.id === "matcher-clean" ? "clean" as const : null,
     /** A sidebar layout, the sidebar on either side. */
     split,
     sidebarEnd: layout === ThemeLayout.SPLIT_END,
@@ -302,13 +308,20 @@ export function resolveTheme(theme: ThemeData, layout: ThemeLayout = theme.layou
       // Only a sidebar layout has a sidebar to put it in.
       position: !split && theme.photoPosition === PhotoPosition.SIDEBAR ? PhotoPosition.HEADER_END : theme.photoPosition,
     },
-    headFamily: documentFamily(theme.headFont),
-    bodyFamily: documentFamily(theme.bodyFont),
+    headFamily: theme.id.startsWith("matcher-") ? `var(--script-fonts), "Matcher Noto ${theme.id === "matcher-clean" ? "Sans" : "Serif"}", serif` : documentFamily(theme.headFont),
+    bodyFamily: theme.id.startsWith("matcher-") ? `var(--script-fonts), "Matcher Noto ${theme.id === "matcher-latex" ? "Serif" : "Sans"}", sans-serif` : documentFamily(theme.bodyFont),
     accent: theme.accent,
     /** Text on the accent, e.g. in a banner: white, or ink when that reads better. */
     onAccent: contrastRatio(theme.accent, "#ffffff") >= contrastRatio(theme.accent, INK) ? "#ffffff" : INK,
     heading: HEADING_STYLES[theme.headingStyle],
-    density: squeeze(DENSITIES[theme.density], fit),
+    density: squeeze(theme.id.startsWith("matcher-") ? {
+      ...DENSITIES[theme.density],
+      // Source pixels converted to the 640-unit A4 canvas.
+      fontSize: 14 * 640 / (210 * 96 / 25.4),
+      lineHeight: 1.35,
+      gap: 16 * 640 / (210 * 96 / 25.4),
+      itemGap: 4 * 640 / (210 * 96 / 25.4),
+    } : DENSITIES[theme.density], fit),
     name: serifHeading ? { size: 30, weight: 500 } : { size: 25, weight: 600 },
   };
 }
@@ -327,8 +340,9 @@ export function unitsToMm(units: number, paper: PaperSize): number {
 export function printCss(theme: ThemeData, paper: PaperSize, fit = 0): string {
   const { widthMm, heightMm } = PAPER_SIZES[paper];
   const { paddingY, paddingX } = squeeze(DENSITIES[theme.density], fit);
+  const matcherMargin = resolveTheme(theme, theme.layout, fit).matcherMarginMm;
   return [
-    `@page { size: ${widthMm}mm ${heightMm}mm; margin: ${unitsToMm(paddingY, paper)}mm ${unitsToMm(paddingX, paper)}mm; }`,
+    `@page { size: ${widthMm}mm ${heightMm}mm; margin: ${matcherMargin !== null ? `${matcherMargin}mm` : `${unitsToMm(paddingY, paper)}mm ${unitsToMm(paddingX, paper)}mm`}; }`,
     `:root { --u: ${widthMm / PAGE_WIDTH}mm; }`,
     // White edge to edge, and the dev server's badge stays off the paper.
     "html, body { background: #fff; }",

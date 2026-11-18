@@ -12,7 +12,7 @@ export function skillGroups<T extends GroupedSkill>(skills: readonly T[]): { gro
     const group = skill.group.trim();
     groups.set(group, [...(groups.get(group) ?? []), skill]);
   }
-  return [...groups].map(([group, members]) => ({ group, skills: members }));
+  return [...groups].map(([group, members]) => ({ group, skills: members })).sort((a, b) => Number(a.group === "Other Skills") - Number(b.group === "Other Skills"));
 }
 
 /** Skills as Profile → Skills shows them: those without a group first, then each group, where its first skill is. */
@@ -43,4 +43,20 @@ export function skillNamesIn(text: string): string[] {
     .flatMap((line) => skillLine(line.trim()).text.split(" · "))
     .map((name) => name.trim())
     .filter(Boolean);
+}
+
+/** Conservative starting categories; unfamiliar skills remain easy to review. */
+export function basicSkillCategory(name: string): string {
+  const value = name.toLowerCase();
+  if (/^(c\+\+|c#|c|r|go|\.net)$/i.test(name.trim())) return name.trim() === ".net" ? "Frameworks & Libraries" : "Languages";
+  const categories: [string, RegExp][] = [
+    ["Languages", /\b(javascript|typescript|python|java|golang|rust|ruby|php|swift|kotlin|c\+\+|c#|html|css|sql)\b/],
+    ["Frameworks & Libraries", /\b(react|next\.?js|angular|vue|svelte|django|flask|spring|rails|node\.?js|express|\.net|tailwind)\b/],
+    ["Data & AI", /\b(data|analytics|machine learning|ai|llm|pandas|numpy|postgres(?:ql)?|mysql|mongodb|redis|database|tensorflow|pytorch|excel|tableau|power bi)\b/],
+    ["Cloud & DevOps", /\b(aws|azure|gcp|cloud|docker|kubernetes|terraform|ci\/cd|linux|devops)\b/],
+    ["Design & Research", /\b(design|figma|sketch|research|ux|ui|accessibility|prototyp|wirefram)/],
+    ["Collaboration & Leadership", /\b(communication|leadership|management|collaboration|teamwork|mentoring|agile|scrum|facilitation|presentation|planning)\b/],
+    ["Tools", /\b(git|github|gitlab|jira|notion|slack|vscode|visual studio|photoshop|illustrator)\b/],
+  ];
+  return categories.find(([, pattern]) => pattern.test(value))?.[0] ?? "Other Skills";
 }

@@ -16,8 +16,8 @@ function themeStyle(theme: ResolvedTheme, paper: PaperSize): CSSProperties {
     "--page-height": PAPER_SIZES[paper].pageHeight,
     "--paper-width": PAPER_SIZES[paper].widthMm,
     "--paper-height": PAPER_SIZES[paper].heightMm,
-    "--pad-y": density.paddingY,
-    "--pad-x": density.paddingX,
+    "--pad-y": theme.matcherMarginMm !== null ? theme.matcherMarginMm * 640 / PAPER_SIZES[paper].widthMm : density.paddingY,
+    "--pad-x": theme.matcherMarginMm !== null ? theme.matcherMarginMm * 640 / PAPER_SIZES[paper].widthMm : density.paddingX,
     "--gap": density.gap,
     "--item-gap": density.itemGap,
     "--font-size": density.fontSize,
@@ -51,6 +51,10 @@ function themeClasses(theme: ResolvedTheme) {
     theme.timeline && styles.timeline,
     theme.heading.marker === "bar" && styles.headingBar,
     theme.heading.marker === "band" && styles.headingBand,
+    theme.matcherStyle === "modern" && styles.matcherModern,
+    theme.matcherStyle === "latex" && styles.matcherLatex,
+    theme.matcherStyle === "single" && styles.matcherSingle,
+    theme.matcherStyle === "clean" && styles.matcherClean,
   );
 }
 
@@ -139,12 +143,12 @@ export function ContactDetail({ children }: { children: string }) {
 }
 
 /** Contact details on one line, separated by "  ·  ". */
-export function ContactLine({ items }: { items: string[] }) {
+export function ContactLine({ items, separator = CONTACT_SEPARATOR }: { items: string[]; separator?: string }) {
   return (
     <p className={styles.contactLine}>
       {items.map((item, index) => (
         <Fragment key={index}>
-          {index > 0 && CONTACT_SEPARATOR}
+          {index > 0 && separator}
           <ContactDetail>{item}</ContactDetail>
         </Fragment>
       ))}

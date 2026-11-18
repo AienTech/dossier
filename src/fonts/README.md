@@ -4,6 +4,7 @@ All fonts are licensed under the SIL Open Font License 1.1; each folder has its 
 
 | Folder | Family | Styles | Source file in [google/fonts](https://github.com/google/fonts) |
 | --- | --- | --- | --- |
+| `resume-matcher` | Noto Sans, Noto Serif, and Noto Sans Mono | Sans/Serif: 400, 600, 700, roman and italic; Mono: 400 roman | `@fontsource/noto-sans` and `@fontsource/noto-serif` 5.3.0 (Latin subsets) |
 | `geist` | Geist | 400, 500, 600, 700 | `ofl/geist/Geist[wght].ttf` |
 | `newsreader` | Newsreader | 400, 500, 600, 700; roman and italic | `ofl/newsreader/Newsreader[opsz,wght].ttf`, `Newsreader-Italic[opsz,wght].ttf` |
 | `ibm-plex-sans` | IBM Plex Sans | 400, 500, 600, 700 | `ofl/ibmplexsans/IBMPlexSans[wdth,wght].ttf` |

@@ -1,3 +1,17 @@
+@font-face { font-family: "Matcher Noto Sans Mono"; src: url("../../fonts/resume-matcher/noto-sans-mono-latin-400-normal.woff2") format("woff2"); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: "Matcher Noto Sans"; src: url("../../fonts/resume-matcher/noto-sans-400-normal.woff2") format("woff2"); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: "Matcher Noto Sans"; src: url("../../fonts/resume-matcher/noto-sans-400-italic.woff2") format("woff2"); font-style: italic; font-weight: 400; font-display: swap; }
+@font-face { font-family: "Matcher Noto Sans"; src: url("../../fonts/resume-matcher/noto-sans-600-normal.woff2") format("woff2"); font-style: normal; font-weight: 600; font-display: swap; }
+@font-face { font-family: "Matcher Noto Sans"; src: url("../../fonts/resume-matcher/noto-sans-600-italic.woff2") format("woff2"); font-style: italic; font-weight: 600; font-display: swap; }
+@font-face { font-family: "Matcher Noto Sans"; src: url("../../fonts/resume-matcher/noto-sans-700-normal.woff2") format("woff2"); font-style: normal; font-weight: 700; font-display: swap; }
+@font-face { font-family: "Matcher Noto Sans"; src: url("../../fonts/resume-matcher/noto-sans-700-italic.woff2") format("woff2"); font-style: italic; font-weight: 700; font-display: swap; }
+@font-face { font-family: "Matcher Noto Serif"; src: url("../../fonts/resume-matcher/noto-serif-400-normal.woff2") format("woff2"); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: "Matcher Noto Serif"; src: url("../../fonts/resume-matcher/noto-serif-400-italic.woff2") format("woff2"); font-style: italic; font-weight: 400; font-display: swap; }
+@font-face { font-family: "Matcher Noto Serif"; src: url("../../fonts/resume-matcher/noto-serif-600-normal.woff2") format("woff2"); font-style: normal; font-weight: 600; font-display: swap; }
+@font-face { font-family: "Matcher Noto Serif"; src: url("../../fonts/resume-matcher/noto-serif-600-italic.woff2") format("woff2"); font-style: italic; font-weight: 600; font-display: swap; }
+@font-face { font-family: "Matcher Noto Serif"; src: url("../../fonts/resume-matcher/noto-serif-700-normal.woff2") format("woff2"); font-style: normal; font-weight: 700; font-display: swap; }
+@font-face { font-family: "Matcher Noto Serif"; src: url("../../fonts/resume-matcher/noto-serif-700-italic.woff2") format("woff2"); font-style: italic; font-weight: 700; font-display: swap; }
+
 /*
  * Resumes and cover letters, for the on-screen preview and the PDF alike.
  *
@@ -535,4 +549,86 @@
     min-height: 0;
     padding: 0;
   }
+}
+
+/* Source defaults: 14px body, 16px sections, 4px item spacing. Ratios
+ * keep preview, print and Fit to one page in sync. Marker starts 24px in;
+ * its 6px trailing space and hanging text match DescriptionList. */
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) {
+  --doc-ink: #000;
+  --doc-text: #1f2937;
+  --doc-muted: #4b5563;
+  text-rendering: geometricPrecision;
+}
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .bullets {
+  margin-top: 0.286em;
+  padding-inline-start: 0;
+  font-size: 0.92em;
+  list-style: none;
+}
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .bullets li {
+  position: relative;
+  margin-inline-start: 1.86336em;
+  padding-inline-start: 1.15em;
+}
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .bullets li::before {
+  content: "•";
+  position: absolute;
+  inset-inline-start: 0;
+}
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .bullets li + li { margin-top: 0.233em; }
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .name { font-size: 2em; font-weight: 700; line-height: inherit; }
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .section { gap: 0.286em; }
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .sectionTitle {
+  font-size: 1.2em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding-bottom: 0.119em;
+  border-bottom: 0.06em solid #9ca3af;
+}
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .entryTitle { font-weight: 700; }
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .summary { text-align: justify; }
+.matcherEntry { break-inside: avoid; break-after: avoid; }
+.matcherEntry .matcherSecondary { color: #374151; font-size: 0.95em; font-weight: 600; }
+.matcherEntry > .matcherSecondary { margin-top: 0.18em; }
+.matcherSecondary { display: flex; justify-content: space-between; gap: 1em; }
+.matcherEntry .dates { font-size: 0.75em; }
+:is(.matcherSingle, .matcherModern) .name { text-transform: uppercase; }
+:is(.matcherSingle, .matcherModern) .headline { font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--doc-muted); }
+:is(.matcherSingle, .matcherModern) .contactLine { font-size: 0.82em; }
+.matcherSingle .header { border-bottom: 1px solid #9ca3af; padding-bottom: 0.357em; }
+.matcherModern .sectionTitle { border-color: var(--accent); border-bottom-width: 0.12em; }
+.matcherModern .name::after { content: ""; display: block; width: 2.143em; height: 0.107em; background: var(--accent); margin: 0.286em auto 0; }
+.matcherLatex .name { font-variant: small-caps; letter-spacing: 0.02em; }
+.matcherLatex .headline { font-size: 1.05em; color: var(--doc-text); font-style: italic; }
+.matcherLatex .sectionTitle { text-transform: none; letter-spacing: 0; border-color: #000; }
+.matcherLatex .matcherEntry .matcherSecondary { font-size: 1em; font-weight: 400; font-style: italic; color: var(--doc-text); }
+.matcherLatex .matcherEntry .dates { font-size: 1em; font-weight: 700; color: var(--doc-ink); }
+.matcherClean .name { font-weight: 400; letter-spacing: 0.01em; }
+.matcherClean .headline { font-size: 1.05em; color: var(--doc-muted); }
+.matcherClean .sectionTitle { font-size: 1.38em; font-weight: 600; letter-spacing: 0.12em; border-color: #d1d5db; }
+.matcherClean .matcherEntry .matcherSecondary { display: inline; font-size: 1em; font-weight: 400; font-variant: small-caps; letter-spacing: 0.02em; color: var(--doc-muted); }
+.matcherClean .matcherEntry .dates { font-size: 0.85em; }
+.matcherClean .contactLine { font-size: 0.85em; }
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .skillLabel { font-weight: 700; }
+
+:is(.matcherSingle, .matcherModern) :is(.dates, .headline, .contactLine) { font-family: "Matcher Noto Sans Mono", monospace; }
+:is(.matcherSingle, .matcherModern) .skillLine:has(.skillLabel) { display: flex; gap: 0.5em; }
+:is(.matcherSingle, .matcherModern) .skillLabel { flex: 0 0 9.14em; }
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .skillLine { font-size: 0.92em; }
+
+.matcherLatex .dates { font-size: 1em; font-weight: 700; color: var(--doc-ink); }
+.matcherClean .dates { font-size: 0.85em; }
+:is(.matcherSingle, .matcherModern) .dates { font-size: 0.75em; }
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .contactLink { text-decoration: underline; }
+:is(.matcherSingle, .matcherModern, .matcherLatex, .matcherClean) .entryHead .link {
+  display: inline-block;
+  font-family: "Matcher Noto Sans Mono", monospace;
+  font-size: 0.7em;
+  color: var(--doc-ink);
+  border: 1px solid #d1d5db;
+  border-radius: 2px;
+  padding: 0.125em 0.375em;
+  margin-inline-start: 0.25em;
 }

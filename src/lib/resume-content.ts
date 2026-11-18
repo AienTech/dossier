@@ -88,6 +88,7 @@ export type ResumeRole = {
   id: string;
   role: string;
   company: string;
+  location: string;
   /** A line about the company or the role (#257), as written; never tailored. */
   descriptor: string;
   dates: string;
@@ -163,13 +164,14 @@ export function resumeContent(
   labels: DocumentLabels = ENGLISH_LABELS,
 ): ResumeContent {
   const { basics } = profile;
-  const skillNames = new Map(profile.skills.map((skill) => [skill.id, skill.name]));
+  const skillNames = new Map(profile.skills.filter((skill) => optionsHiddenAllowed(skill, units)).map((skill) => [skill.id, skill.name]));
   const dates = { locale: labels.locale, present: labels.present };
 
   const experience = (entry: ProfileData["experience"][number], bullets: string) => ({
     id: entry.id,
     role: entry.role.trim(),
     company: entry.company.trim(),
+    location: entry.location.trim(),
     descriptor: entry.descriptor.trim(),
     dates: formatDateRange(entry, dates),
     // A tailored text gets the profile's bold back where it keeps the words (#368).
@@ -240,7 +242,7 @@ export function resumeContent(
       items: section.items.map((item) => customItem(item, item.title, item.details)),
     })),
     // A line per group, as Profile → Skills shows them (#280).
-    skills: skillsText(inEditorOrder(profile.skills)),
+    skills: skillsText(inEditorOrder(profile.skills.filter((skill) => !skill.hidden))),
     languages: languagesLine(profile.languages, labels),
     references: includeReferences
       ? profile.references.map((reference) => ({
@@ -295,3 +297,6 @@ export function resumeContent(
 
   return content;
 }
+
+/** Tailored units may explicitly use skills hidden from the base resume. */
+function optionsHiddenAllowed(skill: { hidden?: boolean }, units: Unit[] | undefined): boolean { return !!units || !skill.hidden; }

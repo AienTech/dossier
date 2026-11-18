@@ -61,12 +61,14 @@ export function ThemeBuilder({ draft, onChange, onSave, onCancel, saving }: Them
 
   return (
     <form
-      className="flex flex-col gap-[22px]"
+      className="flex min-w-0 flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
         onSave();
       }}
     >
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-full sm:w-64">
       <Input
         label="Theme name"
         value={draft.name}
@@ -74,6 +76,11 @@ export function ThemeBuilder({ draft, onChange, onSave, onCancel, saving }: Them
         placeholder="My theme"
         onChange={(event) => set("name")(event.target.value)}
       />
+        </div>
+        <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save theme"}</Button>
+        <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
+      </div>
+      <div aria-label="Theme customization controls" className="flex min-w-0 snap-x snap-proximity items-start gap-3 overflow-x-auto px-1 py-2 [&>div]:max-h-60 [&>div]:w-72 [&>div]:shrink-0 [&>div]:snap-start [&>div]:overflow-y-auto [&>div]:rounded-control [&>div]:border [&>div]:border-line [&>div]:p-3">
       <Choices label="Heading font" value={draft.headFont} options={FONT_OPTIONS} onChange={set("headFont")} />
       <Choices label="Body font" value={draft.bodyFont} options={FONT_OPTIONS} onChange={set("bodyFont")} />
       <Group
@@ -104,8 +111,11 @@ export function ThemeBuilder({ draft, onChange, onSave, onCancel, saving }: Them
           </>
         )}
       </Group>
+      <div className="flex flex-col gap-4">
       <Choices label="Layout" value={draft.layout} options={options(LAYOUTS)} onChange={set("layout")} />
       {split && <Choices label="Sidebar" value={draft.sidebarStyle} options={options(SIDEBAR_STYLES)} onChange={set("sidebarStyle")} />}
+      </div>
+      <div className="flex flex-col gap-4">
       <Choices
         label="Header"
         value={split ? "LEFT" : draft.align}
@@ -115,6 +125,8 @@ export function ThemeBuilder({ draft, onChange, onSave, onCancel, saving }: Them
         hint={split ? "Sidebar layouts always align the header left." : undefined}
       />
       <Choices label="Header style" value={draft.headerStyle} options={options(HEADER_STYLES)} onChange={set("headerStyle")} />
+      </div>
+      <div className="flex flex-col gap-4">
       <Choices
         label="Photo"
         value={draft.photoShape}
@@ -129,16 +141,12 @@ export function ThemeBuilder({ draft, onChange, onSave, onCancel, saving }: Them
         options={options(PHOTO_POSITIONS).filter((option) => split || option.value !== PhotoPosition.SIDEBAR)}
         onChange={set("photoPosition")}
       />
+      </div>
+      <div className="flex flex-col gap-4">
       <Choices label="Section titles" value={draft.headingStyle} options={options(HEADING_STYLES)} onChange={set("headingStyle")} />
       <Choices label="Dates" value={draft.dateStyle} options={options(DATE_STYLES)} onChange={set("dateStyle")} />
       <Choices label="Spacing" value={draft.density} options={options(DENSITIES)} onChange={set("density")} />
-      <div className="flex gap-2 pt-1.5">
-        <Button type="submit" className="flex-1" disabled={saving}>
-          {saving ? "Saving…" : "Save theme"}
-        </Button>
-        <Button type="button" variant="secondary" onClick={onCancel}>
-          Cancel
-        </Button>
+      </div>
       </div>
     </form>
   );

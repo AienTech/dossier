@@ -19,7 +19,7 @@ export async function loadProfileName(): Promise<string> {
  * (#293, #218).
  */
 export async function loadProfile(db: PrismaClient | Prisma.TransactionClient = prisma): Promise<ProfileData> {
-  const [fields, skills, languages, experience, projects, education, certifications, publications, references, customSections, facts, settings] = await Promise.all([
+  const [fields, skills, languages, experience, projects, education, certifications, publications, references, customSections, facts, settings, visibility] = await Promise.all([
     db.profileField.findMany(),
     db.skill.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
     db.language.findMany({ orderBy: [{ sort: "asc" }, { createdAt: "asc" }] }),
@@ -32,12 +32,13 @@ export async function loadProfile(db: PrismaClient | Prisma.TransactionClient = 
     db.customSection.findMany({ orderBy: { createdAt: "asc" }, include: { items: { orderBy: [{ sort: "asc" }, { createdAt: "asc" }] } } }),
     loadFacts(null, db),
     loadSettings(db),
+    db.setting.findMany({ where: { key: { startsWith: "hiddenSkill:" } } }),
   ]);
 
   return {
     basics: basicsFromFields(fields),
     photo: photoFromFields(fields),
-    skills: skills.map(({ id, name, group }) => ({ id, name, group })),
+    skills: skills.map(({ id, name, group }) => ({ id, name, group, hidden: visibility.some((row) => row.key === `hiddenSkill:${id}` && row.value === "true") })),
     languages: languages.map(({ id, name, level }) => ({ id, name, level })),
     experience: inEntryOrder(experience, settings.experienceOrder).map((entry) => ({
       id: entry.id,
