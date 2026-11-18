@@ -68,6 +68,12 @@ settings. Two synthetic cover letters and a references-enabled Studio resume
 exercise letter framing and nested sidebar tables. Samples use normal theme
 spacing, without PDF's automatic fit-to-one-page adjustment.
 
+To compare a particular profile, use
+`/api/dev/word-samples?profile={profileId}`. The archive records the resolved
+profile ID and passes it to every Chromium reference, so both formats use the
+same profile's section and language settings. Without it, the first profile
+is used, not whichever profile was last opened in another tab.
+
 **The ZIP contains profile text. Keep it local; do not commit or attach it to
 a public issue.** Generated comparisons and machine-specific verification
 tooling do not belong in source control.
@@ -98,3 +104,48 @@ types, new/custom and hidden sections, long multi-page content, references,
 photos, mixed scripts, and edit/save/reopen. Validate both standalone and
 desktop packaging offline. Comparisons of the earlier pre-1.12 prototype do
 not establish visual parity for the updated font assets or new sections.
+
+`e2e/word-export.spec.ts` checks real downloads on the production standalone
+server: cross-tab profile isolation, base fitting, tailored documents, and
+sent copies after the source profile changes. Run it with the resume and
+profile regressions:
+
+```bash
+docker/bin/yarn test:e2e e2e/word-export.spec.ts e2e/resume.spec.ts e2e/profiles.spec.ts
+```
+
+For local Word verification, setting `WORD_PARITY_OUTPUT` inside the test
+container saves
+the actual DOCX downloads and corresponding PDFs under `docx/` and `chromium/`.
+Use a private output directory; the normal test run writes no comparison bundle.
+
+### Validation against 1.15.0 (18 November 2026)
+
+- Full Vitest run, including PostgreSQL: 2,873 passed, 28 opt-in/platform
+  tests skipped. Production build, typecheck and full lint passed.
+- The three browser specs above: 12 passed, including sign-in setup.
+- Windows 11 / Word 2024, version 16.0.20527.20150: all 37 DOCX files opened
+  and converted successfully. This includes all twelve themes on A4 with
+  custom/hidden/reordered/renamed sections and photos; a long Letter profile
+  with volunteering and mixed scripts; letter/reference fixtures; and seven
+  actual production exports covering fitting and draft/sent documents.
+- Page counts matched for all 37 pairs. Whitespace-normalized character
+  coverage was 100% for the production exports and A4 fixtures, and about
+  99.95% for the long mixed-script resumes. The latter difference is two
+  Devanagari vowel signs in extracted Word PDF text; it is not a byte-for-byte
+  text-equivalence guarantee. Spacing and wrapping differences remain.
+- Edit/save/reopen succeeded for three documents spanning single-column,
+  sidebar and mixed-script layouts; the saved files retained the edits and
+  embedded fonts. None of the 77 embedded family names
+  appeared in Windows' installed-font collection.
+- Standalone and prepared Linux desktop server exports passed with external
+  networking disabled, including all 77 font hashes and transparent photo
+  masks. The prepared Windows desktop server also exported both fixture
+  profiles on the VM with its bundled Node 24.22.3 and target native modules;
+  the exported fonts and photo masks were checked. Windows networking was
+  left enabled to avoid disrupting other VM work. These are server-runtime
+  checks, not full Electron installer tests.
+
+Generated documents, comparison images, VM automation and machine-specific
+logs stay outside version control. This run does not certify other Word
+versions, every glyph in every script, or pixel-identical pagination.

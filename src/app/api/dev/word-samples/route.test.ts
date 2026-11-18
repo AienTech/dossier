@@ -6,7 +6,7 @@ import { getSession } from "@/lib/auth/session";
 import { renderLetterDocx, renderResumeDocx } from "@/lib/docx/render";
 import { renderPdf } from "@/lib/pdf/render";
 import { loadProfile } from "@/lib/profile-data";
-import { loadProfileSettings } from "@/lib/profiles";
+import { loadProfileSettings, profileIdOr } from "@/lib/profiles";
 import { profileSettingsFrom } from "@/lib/profile-settings";
 import { loadSettings } from "@/lib/settings-data";
 import { DEFAULT_SECTION_LAYOUT } from "@/lib/resume-sections";
@@ -21,7 +21,7 @@ vi.mock("@/lib/docx/render", () => ({
 }));
 vi.mock("@/lib/pdf/render", () => ({ renderPdf: vi.fn(async () => new Uint8Array([37, 80, 68, 70])) }));
 vi.mock("@/lib/profile-data", () => ({ loadProfile: vi.fn() }));
-vi.mock("@/lib/profiles", () => ({ loadProfileSettings: vi.fn() }));
+vi.mock("@/lib/profiles", () => ({ loadProfileSettings: vi.fn(), profileIdOr: vi.fn() }));
 vi.mock("@/lib/settings-data", () => ({ loadSettings: vi.fn() }));
 
 const profile = {
@@ -52,13 +52,14 @@ const profile = {
   facts: [],
 };
 
-const get = () => GET(new NextRequest("http://localhost:3000/api/dev/word-samples"), undefined);
+const get = (query = "") => GET(new NextRequest(`http://localhost:3000/api/dev/word-samples${query}`), undefined);
 
 describe("GET /api/dev/word-samples", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getSession).mockResolvedValue({ persistent: false, issuedAt: new Date(), expiresAt: new Date() });
     vi.mocked(loadProfile).mockResolvedValue(profile);
+    vi.mocked(profileIdOr).mockImplementation(async (id) => id || "profile1");
     vi.mocked(loadProfileSettings).mockResolvedValue(profileSettingsFrom({
       resumeLanguage: "English",
       resumeSections: JSON.stringify({ ...DEFAULT_SECTION_LAYOUT, off: ["skills"], titles: { summary: "About me" } }),
@@ -108,8 +109,19 @@ describe("GET /api/dev/word-samples", () => {
     expect(renderPdf).toHaveBeenCalledTimes(BUILT_IN_THEMES.length + 3);
     expect(vi.mocked(renderPdf).mock.calls[0][0]).toMatch(/^\/print\/theme\//);
     expect(vi.mocked(renderPdf).mock.calls.map(([url]) => url)).toEqual(
-      expect.arrayContaining(["/print/theme/editorial/letter", "/print/theme/signal/letter", "/print/theme/studio/references"]),
+      expect.arrayContaining(["/print/theme/editorial/letter?profile=profile1", "/print/theme/signal/letter?profile=profile1", "/print/theme/studio/references?profile=profile1"]),
     );
+  });
+
+  it("uses the same explicit profile for Word and every Chromium reference", async () => {
+    const response = await get("?profile=second-profile");
+    expect(response.status).toBe(200);
+    expect(profileIdOr).toHaveBeenCalledWith("second-profile");
+    expect(loadProfile).toHaveBeenCalledWith("second-profile");
+    expect(loadProfileSettings).toHaveBeenCalledWith("second-profile");
+    expect(vi.mocked(renderPdf).mock.calls.every(([url]) => url.endsWith("?profile=second-profile"))).toBe(true);
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    expect(JSON.parse(strFromU8(files["manifest.json"])).profileId).toBe("second-profile");
   });
 
   it("needs a session", async () => {
