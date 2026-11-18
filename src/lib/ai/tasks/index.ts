@@ -3,6 +3,7 @@
 export { extractPosting } from "./extract-posting";
 export { extractProfile } from "./extract-profile";
 export { guessLevels } from "./guess-levels";
+export { translateProfile } from "./translate-profile";
 export type { TaskOptions } from "./prompt-parts";
 export { refineChat, type ChatTurn } from "./refine-chat";
 export { regenerateUnit } from "./regenerate-unit";

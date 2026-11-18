@@ -22,11 +22,13 @@ const {
   profileNamed,
   profileSearchDefaults,
   saveProfileSettings,
+  saveProfileTranslation,
   saveProfileWorkplace,
 } = await import("./profiles");
 const { DEFAULT_WORKPLACE } = await import("./profile-workplace");
 const { loadProfile } = await import("./profile-data");
 const { loadSettings } = await import("./settings-data");
+const { translatableParts } = await import("./ai/tasks/translate-profile");
 
 const prisma = () => db.client!;
 
@@ -71,6 +73,39 @@ describe("profiles (E24-2)", () => {
     await prisma().experience.updateMany({ where: { profileId: copyId }, data: { role: "Lead Designer" } });
     expect((await loadProfile(TEST_PROFILE_ID)).experience[0].role).toBe("Designer");
     expect((await listProfiles()).map((profile) => profile.name)).toEqual(["My profile", "Copy"]);
+  });
+
+  it("writes a translation into a copy by id, leaving the original, names that stay and clashing skill names alone (#148)", async () => {
+    await prisma().profile.update({ where: { id: TEST_PROFILE_ID }, data: { headline: "Product Designer" } });
+    await prisma().skill.createMany({ data: [{ profileId: TEST_PROFILE_ID, name: "Research" }, { profileId: TEST_PROFILE_ID, name: "Testing" }] });
+    await prisma().experience.create({ data: { profileId: TEST_PROFILE_ID, role: "Designer", company: "Northwind", bullets: "Led research\nShipped tokens" } });
+    await prisma().customSection.create({ data: { profileId: TEST_PROFILE_ID, title: "Awards", format: "ENTRIES", items: { create: { title: "Best app" } } } });
+    const copyId = await copyProfile(TEST_PROFILE_ID, "Español");
+    const parts = translatableParts(await loadProfile(copyId));
+    const [research, testing] = parts.skills;
+    await saveProfileTranslation(
+      copyId,
+      {
+        ...parts,
+        headline: "Diseñador de producto",
+        // "Pruebas" twice: the second keeps its own name.
+        skills: [{ ...research, name: "Pruebas", group: "Métodos" }, { ...testing, name: "pruebas" }],
+        experience: [{ ...parts.experience[0], role: "Diseñador", bullets: "Dirigí la investigación\nEntregué tokens" }],
+        customSections: [{ ...parts.customSections[0], title: "Premios", items: [{ ...parts.customSections[0].items[0], title: "Mejor app" }] }],
+      },
+      "spanish",
+    );
+    const copy = await loadProfile(copyId);
+    expect(copy.basics.headline).toBe("Diseñador de producto");
+    expect(copy.skills.map(({ name, group }) => ({ name, group }))).toEqual([{ name: "Pruebas", group: "Métodos" }, { name: "Testing", group: "" }]);
+    expect(copy.experience[0]).toMatchObject({ role: "Diseñador", company: "Northwind", bullets: "Dirigí la investigación\nEntregué tokens" });
+    expect(copy.customSections[0]).toMatchObject({ title: "Premios", items: [expect.objectContaining({ title: "Mejor app" })] });
+    expect((await loadProfileSettings(copyId)).resumeLanguage).toBe("Spanish");
+    const original = await loadProfile(TEST_PROFILE_ID);
+    expect([original.basics.headline, original.experience[0].role, original.customSections[0].title]).toEqual(["Product Designer", "Designer", "Awards"]);
+    // A language Dossier has no headings for still translates, but leaves the Base resume's language alone.
+    await saveProfileTranslation(copyId, { ...parts, headline: "Mfanyakazi" }, "Swahili");
+    expect((await loadProfileSettings(copyId)).resumeLanguage).toBe("Spanish");
   });
 
   it("starts where to work at the defaults, unseen, and keeps the answers and that they were seen (E24-4)", async () => {

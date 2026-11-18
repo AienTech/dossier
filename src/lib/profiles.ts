@@ -1,6 +1,8 @@
 import "server-only";
 
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import type { TranslatedProfile } from "@/lib/ai/tasks/translate-profile";
+import { DOCUMENT_LANGUAGES } from "@/lib/document-language";
 import { prisma } from "@/lib/prisma";
 import { countryCodeFor } from "@/lib/job-search/countries";
 import type { SearchQuery } from "@/lib/job-search/search";
@@ -256,6 +258,39 @@ export async function copyProfile(fromId: string, name: string, db: PrismaClient
       );
     }
     return profileId;
+  }, { timeout: 30_000, maxWait: 10_000 });
+}
+
+/**
+ * Writes a translation (#148) into a profile, matching each part by id; ids
+ * that aren't the profile's are skipped. A skill whose translated name another
+ * skill already has keeps its own, since names are unique in a profile. The
+ * Base resume takes the language too, when it's one Dossier prints headings in.
+ */
+export async function saveProfileTranslation(profileId: string, translated: TranslatedProfile, language: string, db: PrismaClient = prisma): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const own = { profileId };
+    await tx.profile.update({ where: { id: profileId }, data: { headline: translated.headline, summary: translated.summary } });
+    const taken = new Set((await tx.skill.findMany({ where: own, select: { name: true } })).map((skill) => skill.name.toLowerCase()));
+    for (const { id, name, group } of translated.skills) {
+      const current = await tx.skill.findFirst({ where: { id, ...own }, select: { name: true } });
+      if (!current) continue;
+      const rename = name.trim() && !taken.has(name.toLowerCase());
+      if (rename) {
+        taken.delete(current.name.toLowerCase());
+        taken.add(name.toLowerCase());
+      }
+      await tx.skill.update({ where: { id }, data: { group, ...(rename ? { name: name.trim() } : {}) } });
+    }
+    for (const { id, ...data } of translated.experience) await tx.experience.updateMany({ where: { id, ...own }, data });
+    for (const { id, ...data } of translated.projects) await tx.project.updateMany({ where: { id, ...own }, data });
+    for (const { id, ...data } of translated.education) await tx.education.updateMany({ where: { id, ...own }, data });
+    for (const { id, title, items } of translated.customSections) {
+      if (!(await tx.customSection.updateMany({ where: { id, ...own }, data: { title } })).count) continue;
+      for (const { id: itemId, ...data } of items) await tx.customItem.updateMany({ where: { id: itemId, sectionId: id }, data });
+    }
+    const printed = DOCUMENT_LANGUAGES.find((known) => known.name.toLowerCase() === language.trim().toLowerCase());
+    if (printed) await saveProfileSettings(profileId, { resumeLanguage: printed.name }, tx);
   }, { timeout: 30_000, maxWait: 10_000 });
 }
 

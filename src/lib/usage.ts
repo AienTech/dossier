@@ -8,6 +8,7 @@ import { SCORER_USAGE } from "@/lib/scoring/scorers";
 export const USAGE_TASKS = [
   { task: "extract-profile", label: "Importing a profile", hint: "A resume read into your profile" },
   { task: "guess-levels", label: "Guessing levels", hint: "Guess with AI on a profile's levels" },
+  { task: "translate-profile", label: "Translating profiles", hint: "A copy of a profile, in another language" },
   // One row per scoring model (E25-2).
   ...SCORER_USAGE,
   { task: "extract-posting", label: "Reading postings", hint: "What a posting asks for, when you start an application" },

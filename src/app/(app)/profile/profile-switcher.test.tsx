@@ -49,6 +49,30 @@ describe("ProfileSwitcher (E24-2)", () => {
     expect(router.push).toHaveBeenLastCalledWith("/profile/import?profile=c");
   });
 
+  it("asks for a translation of a copy when a language is picked or typed in (#148)", async () => {
+    vi.mocked(newProfile).mockResolvedValue({ ok: true, data: { id: "c" } });
+    const user = userEvent.setup();
+    render(<ProfileSwitcher profiles={profiles} current={profiles[0]} path="/profile" />);
+    await user.click(screen.getByRole("button", { name: "Profile: Product Designer" }));
+    await user.click(screen.getByRole("menuitem", { name: "New profile…" }));
+    await user.click(screen.getByRole("radio", { name: "A copy" }));
+    await user.selectOptions(screen.getByLabelText("Copy of"), "b");
+    await user.type(screen.getByLabelText("Name"), "Backend (German)");
+    await user.selectOptions(screen.getByLabelText("Translate into"), "German");
+    await user.click(screen.getByRole("button", { name: "Make profile" }));
+    expect(newProfile).toHaveBeenCalledWith({ start: "copy", name: "Backend (German)", from: "b", language: "German" });
+
+    // A language not in the list is typed in.
+    await user.click(screen.getByRole("button", { name: "Profile: Product Designer" }));
+    await user.click(screen.getByRole("menuitem", { name: "New profile…" }));
+    await user.type(screen.getByLabelText("Name"), "Swahili");
+    await user.click(screen.getByRole("radio", { name: "A copy" }));
+    await user.selectOptions(screen.getByLabelText("Translate into"), "Other language…");
+    await user.type(screen.getByLabelText("Other language"), "Swahili");
+    await user.click(screen.getByRole("button", { name: "Make profile" }));
+    expect(newProfile).toHaveBeenLastCalledWith({ start: "copy", name: "Swahili", from: "a", language: "Swahili" });
+  });
+
   it("asks an empty profile for its levels before making it (E24-3)", async () => {
     vi.mocked(newProfile).mockResolvedValue({ ok: true, data: { id: "c" } });
     const user = userEvent.setup();
