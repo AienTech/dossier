@@ -6,12 +6,12 @@ import { z } from "zod";
 import { action, ActionError } from "@/lib/action";
 import { AiError, getAiProvider } from "@/lib/ai";
 import { isAiUsable } from "@/lib/ai/config";
-import { guessLevels } from "@/lib/ai/tasks";
+import { guessLevels, translateProfile } from "@/lib/ai/tasks";
 import { loadTaskOptions } from "@/lib/ai/task-options";
 import { loadProfile } from "@/lib/profile-data";
 import { levelRangeSchema } from "@/lib/profile-levels";
 import { workplaceSchema } from "@/lib/profile-workplace";
-import { copyProfile, createProfile, deleteProfile, firstProfileId, markWorkplaceSeen, openProfileId, renameProfile, saveProfileLevels, saveProfileWorkplace } from "@/lib/profiles";
+import { copyProfile, createProfile, deleteProfile, firstProfileId, markWorkplaceSeen, openProfileId, renameProfile, saveProfileLevels, saveProfileTranslation, saveProfileWorkplace } from "@/lib/profiles";
 import { prisma } from "@/lib/prisma";
 
 // Making, switching and managing profiles (E24-2, #403). Each is a resume of
@@ -28,22 +28,37 @@ const refresh = () => {
 };
 
 /**
- * New profile: empty, a copy of another, or empty and then read from a
- * resume file (the browser goes on to the import). It becomes the open one.
+ * New profile: empty, a copy of another (translated, if a language is given,
+ * #148), or empty and then read from a resume file (the browser goes on to
+ * the import). It becomes the open one.
  */
 export const newProfile = action(
   z.discriminatedUnion("start", [
     // An empty profile says which levels it's for from the start (E24-3); a copy has its original's, and one read from a file gets the import's guess.
     z.object({ start: z.literal("empty"), name, levels: levelRangeSchema }),
     z.object({ start: z.literal("file"), name }),
-    z.object({ start: z.literal("copy"), name, from: id }),
+    z.object({ start: z.literal("copy"), name, from: id, language: z.string().trim().max(40, "Name the language in under 40 characters.").optional() }),
   ]),
   async (input, { toast }) => {
+    const language = input.start === "copy" ? input.language : undefined;
     if (input.start === "copy" && !(await prisma.profile.count({ where: { id: input.from } }))) throw new ActionError(GONE);
+    if (language && !(await isAiUsable())) throw new ActionError("Set up an AI model in Settings → AI provider first, or make a plain copy and translate it yourself.");
     const created = input.start === "copy" ? await copyProfile(input.from, input.name) : await createProfile(input.name, input.start === "empty" ? input.levels : null);
+    if (language) {
+      try {
+        const [provider, options] = await Promise.all([getAiProvider(), loadTaskOptions()]);
+        const { data } = await translateProfile(provider, { profile: await loadProfile(created), language }, options);
+        await saveProfileTranslation(created, data, language);
+      } catch (error) {
+        // Half a translation is worse than none: the copy goes, and the user can try again.
+        await deleteProfile(created);
+        if (error instanceof AiError) throw new ActionError(error.message);
+        throw error;
+      }
+    }
     await openProfileId(created);
     refresh();
-    if (input.start !== "file") toast(`Made “${input.name}”.`);
+    if (input.start !== "file") toast(language ? `Made “${input.name}”, in ${language}. Check it over before you use it.` : `Made “${input.name}”.`);
     return { id: created };
   },
 );

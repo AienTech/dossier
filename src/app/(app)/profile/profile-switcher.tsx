@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Select } from "@/components/ui/select";
+import { DOCUMENT_LANGUAGES } from "@/lib/document-language";
 import { levelRange } from "@/lib/profile-levels";
 
 import { LevelsPicker, type LevelChoice } from "./levels-field";
@@ -25,6 +26,9 @@ const START_OPTIONS = [
   { value: "file", label: "A resume file" },
 ] as const;
 type Start = (typeof START_OPTIONS)[number]["value"];
+// "Translate into", as Settings → Documents picks a language: one of the list, or another typed in.
+const SAME_LANGUAGE = "";
+const OTHER_LANGUAGE = "__other";
 
 /**
  * The open profile, and switching, making, renaming and deleting profiles
@@ -134,15 +138,19 @@ export function NewProfileDialog({
   const [name, setName] = useState("");
   const [start, setStart] = useState<Start>("empty");
   const [from, setFrom] = useState(current.id);
+  const [language, setLanguage] = useState(SAME_LANGUAGE);
+  const [otherLanguage, setOtherLanguage] = useState("");
+  const translateInto = (language === OTHER_LANGUAGE ? otherLanguage : language).trim();
   const [levels, setLevels] = useState<LevelChoice>({ from: "", to: "" });
   const range = levelRange(levels.from, levels.to);
   const [busy, setBusy] = useState(false);
   const startId = useId();
+  const translating = start === "copy" && translateInto !== "";
 
   const make = async () => {
     if (start === "empty" && !range) return void toast("Choose the levels this profile is for.");
     setBusy(true);
-    const result = toastResult(await newProfile(start === "copy" ? { start, name, from } : start === "empty" ? { start, name, levels: range! } : { start, name }));
+    const result = toastResult(await newProfile(start === "copy" ? { start, name, from, language: translateInto || undefined } : start === "empty" ? { start, name, levels: range! } : { start, name }));
     setBusy(false);
     if (!result.ok) return;
     onClose();
@@ -150,7 +158,7 @@ export function NewProfileDialog({
   };
 
   return (
-    <FormDialog title="New profile" onClose={onClose} onSubmit={() => void make()} submit={busy ? "Making…" : "Make profile"} busy={busy}>
+    <FormDialog title="New profile" onClose={onClose} onSubmit={() => void make()} submit={busy ? (translating ? "Translating…" : "Making…") : "Make profile"} busy={busy}>
       <Input label="Name" hint="What you call it, such as Backend or Frontend." value={name} onChange={(event) => setName(event.target.value)} maxLength={60} autoFocus required />
       <div className="flex flex-col gap-2">
         <span id={startId} className="text-label font-medium">
@@ -179,6 +187,27 @@ export function NewProfileDialog({
             </option>
           ))}
         </Select>
+      )}
+      {start === "copy" && (
+        <div className="flex flex-col gap-2">
+          <Select
+            label="Translate into"
+            hint="Your AI model translates the copy's own words: headline, summary, roles, skills, education and your sections. Names of companies, schools and projects stay as written. Check it over afterwards."
+            value={language}
+            onChange={(event) => setLanguage(event.target.value)}
+          >
+            <option value={SAME_LANGUAGE}>Keep its language</option>
+            {DOCUMENT_LANGUAGES.map((known) => (
+              <option key={known.tag} value={known.name}>
+                {known.name}
+              </option>
+            ))}
+            <option value={OTHER_LANGUAGE}>Other language…</option>
+          </Select>
+          {language === OTHER_LANGUAGE && (
+            <Input aria-label="Other language" placeholder="e.g. Swahili" autoFocus value={otherLanguage} onChange={(event) => setOtherLanguage(event.target.value)} maxLength={40} />
+          )}
+        </div>
       )}
     </FormDialog>
   );
