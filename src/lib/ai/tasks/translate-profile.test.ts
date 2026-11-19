@@ -25,5 +25,6 @@ describe("translateProfile (#148)", () => {
     expect(text).toContain(profile.experience[0].role);
     for (const kept of [profile.basics.email, profile.basics.phone, profile.experience[0].company, ...profile.references.map((reference) => reference.name)]) expect(text).not.toContain(kept);
     expect(call.maxTokens).toBe(16000);
+    expect(call.system).toContain("Keep technical terms in their original language");
   });
 });

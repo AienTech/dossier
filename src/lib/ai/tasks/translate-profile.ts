@@ -4,7 +4,7 @@ import type { ProfileData } from "@/lib/profile";
 
 import { system, type Task } from "./prompt-parts";
 
-export const TRANSLATE_PROFILE_VERSION = "translate-profile@1";
+export const TRANSLATE_PROFILE_VERSION = "translate-profile@2";
 
 // New profile → A copy, translated (#148): the copy's own words in another
 // language. Only the text a resume prints as written is sent and translated,
@@ -44,6 +44,7 @@ const INSTRUCTIONS = `You translate a candidate's resume profile into another la
 - Translate every text field faithfully: same meaning, same facts, same numbers, nothing added or left out. Keep line breaks: each line of "bullets" or "details" stays one line.
 - Write as a native speaker writes a resume in that language, with its usual job titles and wording, not word for word.
 - Keep as they are: product, tool, programming-language and framework names (Figma, Python, React), company and brand names, acronyms, URLs, and **bold** or *italic* marks.
+- Keep technical terms in their original language too, the way engineers actually say them in the target language: build flavors, offline-first, backend, frontend, cache, outbox, commits, crates, staging, deploy, pull requests, webhooks, daemon, tokens, hashes, rate limiting and the like. Translate a technical term only when that language's engineers really use the translation (a word-for-word rendering such as "sabores" for flavors or "demonio" for daemon is wrong).
 - An empty field stays empty. Never change an id.`;
 
 export type TranslateProfileInput = { profile: ProfileData; language: string };
