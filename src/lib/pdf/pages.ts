@@ -15,3 +15,9 @@ export const printBasePath = (fit = 0, profileId?: string) => {
   const params = new URLSearchParams({ ...(profileId ? { profile: profileId } : {}), ...(fit > 0 ? { fit: String(fit) } : {}) }).toString();
   return params ? `/print/base?${params}` : "/print/base";
 };
+
+/** A comparison sample's exact path, also used when signing print access. */
+export const printThemePath = (theme: string, kind?: "letter" | "references", profileId?: string) => {
+  const query = profileId ? `?${new URLSearchParams({ profile: profileId })}` : "";
+  return `/print/theme/${encodeURIComponent(theme)}${kind ? `/${kind}` : ""}${query}`;
+};
