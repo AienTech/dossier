@@ -117,7 +117,7 @@ type ResolvedPosting = { text: string; url: string; postingId: string | null; ti
 async function resolvePosting(source: PostingSource): Promise<ResolvedPosting | { error: string }> {
   if (source.posting_id) {
     const row = await prisma.posting.findUnique({ where: { id: source.posting_id } });
-    if (!row) return { error: "That posting is no longer in Dossier. Open it again from Find jobs." };
+    if (!row) return { error: "That posting is no longer in Dossier. Open it again from Positions." };
     const found = foundFromPosting(row);
     const description = found.complete ? found.description : ((await fullText(found)) ?? found.description);
     if (!description.trim()) return { error: "That posting has no text to write from. Give its link as posting_url instead." };
@@ -204,7 +204,7 @@ export function createDossierServer(origin: string): McpServer {
     {
       title: "Search for jobs",
       description:
-        "Searches the job source set up in Dossier's settings and keeps the search in Find jobs → Past searches. Each search uses one search from the user's plan with that source. " +
+        "Searches every job portal switched on in Settings → Job search that lists jobs in the country, and keeps what they find in Positions. A portal that limits searches, such as JSearch, counts it as one of them. " +
         "Returns a search_id and numbered postings; pass both to get_posting, save_job_scores or save_application, or the search_id to more_jobs.",
       inputSchema: z.object({
         keywords: z.string().trim().min(1).max(200).describe("Job title, skill or company, e.g. 'product designer'"),
@@ -217,7 +217,7 @@ export function createDossierServer(origin: string): McpServer {
           .enum(LEVELS)
           .optional()
           .describe(
-            "The experience level, as Find jobs' Level: any, intern, junior (entry level), mid, senior or lead. Defaults to any. " +
+            "The experience level, as the Level in Positions' search: any, intern, junior (entry level), mid, senior or lead. Defaults to any. " +
               "Postings for another level are left out, so a page can come back short: more_jobs has the next.",
           ),
       }),
@@ -257,7 +257,7 @@ export function createDossierServer(origin: string): McpServer {
     "more_jobs",
     {
       title: "Show more jobs",
-      description: "The next page of a search from search_jobs. Uses one more search from the user's plan.",
+      description: "The next page of a search from search_jobs, from the portals that have more. A portal that limits searches counts it as one of them.",
       inputSchema: z.object({ search_id: z.string().min(1).max(100) }),
       annotations: { readOnlyHint: false, openWorldHint: true },
     },
