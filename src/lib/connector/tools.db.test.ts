@@ -1,5 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DocumentKind } from "@/generated/prisma/enums";
+import { trimmedSchema, unitsSchema } from "@/lib/application-data";
 import type { FoundPosting } from "@/lib/job-search/search";
 import { startJob } from "@/lib/jobs/runner";
 import { keepFound } from "@/lib/library";
@@ -222,6 +224,35 @@ describe("the Claude connector's tools (#221)", () => {
     expect(await tool("update_application", { application_id: id, change: "Nothing" })).toMatchObject({ isError: true });
     await tool("set_application_status", { id, status: "SENT" });
     expect((await tool("update_application", { application_id: id, change: "Too late", match: [] })).text).toContain("Only a Draft");
+  });
+
+  it("keeps what was left out of the resume out when it changes a Draft", async () => {
+    const saved = await tool("save_application", {
+      posting_text: "Product Designer at Acme",
+      details: { company: "Acme", role: "Product Designer" },
+      resume: { summary: "Designer who ships calm products.", roles: [], skills: ["Figma"] },
+      cover_letter: { paragraphs: [{ text: "I'd like to help Acme." }] },
+    });
+    const id = saved.json.application_id as string;
+    const where = { applicationId_kind: { applicationId: id, kind: DocumentKind.RESUME } };
+    // "Leave out" on a project, as the application page does it.
+    const units = unitsSchema.parse((await prisma().document.findUniqueOrThrow({ where })).units);
+    const index = units.findIndex((unit) => unit.id.startsWith("project:"));
+    expect(index).toBeGreaterThanOrEqual(0);
+    const [project] = units.splice(index, 1);
+    await prisma().document.update({ where, data: { units, trimmed: [{ kind: "unit", unit: project, index, byHand: true }] } });
+
+    const projectId = project.id.slice("project:".length);
+    await tool("update_application", {
+      application_id: id,
+      change: "Warmer summary",
+      resume: { summary: "Designer who ships warm products.", roles: [], projects: [{ id: projectId, bullets: ["Rewrote the checkout."] }], skills: ["Figma"] },
+    });
+
+    const after = await prisma().document.findUniqueOrThrow({ where });
+    expect(unitsSchema.parse(after.units).map((unit) => unit.id)).not.toContain(project.id);
+    // Listed once, and Put back brings the revised part.
+    expect(trimmedSchema.parse(after.trimmed)).toEqual([{ kind: "unit", unit: expect.objectContaining({ id: project.id, text: expect.stringContaining("Rewrote the checkout.") }), index, byHand: true }]);
   });
 
   it("has Dossier's own model draft one only when there is one, and says how it's coming along", async () => {
