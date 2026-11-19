@@ -7,7 +7,7 @@ import { guardSources, guardUnits, type FactSources } from "@/lib/ai/fact-guard"
 import { resumeUnits } from "@/lib/ai/tasks/tailor-resume";
 import { withoutFrame } from "@/lib/ai/tasks/write-cover-letter";
 import { createApplicationFromDocuments } from "@/lib/application-create";
-import { extractedOf, SIGN_OFF_UNIT, unitsSchema, type Extracted, type Match, type Unit } from "@/lib/application-data";
+import { extractedOf, SIGN_OFF_UNIT, trimmedSchema, unitsSchema, type Extracted, type Match, type Trimmed, type Unit } from "@/lib/application-data";
 import { documentLabels } from "@/lib/document-labels";
 import { updateDocuments } from "@/lib/document-units";
 import { FRAME_LABELS, isFrameUnit, withFrame, type Frame } from "@/lib/letter-frame";
@@ -236,10 +236,27 @@ export async function reviseWrittenApplication(
     if (letter) letter = checked(letter, sources);
   }
 
+  let leftOut: Trimmed | null = null;
   await updateDocuments(
     applicationId,
     async (documents, tx) => {
-      if (resume) documents.RESUME = resume;
+      if (resume) {
+        // What's left out stays out (#217). The revision holds every part of the profile, so the parts
+        // left out come off it again, and Put back brings the revised part rather than the old one.
+        const row = await tx.document.findUniqueOrThrow({
+          where: { applicationId_kind: { applicationId, kind: DocumentKind.RESUME } },
+          select: { trimmed: true },
+        });
+        const trimmed = trimmedSchema.safeParse(row.trimmed);
+        const cuts = trimmed.success ? trimmed.data : [];
+        const units = resume;
+        const out = new Set(cuts.flatMap((cut) => (cut.kind === "unit" ? [cut.unit.id] : [])));
+        leftOut = cuts.map((cut) => {
+          const revised = cut.kind === "unit" && units.find((unit) => unit.id === cut.unit.id);
+          return revised ? { ...cut, unit: revised } : cut;
+        });
+        documents.RESUME = units.filter((unit) => !out.has(unit.id));
+      }
       if (letter && documents.COVER_LETTER) {
         // The sender, date and signature stay, and the recipient and greeting when none was written.
         const frame: Partial<Frame> = Object.fromEntries(documents.COVER_LETTER.filter((unit) => isFrameUnit(unit.id)).map((unit) => [unit.id, unit.text]));
@@ -249,5 +266,10 @@ export async function reviseWrittenApplication(
     },
     { version: { cause: VersionCause.REFINED, detail: revision.change } },
   );
+  // Written after the document itself: updateDocuments checks it wasn't changed meanwhile.
+  const cuts = leftOut as Trimmed | null;
+  if (cuts && cuts.length > 0) {
+    await prisma.document.update({ where: { applicationId_kind: { applicationId, kind: DocumentKind.RESUME } }, data: { trimmed: cuts } });
+  }
   return { unverified: unverifiedOf([...(resume ?? []), ...(letter ?? [])]) };
 }
