@@ -299,4 +299,98 @@ describe("the Claude connector's tools (#221)", () => {
     expect(await tool("save_job_scores", { scores: [{ posting_id: row.id, ...answers }] })).toMatchObject({ isError: true, text: expect.stringContaining("Set the levels for") });
     expect((await tool("get_profile")).json).not.toHaveProperty("jobsItsFor");
   });
+
+  it("lists job agent candidates from Positions, best fit first, with search name and draft id (#117)", async () => {
+    const agentSearch = await prisma().postingSearch.create({
+      data: {
+        source: "JSEARCH",
+        agentSearchName: "Design roles",
+        query: { keywords: "designer", place: "Berlin", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" },
+        portals: [{ id: "JSEARCH", status: "done", found: 2, next: null, message: null }],
+        found: 2,
+      },
+    });
+    await keepFound(agentSearch.id, "JSEARCH", [found("a1", "Junior Designer"), found("a2", "Staff Designer")]);
+    await storeSearch([found("m1", "Manual Search Role")]);
+
+    const [p1, p2] = await Promise.all([
+      prisma().posting.findUniqueOrThrow({ where: { source_externalId: { source: "JSEARCH", externalId: "a1" } } }),
+      prisma().posting.findUniqueOrThrow({ where: { source_externalId: { source: "JSEARCH", externalId: "a2" } } }),
+    ]);
+    await prisma().postingScore.createMany({
+      data: [
+        {
+          source: "JSEARCH",
+          externalId: "a1",
+          profileId: TEST_PROFILE_ID,
+          score: 72,
+          reasons: ["Figma"],
+          redFlags: ["Junior"],
+          breakdown: {
+            factors: [],
+            cap: null,
+            requirements: [
+              { text: "Figma", mustHave: true, covered: true, evidence: null },
+              { text: "Design systems", mustHave: true, covered: false, evidence: null },
+            ],
+          },
+          scoredWith: "test",
+        },
+        {
+          source: "JSEARCH",
+          externalId: "a2",
+          profileId: TEST_PROFILE_ID,
+          score: 92,
+          reasons: ["Design systems"],
+          redFlags: [],
+          breakdown: {
+            factors: [],
+            cap: null,
+            requirements: [
+              { text: "Figma", mustHave: true, covered: true, evidence: null },
+              { text: "Design systems", mustHave: true, covered: true, evidence: null },
+            ],
+          },
+          scoredWith: "test",
+        },
+      ],
+    });
+    const draft = await prisma().application.findFirstOrThrow({ where: { company: "Ledgerly" } });
+    await prisma().agentCandidate.create({
+      data: { source: "JSEARCH", externalId: "a2", dedupeKey: "a2-key", status: "DRAFTED", applicationId: draft.id },
+    });
+
+    const listed = await tool("list_agent_candidates", { limit: 10 });
+    expect(listed.isError).toBe(false);
+    expect(listed.json).toMatchObject({
+      total: 2,
+      link: "https://dossier.example/jobs?found=agent",
+      candidates: [
+        {
+          posting_id: p2.id,
+          title: "Staff Designer",
+          company: "Acme",
+          place: "Berlin",
+          score: 92,
+          reasons: ["Design systems"],
+          searches: ["Design roles"],
+          status: "DRAFTED",
+          application_id: draft.id,
+          application_link: `https://dossier.example/applications/${draft.id}`,
+        },
+        {
+          posting_id: p1.id,
+          title: "Junior Designer",
+          score: 72,
+          reasons: ["Figma"],
+          red_flags: ["Junior"],
+          searches: ["Design roles"],
+          status: "OPEN",
+        },
+      ],
+    });
+
+    // Returned posting_id works directly with get_posting.
+    expect((await tool("get_posting", { posting_id: p1.id })).json).toMatchObject({ title: "Junior Designer" });
+  });
 });
