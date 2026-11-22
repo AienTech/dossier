@@ -53,7 +53,7 @@ export function SourceBar({
         <span aria-hidden="true" className="flex-none text-muted">
           {icon}
         </span>
-        <ul aria-label="What it looks for" className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        <ul aria-label="What it looks for" className="flex min-w-0 flex-1 basis-48 flex-wrap items-center gap-1.5">
           {chips.map((chip, index) => (
             <li key={index} className="rounded-[7px] bg-track px-2.5 py-1 text-[13px] text-ink">
               {chip}
