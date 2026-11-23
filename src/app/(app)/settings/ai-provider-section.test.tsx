@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "@/components/toast";
 import type { AiSettingsView } from "@/lib/ai/provider-options";
 
-import { listAiModels, saveAiProvider, saveAiTimeout, saveApiKey, testAiConnection } from "./actions";
-import { AiProviderSection } from "./ai-provider-section";
+import { listAiModels, listScoringAiModels, saveAiProvider, saveAiTimeout, saveApiKey, saveScoringAiProvider, saveScoringApiKey, testAiConnection, testScoringAiConnection } from "./actions";
+import { AiProviderSection, ScoringProviderSwitch } from "./ai-provider-section";
 
 vi.mock("./actions", () => ({
   saveAiProvider: vi.fn(),
@@ -14,12 +14,20 @@ vi.mock("./actions", () => ({
   saveAiTimeout: vi.fn(),
   listAiModels: vi.fn(),
   testAiConnection: vi.fn(),
+  saveScoringAiProvider: vi.fn(),
+  saveScoringApiKey: vi.fn(),
+  listScoringAiModels: vi.fn(),
+  testScoringAiConnection: vi.fn(),
 }));
 vi.mock("@/components/toast", () => ({ toast: vi.fn(), toastResult: (result: unknown) => result }));
 
 const local: AiSettingsView = { provider: "LOCAL", baseUrl: "http://ollama:11434", model: "qwen2.5:3b", keyState: "none", keyEnding: null, test: null, timeoutSeconds: null, envTimeoutSeconds: null };
 
 beforeEach(() => {
+  vi.mocked(saveScoringAiProvider).mockReset().mockResolvedValue({ ok: true, data: { keyState: "none", keyEnding: null } });
+  vi.mocked(saveScoringApiKey).mockReset().mockResolvedValue({ ok: true, data: { keyState: "set", keyEnding: "3f9a" } });
+  vi.mocked(listScoringAiModels).mockReset().mockResolvedValue({ ok: true, data: { models: ["scorer:7b"], problem: null } });
+  vi.mocked(testScoringAiConnection).mockReset().mockResolvedValue({ ok: true, data: { connected: true, model: "scorer:7b", seconds: 0.8, at: "2026-11-17T10:00:00.000Z" } });
   vi.mocked(saveAiProvider).mockReset().mockResolvedValue({ ok: true, data: { keyState: "none", keyEnding: null } });
   vi.mocked(saveApiKey).mockReset().mockResolvedValue({ ok: true, data: { keyState: "set", keyEnding: "3f9a" } });
   vi.mocked(saveAiTimeout).mockReset().mockImplementation(async ({ seconds }) => ({ ok: true, data: { seconds } }));
@@ -195,5 +203,48 @@ describe("AiProviderSection", () => {
     render(<AiProviderSection initial={{ ...local, model: "" }} />);
     expect(await screen.findByText(/^Couldn't list the models: Couldn't reach the server/)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Choose a model" })).toBeInTheDocument();
+  });
+
+  it("the scoring one uses the scoring actions, has no intro or timeout, and doesn't move the main one (#170)", async () => {
+    const user = userEvent.setup();
+    render(<AiProviderSection initial={{ ...local, provider: "ANTHROPIC", baseUrl: "https://api.anthropic.com", model: "claude-sonnet-5-5" }} scoring />);
+    expect(screen.queryByRole("heading", { name: "AI provider" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Timeout, in seconds")).not.toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Scoring provider" })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: "scorer:7b" })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("API key"), "sk-ant-secret-3f9a");
+    await user.tab();
+    await waitFor(() => expect(saveScoringApiKey).toHaveBeenCalledWith({ provider: "ANTHROPIC", change: { action: "set", value: "sk-ant-secret-3f9a" } }));
+    await user.click(screen.getByRole("radio", { name: "Mistral" }));
+    await waitFor(() => expect(saveScoringAiProvider).toHaveBeenCalledWith(expect.objectContaining({ provider: "MISTRAL" })));
+    await user.click(screen.getByRole("button", { name: "Test connection" }));
+    expect(await screen.findByText(/Connected\. scorer:7b answered/)).toBeInTheDocument();
+    expect(saveApiKey).not.toHaveBeenCalled();
+    expect(saveAiProvider).not.toHaveBeenCalled();
+    expect(testAiConnection).not.toHaveBeenCalled();
+  });
+});
+
+describe("ScoringProviderSwitch (#170)", () => {
+  it("is off with only the switch; turning it on saves the local defaults and shows the scoring form, off clears it", async () => {
+    const user = userEvent.setup();
+    render(<ScoringProviderSwitch initial={null} />);
+    const toggle = screen.getByRole("switch", { name: "Use a different model for scoring" });
+    expect(toggle).not.toBeChecked();
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(saveScoringAiProvider).toHaveBeenCalledWith(expect.objectContaining({ provider: "LOCAL" }));
+    expect(await screen.findByRole("radiogroup", { name: "Scoring provider" })).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(saveScoringAiProvider).toHaveBeenLastCalledWith({ provider: null, baseUrl: "", model: "" });
+    await waitFor(() => expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument());
+  });
+
+  it("starts on when a scoring provider is saved", () => {
+    render(<ScoringProviderSwitch initial={local} />);
+    expect(screen.getByRole("switch", { name: "Use a different model for scoring" })).toBeChecked();
+    expect(screen.getByRole("radiogroup", { name: "Scoring provider" })).toBeInTheDocument();
   });
 });

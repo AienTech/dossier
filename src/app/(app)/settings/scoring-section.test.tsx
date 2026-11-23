@@ -35,6 +35,12 @@ describe("ScoringSection (#274)", () => {
     expect(testScoringModel).toHaveBeenCalledWith({ scorer: "AI" });
   });
 
+  it("says which model scores when AI provider sets a different one (#170)", () => {
+    render(<ScoringSection initial={ai} scoringModel="qwen2.5:3b" />);
+    expect(screen.getByText(/Scores with qwen2\.5:3b, set in/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Settings → AI provider" })).toHaveAttribute("href", "/settings?section=ai");
+  });
+
   it("saves Jev at once and says what TypeSafe receives, and where to get a key", async () => {
     render(<ScoringSection initial={ai} />);
     await userEvent.click(screen.getByRole("radio", { name: "Jev by TypeSafe" }));

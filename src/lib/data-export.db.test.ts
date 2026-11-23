@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { encryptApiKey } from "@/lib/ai/api-key";
-import { encryptSecret, JOB_SOURCE_KEY } from "@/lib/secrets";
+import { encryptSecret, JOB_SOURCE_KEY, SCORING_AI_KEY } from "@/lib/secrets";
 import { createTestClient, resetDatabase } from "@/test/db";
 
 import { seedBuiltIns } from "../../prisma/seed/built-ins";
@@ -58,8 +58,10 @@ describe("buildExport (E10-4)", () => {
   });
 
   it("leaves the API key out unless asked, and then gives it in plain text", async () => {
+    await prisma().setting.create({ data: { key: "scoringApiKeyEnc", value: encryptSecret(SCORING_AI_KEY, "sk-scoring", "s".repeat(32)) } });
     const without = await buildExport(prisma(), { now });
     expect(without).not.toHaveProperty("apiKey");
+    expect(JSON.stringify(without)).not.toContain("scoringApiKeyEnc");
     expect(JSON.stringify(without)).not.toContain("apiKeyEnc");
 
     const withKey = await buildExport(prisma(), { now, includeApiKey: true });

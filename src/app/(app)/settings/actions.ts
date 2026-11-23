@@ -9,7 +9,7 @@ import { action, ActionError } from "@/lib/action";
 import { lockAgentSearches } from "@/lib/agent/searches";
 import { AiError, createProvider } from "@/lib/ai";
 import { applyApiKeyChange } from "@/lib/ai/api-key";
-import { keyEnding, keyStateOf, loadAiConfig, loadAiSettingsView, resolveAiConfig, sameServer } from "@/lib/ai/config";
+import { keyEnding, keyStateOf, loadAiConfig, loadAiSettingsView, loadScoringAiConfig, resolveAiConfig, sameServer, scoringKeyEnding } from "@/lib/ai/config";
 import { AI_TIMEOUT_LIMITS, type KeyState } from "@/lib/ai/provider-options";
 import { DOCUMENT_LANGUAGES } from "@/lib/document-language";
 import { deleteAllBackups } from "@/lib/backups";
@@ -32,7 +32,7 @@ import { prisma } from "@/lib/prisma";
 import { loadScoringConfig, SCORER_KEY_CONTEXT, scoringView } from "@/lib/scoring/config";
 import { testScorer } from "@/lib/scoring";
 import { SCORER_INFO, SCORERS } from "@/lib/scoring/scorers";
-import { applySecretChange, JOB_SOURCE_KEY } from "@/lib/secrets";
+import { applySecretChange, JOB_SOURCE_KEY, SCORING_AI_KEY, secretState } from "@/lib/secrets";
 
 import { seedBuiltIns } from "../../../../prisma/seed/built-ins";
 import { DOCUMENTS_TO_WRITE, isArchiveDays, isJobRetention } from "@/lib/settings";
@@ -148,6 +148,79 @@ export const testAiConnection = action(z.object({}), async () => {
     if (!(error instanceof AiError)) throw error;
     await saveSettings({ aiTest: { ...tested, ok: false, seconds: null, error: error.message } });
     return { connected: false as const, message: error.message, at: tested.at };
+  }
+});
+
+// The optional separate AI provider for scoring (public issue 170), in
+// Settings → AI provider. Its key follows the same rules as the main one's.
+
+async function currentScoringKey() {
+  const { scoringApiKeyEnc } = await loadSettings();
+  return { keyState: secretState(SCORING_AI_KEY, scoringApiKeyEnc), keyEnding: scoringKeyEnding(scoringApiKeyEnc) };
+}
+
+/** Saves the scoring provider, or turns it off with null (which forgets its address, model and key). */
+export const saveScoringAiProvider = action(
+  z.object({
+    provider: z.enum(AiProvider).nullable(),
+    baseUrl: z.string().trim().max(500),
+    model: z.string().trim().max(200),
+  }),
+  async ({ provider, baseUrl, model }) => {
+    const current = await loadSettings();
+    const keepsKey = provider !== null && current.scoringProvider === provider && sameServer(provider, current.scoringBaseUrl, baseUrl);
+    await saveSettings({
+      scoringProvider: provider,
+      scoringBaseUrl: provider && baseUrl ? baseUrl : null,
+      scoringModel: provider && model ? model : null,
+      ...(keepsKey ? {} : { scoringApiKeyEnc: null }),
+    });
+    const keyRemoved = provider !== null && current.scoringProvider === provider && !keepsKey && current.scoringApiKeyEnc !== null;
+    return { ...(await currentScoringKey()), ...(keyRemoved ? { keyRemoved } : {}) };
+  },
+);
+
+/** Saves the scoring provider's API key, encrypted for it only, or removes it. */
+export const saveScoringApiKey = action(
+  z.object({
+    provider: z.enum(AiProvider),
+    change: z.discriminatedUnion("action", [
+      z.object({ action: z.literal("set"), value: z.string().trim().min(1).max(1000) }),
+      z.object({ action: z.literal("clear") }),
+    ]),
+  }),
+  async ({ provider, change }) => {
+    const current = await loadSettings();
+    await saveSettings({
+      scoringApiKeyEnc: applySecretChange(SCORING_AI_KEY, current.scoringApiKeyEnc, change),
+      // A key means the override is on.
+      ...(current.scoringProvider ? {} : { scoringProvider: provider }),
+    });
+    return currentScoringKey();
+  },
+);
+
+/** The models the scoring provider's server offers. */
+export const listScoringAiModels = action(z.object({}), async () => {
+  try {
+    const provider = createProvider(await loadScoringAiConfig());
+    return { models: await provider.listModels(AbortSignal.timeout(15_000)), problem: null };
+  } catch (error) {
+    if (error instanceof AiError) return { models: [], problem: error.message };
+    throw error;
+  }
+});
+
+/** "Test connection" for the scoring provider; unlike the main one's, nothing is kept. */
+export const testScoringAiConnection = action(z.object({}), async () => {
+  const at = new Date().toISOString();
+  try {
+    const config = await loadScoringAiConfig();
+    const { model, latencyMs } = await createProvider({ ...config, timeoutMs: Math.min(config.timeoutMs, TEST_TIMEOUT_MS) }).test();
+    return { connected: true as const, model, seconds: Math.round(latencyMs / 100) / 10, at };
+  } catch (error) {
+    if (!(error instanceof AiError)) throw error;
+    return { connected: false as const, message: error.message, at };
   }
 });
 

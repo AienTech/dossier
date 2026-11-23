@@ -24,6 +24,8 @@ export const DECISIONS_KEY: SecretKind = { purpose: "decisions-key-encryption", 
 export const NOTIFICATION_SECRET: SecretKind = { purpose: "notification-secret-encryption", associatedData: "dossier notification secret v1" };
 /** The OpenRouter key for scoring (E25-4), apart from an AI provider's. */
 export const OPENROUTER_SCORING_KEY: SecretKind = { purpose: "openrouter-scoring-key-encryption", associatedData: "dossier openrouter scoring key v1" };
+/** The separate AI provider's key for scoring (public issue 170), apart from the main provider's. */
+export const SCORING_AI_KEY: SecretKind = { purpose: "scoring-ai-key-encryption", associatedData: "dossier scoring ai key v1" };
 /** The Google account's refresh token (E15-1). */
 export const GOOGLE_TOKEN: SecretKind = { purpose: "google-token-encryption", associatedData: "dossier google token v1" };
 /** The Google OAuth client's secret, entered in Settings → Google. */

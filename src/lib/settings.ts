@@ -152,6 +152,12 @@ const settingsSchema = z.object({
   apiKeyEnc: z.string().nullable().catch(null),
   /** How long one AI request may take, in seconds (public issue 118); null for DOSSIER_AI_TIMEOUT_SECONDS's, or the provider's own. */
   aiTimeoutSeconds: z.coerce.number().int().min(AI_TIMEOUT_LIMITS.min).max(AI_TIMEOUT_LIMITS.max).nullable().catch(null),
+  // An optional second provider for scoring only (public issue 170): on when scoringProvider is set.
+  scoringProvider: z.enum(AiProvider).nullable().catch(null),
+  scoringBaseUrl: z.string().nullable().catch(null),
+  scoringModel: z.string().nullable().catch(null),
+  /** Encrypted for scoring only (SCORING_AI_KEY); never sent to the client. */
+  scoringApiKeyEnc: z.string().nullable().catch(null),
   creativity: z.enum(Creativity).catch(Creativity.BALANCED),
   /** "Never invent experience" (SET-4). */
   strict: flag(true),

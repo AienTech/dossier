@@ -1,8 +1,10 @@
 import "server-only";
 
-import { AiError, createProvider, getAiProvider } from "@/lib/ai";
+import { AiProvider } from "@/generated/prisma/enums";
+import { AiError, createProvider } from "@/lib/ai";
 import { OpenAICompatibleProvider } from "@/lib/ai/providers/openai-compatible";
-import { isAiConfigured, loadAiConfig } from "@/lib/ai/config";
+import { isAiConfigured, loadScoringAiConfig } from "@/lib/ai/config";
+import { loadSettings } from "@/lib/settings-data";
 import { loadTaskOptions } from "@/lib/ai/task-options";
 import { scorePosting } from "@/lib/ai/tasks";
 import { recordUsage } from "@/lib/usage-data";
@@ -54,17 +56,25 @@ function requireKey(config: ScoringConfig, scorer: Scorer): string {
 
 export const SCORING_MODELS: Record<Scorer, ScoringModel> = {
   AI: {
-    problem: async () => ((await isAiConfigured()) ? null : AI_PROVIDER_MISSING),
+    problem: async () => {
+      // The separate scoring provider (public issue 170) needs no main provider.
+      if (!(await loadSettings()).scoringProvider) return (await isAiConfigured()) ? null : AI_PROVIDER_MISSING;
+      const config = await loadScoringAiConfig();
+      if (config.apiKeyProblem) return config.apiKeyProblem;
+      if (!config.model) return "Choose a model for scoring in Settings → AI provider first.";
+      const needsKey = config.provider === AiProvider.ANTHROPIC || config.provider === AiProvider.MISTRAL;
+      return needsKey && !config.apiKey ? "Enter the scoring provider's API key in Settings → AI provider first." : null;
+    },
     async load() {
-      if (!(await isAiConfigured())) throw AiError.config(AI_PROVIDER_MISSING);
-      const [provider, options] = await Promise.all([getAiProvider(), loadTaskOptions()]);
+      if (!(await loadSettings()).scoringProvider && !(await isAiConfigured())) throw AiError.config(AI_PROVIDER_MISSING);
+      const [provider, options] = await Promise.all([loadScoringAiConfig().then(createProvider), loadTaskOptions()]);
       return async (posting, profile, signal) => {
         const { data, promptVersion } = await scorePosting(provider, { posting, lines: postingLines(posting.description), profile }, { ...options, signal });
         return { answers: data, scoredWith: promptVersion };
       };
     },
     async test(_config, timeoutMs) {
-      const config = await loadAiConfig();
+      const config = await loadScoringAiConfig();
       const { model } = await createProvider({ ...config, timeoutMs: Math.min(config.timeoutMs, timeoutMs) }).test();
       return { model };
     },

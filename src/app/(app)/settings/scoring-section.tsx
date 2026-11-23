@@ -28,7 +28,7 @@ type Connection =
  * connection test. Each change saves on its own; a key is saved when you
  * leave its field and never shown again.
  */
-export function ScoringSection({ initial }: { initial: ScoringView }) {
+export function ScoringSection({ initial, scoringModel = null }: { initial: ScoringView; scoringModel?: string | null }) {
   const track = useTrackSave();
   const [view, setView] = useState(initial);
   const [connection, setConnection] = useState<Connection>({ status: "untested" });
@@ -99,6 +99,7 @@ export function ScoringSection({ initial }: { initial: ScoringView }) {
       <ChosenModel
         scorer={view.scorer}
         keyState={view.keys[view.scorer] ?? null}
+        scoringModel={scoringModel}
         connection={connection}
         onSaveKey={saveKey}
         onTest={() => void test()}
@@ -126,6 +127,7 @@ export function ScoringSection({ initial }: { initial: ScoringView }) {
 function ChosenModel({
   scorer,
   keyState,
+  scoringModel,
   connection,
   onSaveKey,
   onTest,
@@ -133,6 +135,8 @@ function ChosenModel({
 }: {
   scorer: Scorer;
   keyState: ScoringView["keys"][Scorer] | null;
+  /** The model set for scoring in AI provider (#170), when it differs from the main one. */
+  scoringModel: string | null;
   connection: Connection;
   onSaveKey: (change: { action: "set"; value: string } | { action: "clear" }) => Promise<boolean>;
   onTest: () => void;
@@ -152,7 +156,7 @@ function ChosenModel({
           <KeyField label={info.key.label} keyState={keyState ?? "none"} envName={info.key.envName ?? ""} getKey={info.key.getKey} onSave={onSaveKey} />
         ) : (
           <p className="text-sm text-muted">
-            It uses the model chosen in{" "}
+            {scoringModel ? `Scores with ${scoringModel}, set in` : "It uses the model chosen in"}{" "}
             <Link href="/settings?section=ai" className="underline underline-offset-2 hover:text-ink">
               Settings → AI provider
             </Link>
