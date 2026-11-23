@@ -13,9 +13,11 @@ import { fitFromAnswers } from "@/lib/fit";
 import { countryCodeFor, countryName } from "@/lib/job-search/countries";
 import { fullText } from "@/lib/job-search/find";
 import {
+  DEFAULT_FILTERS,
   DEFAULT_RADIUS_KM,
   EXPERIENCE_LEVELS,
   experienceAskedFor,
+  FOUND_BY_AGENT,
   POSTED_WITHIN,
   postingText,
   RADII_KM,
@@ -30,7 +32,7 @@ import { withoutPrivateParts } from "@/lib/letter-frame";
 import { coverageOf, fitWords } from "@/lib/posting-coverage";
 import { FETCH_MESSAGES, fetchPosting } from "@/lib/posting-fetch";
 import { saveScore } from "@/lib/posting-scores";
-import { postingsOfSearch } from "@/lib/library";
+import { listLibrary, postingsOfSearch } from "@/lib/library";
 import { loadSearch, runSearch, showMoreFor } from "@/lib/posting-searches";
 import { foundFromPosting, storePosting } from "@/lib/postings";
 import { prisma } from "@/lib/prisma";
@@ -316,6 +318,47 @@ export function createDossierServer(origin: string): McpServer {
         added: more.postings.length,
         more_available: more.next !== null,
         postings: more.postings.map((posting, index) => postingLine(posting, before.found + index + 1)),
+      });
+    },
+  );
+
+  server.registerTool(
+    "list_agent_candidates",
+    {
+      title: "List job agent candidates",
+      description:
+        "Lists postings found by the job agent in Positions, best fit first, with each posting's posting_id, score and reasons, " +
+        "the agent search that found it, and the application_id of its draft when there is one. Pass posting_id to get_posting or save_application.",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(50).optional().describe("Maximum candidates to return (default 20, up to 50)"),
+      }),
+      annotations: { readOnlyHint: true },
+    },
+    async ({ limit }) => {
+      const { postings, total } = await listLibrary({ ...DEFAULT_FILTERS, found: FOUND_BY_AGENT, sort: "fit" });
+      return text({
+        total,
+        candidates: postings.slice(0, limit ?? 20).map((posting) => {
+          const applicationId = posting.state.applicationId ?? posting.state.agent?.applicationId ?? undefined;
+          const fit = posting.state.score;
+          return {
+            posting_id: posting.state.postingId,
+            title: posting.title,
+            company: posting.company,
+            place: posting.place,
+            remote: posting.remote,
+            salary: posting.salary || undefined,
+            url: posting.url || undefined,
+            score: fit?.score ?? undefined,
+            reasons: fit?.reasons.length ? fit.reasons : undefined,
+            red_flags: fit?.redFlags.length ? fit.redFlags : undefined,
+            searches: posting.state.agentSearches.length ? posting.state.agentSearches : undefined,
+            status: posting.state.agent?.status ?? (posting.state.saved ? "SAVED" : posting.state.dismissed ? "DISMISSED" : "OPEN"),
+            application_id: applicationId,
+            application_link: applicationId ? linkTo(`/applications/${applicationId}`) : undefined,
+          };
+        }),
+        link: linkTo("/jobs?found=agent"),
       });
     },
   );
