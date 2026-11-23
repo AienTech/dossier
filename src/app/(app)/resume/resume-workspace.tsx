@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { DocumentPreview } from "@/components/documents/document-preview";
-import { DownloadPdfButton } from "@/components/documents/download-pdf-button";
+import { DownloadSplitButton } from "@/components/documents/download-split-button";
 import { ResumeDocument } from "@/components/documents/resume-document";
 import { PageHeader } from "@/components/page-header";
 import { toast, toastResult } from "@/components/toast";
@@ -224,21 +224,21 @@ export function ResumeWorkspace({
       <PageHeader
         breadcrumb={[{ label: "Profile", href: `/profile?profile=${profileId}` }, { label: "Base resume" }]}
         title="Base resume"
-        description="Built straight from your profile. Every new application starts from this one, then gets tailored to the job."
+        description="Built straight from your profile. Every new application starts from this one, then gets tailored to the job. Word downloads include the theme's fonts; line and page breaks may differ from the PDF."
         actions={
-          <>
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <ProfileSwitcher profiles={profiles} current={profiles.find((entry) => entry.id === profileId) ?? { id: profileId, name: "" }} path="/resume" />
             <Link href={`/profile?profile=${profileId}`} className={buttonClassName("secondary")}>
               Edit profile
             </Link>
-            <DownloadPdfButton href={`/api/pdf?doc=base&profile=${profileId}`}>Download PDF</DownloadPdfButton>
-          </>
+            <DownloadSplitButton pdfHref={`/api/pdf?doc=base&profile=${profileId}`} wordHref={`/api/docx?doc=base&profile=${profileId}`} compactFormatting={fitToPage} />
+          </div>
         }
       />
       <div className="@container flex flex-1 flex-wrap border-t border-line">
         <DocumentPreview
           label={theme.name}
-          meta={(pages) => `${PAPER_SIZES[paper].label} · ${pages} ${pages === 1 ? "page" : "pages"}${fit > 0 ? " · squeezed to fit" : ""}`}
+            meta={(pages) => `PDF preview · ${PAPER_SIZES[paper].label} · ${pages} ${pages === 1 ? "page" : "pages"}${fit > 0 ? " · squeezed to fit" : ""}`}
           onPages={onPages}
           notice={() =>
             empty ? (
@@ -263,12 +263,12 @@ export function ResumeWorkspace({
             label="Fit to one page"
             description={
               !fitToPage
-                ? "Off. The resume takes the pages it needs."
+                ? "Off. PDF and Word use the theme’s normal spacing."
                 : fit === 0
-                  ? "On. It fits as it is."
+                  ? "On. The PDF fits as it is. Word uses the same formatting; page breaks may differ."
                   : pages > 1
-                    ? "On, but it runs over one page even at its tightest. Shorten it, or leave a section out under Sections."
-                    : `On. Tighter spacing${fit >= 3 ? " and smaller type" : fit >= 2 ? " and lines" : ""}, so it fits; the PDF does the same.`
+                    ? "Still exceeds one page at the tightest spacing. Shorten your resume or hide a section. PDF and Word share this formatting; Word’s page breaks may differ."
+                    : `On. Tighter spacing${fit >= 3 ? " and smaller type" : fit >= 2 ? " and lines" : ""}, shared by PDF and Word. Nothing is removed. Word’s page breaks may differ.`
             }
             checked={fitToPage}
             onCheckedChange={(next) => void toggleFit(next)}
@@ -349,4 +349,3 @@ function deleteDescription(applications: number): string {
       : `${applications === 1 ? "One application uses" : `${applications} applications use`} it; their documents will use your base theme instead.`;
   return `${used} Editorial becomes your base theme. This can't be undone, but you can export the theme first.`;
 }
-

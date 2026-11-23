@@ -990,6 +990,16 @@ describe("downloading PDFs (E8-8)", () => {
     expect(screen.getByRole("link", { name: "Download the cover letter as a PDF" })).toHaveAttribute("href", "/api/pdf?doc=letter&application=app-1");
   });
 
+  it("offers Word beside the PDF on the document tabs, not elsewhere", async () => {
+    const user = userEvent.setup();
+    render(<ApplicationView {...props} />);
+    await user.click(screen.getByRole("button", { name: "More export options" }));
+    expect(screen.getByRole("menuitem", { name: /Word \(\.docx\)/ })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("tab", { name: /Job posting/ }));
+    expect(screen.queryByRole("button", { name: "More export options" })).not.toBeInTheDocument();
+  });
+
   it("isn't offered without documents", () => {
     render(<ApplicationView {...props} resume={null} letter={null} />);
     expect(screen.queryByRole("link", { name: /PDF/ })).not.toBeInTheDocument();
