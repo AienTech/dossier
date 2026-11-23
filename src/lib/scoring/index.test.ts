@@ -13,14 +13,23 @@ const state = vi.hoisted(() => ({
   config: { scorer: "AI", saved: false, keys: { JEV: { key: null, keyState: "none" } }, openrouterModel: "openai/gpt-6-luna" } as ScoringConfig,
   aiReady: true,
   provider: null as unknown,
+  /** The separate scoring provider's config (public issue 170), or null while it's off. */
+  override: null as null | Record<string, unknown>,
+  created: [] as unknown[],
 }));
 
 vi.mock("./config", async (importOriginal) => ({ ...(await importOriginal<typeof import("./config")>()), loadScoringConfig: async () => state.config }));
-vi.mock("@/lib/ai/config", () => ({ isAiConfigured: async () => state.aiReady, loadAiConfig: async () => ({ timeoutMs: 60_000 }) }));
+vi.mock("@/lib/ai/config", () => ({
+  isAiConfigured: async () => state.aiReady,
+  loadScoringAiConfig: async () => state.override ?? { provider: "LOCAL", baseUrl: "http://main", model: "main-model", apiKey: null, apiKeyProblem: null, timeoutMs: 60_000 },
+}));
+vi.mock("@/lib/settings-data", () => ({ loadSettings: async () => ({ scoringProvider: state.override ? "OPENAI" : null }) }));
 vi.mock("@/lib/ai", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/ai")>()),
-  getAiProvider: async () => state.provider,
-  createProvider: () => state.provider,
+  createProvider: (config: unknown) => {
+    state.created.push(config);
+    return state.provider;
+  },
 }));
 vi.mock("@/lib/ai/task-options", () => ({ loadTaskOptions: async () => ({ creativity: "BALANCED", strict: true, language: null }) }));
 vi.mock("@/lib/usage-data", () => ({ recordUsage: vi.fn() }));
@@ -48,6 +57,8 @@ const signal = new AbortController().signal;
 beforeEach(() => {
   state.config = { scorer: "AI", saved: false, keys: { JEV: { key: null, keyState: "none" } }, openrouterModel: "openai/gpt-6-luna" };
   state.aiReady = true;
+  state.override = null;
+  state.created = [];
   vi.mocked(scoreWithJev).mockClear();
 });
 
@@ -98,6 +109,40 @@ describe("loadPostingScorer (E25)", () => {
     expect(data.redFlags).toEqual(["Missing: You know Figma."]);
     expect(provider.calls[0].messages[0].content).toContain("0: You know Figma.");
     expect(scoreWithJev).not.toHaveBeenCalled();
+  });
+
+  it("scores through the separate scoring provider when one is set, even without a main one (public issue 170)", async () => {
+    state.provider = new MockProvider({
+      reply: () => ({
+        requirements: [{ line: 0, kind: "must", covered: true, evidence: "Figma (skill)", skill: "Figma" }],
+        work: { level: 3, reason: "" },
+        extra: { level: 3, reason: "" },
+        education: { level: 2, reason: "" },
+        seniority: { fit: "fits", reason: "" },
+        location: { fit: "fits", reason: "" },
+        thin: false,
+      }),
+    });
+    state.aiReady = false;
+    state.override = { provider: "OPENAI", baseUrl: "https://llm.example/v1", model: "score-model", apiKey: "sk-score", apiKeyProblem: null, timeoutMs: 60_000 };
+    await (await loadPostingScorer())(posting, profile, signal);
+    expect(state.created).toEqual([expect.objectContaining({ baseUrl: "https://llm.example/v1", model: "score-model", apiKey: "sk-score" })]);
+    expect(await scoringProblem()).toBeNull();
+    expect(await testScorer("AI", 1000)).toMatchObject({ connected: true });
+    expect(state.created[1]).toMatchObject({ baseUrl: "https://llm.example/v1", timeoutMs: 1000 });
+
+    // Without the key its hosted provider needs, it says so, whatever the main provider has.
+    state.aiReady = true;
+    state.override = { ...state.override, provider: "ANTHROPIC", apiKey: null };
+    expect(await scoringProblem()).toBe("Enter the scoring provider's API key in Settings → AI provider first.");
+    state.override = { ...state.override, apiKey: "sk", model: null };
+    expect(await scoringProblem()).toBe("Choose a model for scoring in Settings → AI provider first.");
+  });
+
+  it("uses the main provider while the override is off", async () => {
+    state.provider = new MockProvider({ reply: () => ({}) });
+    await loadPostingScorer();
+    expect(state.created).toEqual([expect.objectContaining({ baseUrl: "http://main", model: "main-model" })]);
   });
 
   it("fails with what's missing", async () => {

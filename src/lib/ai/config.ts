@@ -2,6 +2,7 @@ import "server-only";
 
 import { AiProvider } from "@/generated/prisma/enums";
 import { env, type Env } from "@/lib/env";
+import { decryptSecret, SCORING_AI_KEY, SecretUnreadable, secretState } from "@/lib/secrets";
 import { loadSettings } from "@/lib/settings-data";
 
 import { API_KEY_UNREADABLE, ApiKeyUnreadable, apiKeyState, decryptApiKey } from "./api-key";
@@ -101,6 +102,30 @@ export function sameServer(provider: AiProvider, a: string | null | undefined, b
   return left !== null && left === origin(b);
 }
 
+type SavedScoring = { scoringProvider: AiProvider | null; scoringBaseUrl: string | null; scoringModel: string | null; scoringApiKeyEnc: string | null };
+
+/**
+ * The provider that scores (public issue 170): the separate one saved for it,
+ * else the main one. The override never takes the main provider's key, so
+ * DOSSIER_AI_KEY can't reach another server, and shares its timeout.
+ */
+export function resolveScoringAiConfig(saved: SavedScoring, main: AiConfig, secret?: string): AiConfig {
+  const provider = saved.scoringProvider;
+  if (!provider) return main;
+  const defaults = PROVIDER_DEFAULTS[provider];
+  let apiKey: string | null = null;
+  let apiKeyProblem: string | null = null;
+  if (saved.scoringApiKeyEnc) {
+    try {
+      apiKey = decryptSecret(SCORING_AI_KEY, saved.scoringApiKeyEnc, secret);
+    } catch (error) {
+      if (!(error instanceof SecretUnreadable)) throw error;
+      apiKeyProblem = API_KEY_UNREADABLE;
+    }
+  }
+  return { provider, baseUrl: saved.scoringBaseUrl || defaults.baseUrl, model: saved.scoringModel || defaults.model, apiKey, apiKeyProblem, timeoutMs: main.timeoutMs };
+}
+
 /** The AI configuration in effect right now. */
 export async function loadAiConfig(): Promise<AiConfig> {
   return resolveAiConfig(await loadSettings(), env);
@@ -126,6 +151,40 @@ export async function loadAiSettingsView(): Promise<AiSettingsView> {
     timeoutSeconds: saved.aiTimeoutSeconds,
     envTimeoutSeconds: env.DOSSIER_AI_TIMEOUT_SECONDS ?? null,
   };
+}
+
+/** The configuration scoring uses: the separate provider if one is set, else the main one. */
+export async function loadScoringAiConfig(): Promise<AiConfig> {
+  const saved = await loadSettings();
+  return resolveScoringAiConfig(saved, resolveAiConfig(saved, env));
+}
+
+/** The separate scoring provider as the settings screen shows it, or null while it's off. No connection test is kept for it. */
+export async function loadScoringAiSettingsView(): Promise<AiSettingsView | null> {
+  const saved = await loadSettings();
+  if (!saved.scoringProvider) return null;
+  const config = resolveScoringAiConfig(saved, resolveAiConfig(saved, env));
+  return {
+    provider: config.provider,
+    baseUrl: config.baseUrl,
+    model: config.model ?? "",
+    keyState: secretState(SCORING_AI_KEY, saved.scoringApiKeyEnc),
+    keyEnding: scoringKeyEnding(saved.scoringApiKeyEnc),
+    test: null,
+    timeoutSeconds: saved.aiTimeoutSeconds,
+    envTimeoutSeconds: env.DOSSIER_AI_TIMEOUT_SECONDS ?? null,
+  };
+}
+
+/** Like keyEnding, for the scoring provider's key. */
+export function scoringKeyEnding(stored: string | null): string | null {
+  if (!stored) return null;
+  try {
+    const key = decryptSecret(SCORING_AI_KEY, stored);
+    return key.length >= 12 ? key.slice(-4) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

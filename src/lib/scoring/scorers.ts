@@ -60,7 +60,7 @@ const PROFILE_SENT = "with the profile it's scored against, without your name, c
 export const SCORER_INFO: Record<Scorer, ScorerInfo> = {
   AI: {
     name: "Your AI model",
-    description: "The AI provider in Settings → AI provider answers the scoring questions and says why, in its own words.",
+    description: "The AI provider in Settings → AI provider (or the separate scoring provider set there) answers the scoring questions and says why, in its own words.",
     tag: "Uses your AI provider",
     usage: SCORER_USAGE[0],
     key: null,

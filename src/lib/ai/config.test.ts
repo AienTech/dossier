@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { SCORING_AI_KEY, encryptSecret } from "@/lib/secrets";
+
 import { encryptApiKey } from "./api-key";
-import { isAiUsable, resolveAiConfig, sameServer } from "./config";
+import { isAiUsable, loadScoringAiConfig, loadScoringAiSettingsView, resolveAiConfig, resolveScoringAiConfig, sameServer } from "./config";
 import { AiError } from "./errors";
 import { createProvider } from "./index";
 
@@ -92,6 +94,59 @@ describe("resolveAiConfig", () => {
     const config = resolveAiConfig(saved, noEnv);
     expect(config).toMatchObject({ apiKey: null, apiKeyProblem: "Your saved API key can't be read. Please enter it again." });
     expect(() => createProvider(config)).toThrow(AiError);
+  });
+});
+
+describe("resolveScoringAiConfig (public issue 170)", () => {
+  const off = { scoringProvider: null, scoringBaseUrl: null, scoringModel: null, scoringApiKeyEnc: null };
+  const main = { provider: "LOCAL" as const, baseUrl: "http://localhost:11434", model: "qwen", apiKey: "sk-main-env", apiKeyProblem: null, timeoutMs: 90_000 };
+
+  it("is the main provider's until a scoring provider is saved", () => {
+    expect(resolveScoringAiConfig(off, main)).toBe(main);
+  });
+
+  it("builds the override from its own settings, with the provider's defaults and the main timeout", () => {
+    expect(resolveScoringAiConfig({ ...off, scoringProvider: "MISTRAL" }, main)).toEqual({
+      provider: "MISTRAL",
+      baseUrl: "https://api.mistral.ai/v1",
+      model: "mistral-small-2603",
+      apiKey: null,
+      apiKeyProblem: null,
+      timeoutMs: 90_000,
+    });
+    const own = { scoringProvider: "OPENAI" as const, scoringBaseUrl: "https://llm.example/v1", scoringModel: "m", scoringApiKeyEnc: encryptSecret(SCORING_AI_KEY, "sk-score") };
+    expect(resolveScoringAiConfig(own, main)).toMatchObject({ baseUrl: "https://llm.example/v1", model: "m", apiKey: "sk-score" });
+  });
+
+  it("reports a key it can't read, and never lends the main provider's key", () => {
+    const enc = encryptSecret(SCORING_AI_KEY, "sk", "b".repeat(32));
+    expect(resolveScoringAiConfig({ ...off, scoringProvider: "ANTHROPIC", scoringApiKeyEnc: enc }, main, undefined)).toMatchObject({ apiKey: null, apiKeyProblem: "Your saved API key can't be read. Please enter it again." });
+    // A key saved for the main provider isn't the override's.
+    expect(resolveScoringAiConfig({ ...off, scoringProvider: "ANTHROPIC", scoringApiKeyEnc: encryptApiKey("sk-main") }, main)?.apiKeyProblem).not.toBeNull();
+    expect(resolveScoringAiConfig({ ...off, scoringProvider: "OPENAI" }, main).apiKey).toBeNull();
+  });
+});
+
+describe("loadScoringAiConfig and loadScoringAiSettingsView", () => {
+  it("fall back to the main provider while the override is off", async () => {
+    saved.settings = { provider: "LOCAL", baseUrl: null, model: "qwen", apiKeyEnc: null, scoringProvider: null };
+    expect(await loadScoringAiConfig()).toMatchObject({ provider: "LOCAL", model: "qwen" });
+    expect(await loadScoringAiSettingsView()).toBeNull();
+  });
+
+  it("use the override, with the main timeout, and show its key state without the key", async () => {
+    saved.settings = { provider: "LOCAL", baseUrl: null, model: "qwen", apiKeyEnc: null, aiTimeoutSeconds: 900, scoringProvider: "OPENAI", scoringBaseUrl: "https://llm.example/v1", scoringModel: "m", scoringApiKeyEnc: encryptSecret(SCORING_AI_KEY, "sk-score-1234") };
+    expect(await loadScoringAiConfig()).toMatchObject({ provider: "OPENAI", model: "m", apiKey: "sk-score-1234", timeoutMs: 900_000 });
+    expect(await loadScoringAiSettingsView()).toEqual({
+      provider: "OPENAI",
+      baseUrl: "https://llm.example/v1",
+      model: "m",
+      keyState: "set",
+      keyEnding: "1234",
+      test: null,
+      timeoutSeconds: 900,
+      envTimeoutSeconds: null,
+    });
   });
 });
 

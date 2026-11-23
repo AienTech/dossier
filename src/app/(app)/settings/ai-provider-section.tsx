@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Toggle } from "@/components/ui/toggle";
 import type { AiProvider } from "@/generated/prisma/enums";
 import { AI_TIMEOUT_LIMITS, API_KEY_UNREADABLE, defaultTimeoutSeconds, PROVIDER_OPTIONS, providerOption, type AiSettingsView } from "@/lib/ai/provider-options";
 import { cn } from "@/lib/cn";
@@ -16,7 +17,17 @@ import { useAutosave } from "@/hooks/use-autosave";
 
 import { formatShortDate } from "@/lib/dates";
 
-import { listAiModels, saveAiProvider, saveAiTimeout, saveApiKey, testAiConnection } from "./actions";
+import {
+  listAiModels,
+  listScoringAiModels,
+  saveAiProvider,
+  saveAiTimeout,
+  saveApiKey,
+  saveScoringAiProvider,
+  saveScoringApiKey,
+  testAiConnection,
+  testScoringAiConnection,
+} from "./actions";
 import { publishAiChoice, whereItRuns } from "./ai-data-flows";
 import { SettingsSectionIntro } from "./settings-screen";
 
@@ -27,6 +38,12 @@ type Connection =
   | { status: "failed"; message: string; at: string };
 
 type ModelList = { loading: true } | { loading: false; models: string[]; problem: string | null };
+
+/** The scoring-only provider (#170) saves, lists and tests through its own actions; the form is the same. */
+const ACTIONS = {
+  main: { save: saveAiProvider, saveKey: saveApiKey, listModels: listAiModels, test: testAiConnection },
+  scoring: { save: saveScoringAiProvider, saveKey: saveScoringApiKey, listModels: listScoringAiModels, test: testScoringAiConnection },
+};
 
 const toModelList = (result: Awaited<ReturnType<typeof listAiModels>>): ModelList =>
   result.ok ? { loading: false, ...result.data } : { loading: false, models: [], problem: result.error };
@@ -58,8 +75,11 @@ const savedConnection = (initial: AiSettingsView): Connection =>
  * A saved key shows its last four characters, and Replace opens the field
  * (ST4). The connection test stays a button; its last result is kept.
  */
-export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
+export function AiProviderSection({ initial, scoring }: { initial: AiSettingsView; scoring?: true }) {
   const track = useTrackSave();
+  const api = ACTIONS[scoring ? "scoring" : "main"];
+  // Keeps ids unique when both sections are on the page.
+  const prefix = scoring ? "scoring-" : "";
   const [provider, setProvider] = useState(initial.provider);
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl);
   const [model, setModel] = useState(initial.model);
@@ -80,30 +100,32 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
 
   const reloadModels = () => {
     setModelList({ loading: true });
-    void listAiModels({}).then((result) => setModelList(toModelList(result)));
+    void api.listModels({}).then((result) => setModelList(toModelList(result)));
   };
 
   // The list for what's saved when the page opens.
   useEffect(() => {
     let current = true;
-    void listAiModels({}).then((result) => {
+    void api.listModels({}).then((result) => {
       if (current) setModelList(toModelList(result));
     });
     return () => {
       current = false;
     };
-  }, []);
+  }, [api]);
 
   // SET-2: any change to the provider fields means the last test no longer counts.
   const changed = () => setConnection({ status: "untested" });
 
-  // The column beside the section follows the provider chosen here.
-  useEffect(() => publishAiChoice({ provider, baseUrl }), [provider, baseUrl]);
+  // The column beside the section follows the main provider only.
+  useEffect(() => {
+    if (!scoring) publishAiChoice({ provider, baseUrl });
+  }, [scoring, provider, baseUrl]);
 
   const fields = useMemo(() => ({ provider, baseUrl, model }), [provider, baseUrl, model]);
   const savedServer = useRef(`${initial.provider} ${initial.baseUrl}`);
   const { flush } = useAutosave(fields, async (value) => {
-    const result = await track(saveAiProvider(value));
+    const result = await track(api.save(value));
     if (result.ok) {
       setKeyState(result.data.keyState);
       setKeyEnding(result.data.keyEnding);
@@ -138,7 +160,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
   };
 
   const saveKey = async (change: { action: "set"; value: string } | { action: "clear" }) => {
-    const result = toastResult(await track(saveApiKey({ provider, change })));
+    const result = toastResult(await track(api.saveKey({ provider, change })));
     if (!result.ok) return;
     setKeyState(result.data.keyState);
     setKeyEnding(result.data.keyEnding);
@@ -168,7 +190,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
     // Actions run one after another, so pending saves land before the test.
     flush();
     setConnection({ status: "testing" });
-    const result = await testAiConnection({});
+    const result = await api.test({});
     if (!result.ok) setConnection({ status: "failed", message: result.error, at: new Date().toISOString() });
     else if (result.data.connected) setConnection({ status: "connected", model: result.data.model, seconds: result.data.seconds, at: result.data.at });
     else setConnection({ status: "failed", message: result.data.message, at: result.data.at });
@@ -178,12 +200,14 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
 
   return (
     <>
-      <SettingsSectionIntro title="AI provider">
-        The model that reads postings and writes your documents. A local one keeps everything on your hardware.
-      </SettingsSectionIntro>
+      {!scoring && (
+        <SettingsSectionIntro title="AI provider">
+          The model that reads postings and writes your documents. A local one keeps everything on your hardware.
+        </SettingsSectionIntro>
+      )}
 
       <RadioGroup.Root
-        aria-label="Provider"
+        aria-label={scoring ? "Scoring provider" : "Provider"}
         value={provider}
         onValueChange={(value) => chooseProvider(value as AiProvider)}
         className="grid grid-cols-1 gap-3 @md:grid-cols-2 @3xl:grid-cols-3"
@@ -193,7 +217,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
             key={entry.value}
             value={entry.value}
             aria-label={entry.name}
-            aria-describedby={`provider-${entry.value}`}
+            aria-describedby={`${prefix}provider-${entry.value}`}
             className="group flex items-start gap-3 rounded-card border border-line-card bg-card px-4 py-3.5 text-left hover:border-line-strong data-[state=checked]:border-primary data-[state=checked]:shadow-[0_0_0_1px_var(--color-primary)]"
           >
             <span
@@ -204,7 +228,7 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
             </span>
             <span className="flex min-w-0 flex-col gap-0.5">
               <span className="text-[15px] font-medium">{entry.name}</span>
-              <span id={`provider-${entry.value}`} className="flex flex-col gap-1">
+              <span id={`${prefix}provider-${entry.value}`} className="flex flex-col gap-1">
                 <span className="text-label text-muted">{whereLine(entry.value, entry.value === provider ? baseUrl : entry.defaultUrl, entry.value === provider)}</span>
                 <span className="sr-only">.</span>{" "}
                 <span className="text-label text-pretty text-muted">{entry.description}</span>
@@ -281,8 +305,8 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
         {option.apiKey ? (
           (keyState === "set" || keyState === "env") && !replacingKey ? (
             // ST4: the saved key's last four characters, and Replace to type a new one.
-            <div role="group" aria-labelledby="ai-key-label" className="flex flex-col gap-[7px]">
-              <span id="ai-key-label" className="text-label font-medium">
+            <div role="group" aria-labelledby={`${prefix}ai-key-label`} className="flex flex-col gap-[7px]">
+              <span id={`${prefix}ai-key-label`} className="text-label font-medium">
                 {option.apiKey.label}
               </span>
               <div className="flex items-center gap-2 rounded-control border border-line-input bg-input py-1 pr-1 pl-3">
@@ -353,35 +377,68 @@ export function AiProviderSection({ initial }: { initial: AiSettingsView }) {
           </div>
         )}
 
-        <Input
-          label="Timeout, in seconds"
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          value={timeoutInput}
-          placeholder={String(fallbackTimeout)}
-          error={timeoutProblem ? `A whole number of seconds, from ${AI_TIMEOUT_LIMITS.min} to ${AI_TIMEOUT_LIMITS.max.toLocaleString("en-US")}, or empty for ${fallbackTimeout}.` : undefined}
-          hint={
-            timeoutProblem
-              ? undefined
-              : initial.envTimeoutSeconds !== null
-                ? `How long one request may take before Dossier gives up. Empty uses ${fallbackTimeout}, from DOSSIER_AI_TIMEOUT_SECONDS.`
-                : `How long one request may take before Dossier gives up. Empty uses ${fallbackTimeout}, the default for ${option.local ? "a model on your own hardware" : "a hosted model"}.`
-          }
-          onChange={(event) => setTimeoutInput(event.target.value)}
-          onBlur={() => void saveTimeout()}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              void saveTimeout();
+        {/* The timeout is shared, so only the main section has it. */}
+        {!scoring && (
+          <Input
+            label="Timeout, in seconds"
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={timeoutInput}
+            placeholder={String(fallbackTimeout)}
+            error={timeoutProblem ? `A whole number of seconds, from ${AI_TIMEOUT_LIMITS.min} to ${AI_TIMEOUT_LIMITS.max.toLocaleString("en-US")}, or empty for ${fallbackTimeout}.` : undefined}
+            hint={
+              timeoutProblem
+                ? undefined
+                : initial.envTimeoutSeconds !== null
+                  ? `How long one request may take before Dossier gives up. Empty uses ${fallbackTimeout}, from DOSSIER_AI_TIMEOUT_SECONDS.`
+                  : `How long one request may take before Dossier gives up. Empty uses ${fallbackTimeout}, the default for ${option.local ? "a model on your own hardware" : "a hosted model"}.`
             }
-          }}
-        />
+            onChange={(event) => setTimeoutInput(event.target.value)}
+            onBlur={() => void saveTimeout()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void saveTimeout();
+              }
+            }}
+          />
+        )}
 
         <div className="sm:col-span-2">
           <ConnectionStatus connection={connection} onTest={() => void test()} />
         </div>
       </Card>
+    </>
+  );
+}
+
+/**
+ * Under the main provider (#170): a switch for a different model that only
+ * scores. Turning it on starts from the local model's defaults, saved at
+ * once, since the form below saves on its own from there.
+ */
+export function ScoringProviderSwitch({ initial }: { initial: AiSettingsView | null }) {
+  const track = useTrackSave();
+  const [view, setView] = useState(initial);
+
+  const toggle = async (on: boolean) => {
+    const start = providerOption("LOCAL");
+    const fresh = { provider: start.value, baseUrl: start.defaultUrl, model: start.defaultModel };
+    const result = toastResult(await track(saveScoringAiProvider(on ? fresh : { provider: null, baseUrl: "", model: "" })));
+    if (!result.ok) return;
+    setView(on ? { ...fresh, keyState: "none", keyEnding: null, test: null, timeoutSeconds: null, envTimeoutSeconds: null } : null);
+  };
+
+  return (
+    <>
+      <Toggle
+        label="Use a different model for scoring"
+        description="Only scores postings, when Settings → Scoring is on Your AI model. Documents are still written by the model above, and the timeout is shared."
+        checked={view !== null}
+        onCheckedChange={(on) => void toggle(on)}
+      />
+      {view && <AiProviderSection initial={view} scoring />}
     </>
   );
 }

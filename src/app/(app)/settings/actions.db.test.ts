@@ -8,7 +8,7 @@ import { createTestClient, resetDatabase } from "@/test/db";
 import { seedBuiltIns } from "../../../../prisma/seed/built-ins";
 
 import { json, stubFetch } from "@/lib/ai/test-http";
-import { DECISIONS_KEY, decryptSecret, JOB_SOURCE_KEY, OPENROUTER_SCORING_KEY, TYPESAFE_KEY } from "@/lib/secrets";
+import { DECISIONS_KEY, decryptSecret, JOB_SOURCE_KEY, OPENROUTER_SCORING_KEY, SCORING_AI_KEY, TYPESAFE_KEY } from "@/lib/secrets";
 import { clearJobSearchCache } from "@/lib/job-search/cache";
 import { jsearchV2LastPage } from "@/test/job-search-fixtures";
 
@@ -25,6 +25,9 @@ import {
   saveAiProvider,
   saveAiTimeout,
   saveApiKey,
+  saveScoringAiProvider,
+  saveScoringApiKey,
+  testScoringAiConnection,
   saveScorer,
   saveOpenRouterScoringModel,
   saveScoringKey,
@@ -96,6 +99,44 @@ describe("saveAiProvider", () => {
     expect((await settings()).apiKeyEnc).toBeNull();
     // Back on the first server, it stays gone.
     expect(await saveAiProvider({ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", model: "" })).toEqual({ ok: true, data: { keyState: "none", keyEnding: null } });
+  });
+});
+
+describe("the separate scoring provider (public issue 170)", () => {
+  it("saves a provider and its key apart from the main one's, and null turns it off with everything it had", async () => {
+    await saveAiProvider({ provider: "LOCAL", baseUrl: "", model: "qwen2.5:3b" });
+    await saveScoringAiProvider({ provider: "OPENAI", baseUrl: "https://openrouter.ai/v1", model: "" });
+    expect(await saveScoringApiKey({ provider: "OPENAI", change: { action: "set", value: "sk-score-secret" } })).toEqual({ ok: true, data: { keyState: "set", keyEnding: "cret" } });
+    const saved = await settings();
+    expect(decryptSecret(SCORING_AI_KEY, saved.scoringApiKeyEnc!)).toBe("sk-score-secret");
+    expect(saved).toMatchObject({ provider: "LOCAL", apiKeyEnc: null });
+
+    expect(await saveScoringAiProvider({ provider: null, baseUrl: "x", model: "y" })).toEqual({ ok: true, data: { keyState: "none", keyEnding: null } });
+    expect(await settings()).toMatchObject({ scoringProvider: null, scoringBaseUrl: null, scoringModel: null, scoringApiKeyEnc: null, provider: "LOCAL" });
+  });
+
+  it("keeps the key for another path or model, and removes it for another host or provider", async () => {
+    await saveScoringAiProvider({ provider: "OPENAI", baseUrl: "https://openrouter.ai/v1", model: "" });
+    await saveScoringApiKey({ provider: "OPENAI", change: { action: "set", value: "sk-or-secret" } });
+    expect(await saveScoringAiProvider({ provider: "OPENAI", baseUrl: "https://openrouter.ai/api/v1", model: "m" })).toEqual({ ok: true, data: { keyState: "set", keyEnding: "cret" } });
+    expect(await saveScoringAiProvider({ provider: "OPENAI", baseUrl: "https://api.deepseek.com", model: "" })).toEqual({ ok: true, data: { keyState: "none", keyEnding: null, keyRemoved: true } });
+
+    await saveScoringApiKey({ provider: "OPENAI", change: { action: "set", value: "sk-again" } });
+    await saveScoringAiProvider({ provider: "ANTHROPIC", baseUrl: "", model: "" });
+    expect((await settings()).scoringApiKeyEnc).toBeNull();
+  });
+
+  it("turns the override on when a key is saved without one, and removes the key only when asked", async () => {
+    await saveScoringApiKey({ provider: "MISTRAL", change: { action: "set", value: "sk-mistral" } });
+    expect(await settings()).toMatchObject({ scoringProvider: "MISTRAL" });
+    expect(await saveScoringApiKey({ provider: "MISTRAL", change: { action: "clear" } })).toMatchObject({ data: { keyState: "none" } });
+    expect(await saveScoringApiKey({ provider: "MISTRAL", change: { action: "set", value: "  " } })).toMatchObject({ ok: false });
+  });
+
+  it("tests the connection without keeping the result", async () => {
+    await saveScoringAiProvider({ provider: "LOCAL", baseUrl: "", model: "qwen" });
+    expect(await testScoringAiConnection({})).toMatchObject({ ok: true, data: { connected: true } });
+    expect((await settings()).aiTest).toBeNull();
   });
 });
 

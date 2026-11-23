@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-import { loadAiConfig, loadAiSettingsView } from "@/lib/ai/config";
+import { loadAiConfig, loadAiSettingsView, loadScoringAiSettingsView } from "@/lib/ai/config";
 import { agentPortal, jobSearchView, loadJobSearchConfig } from "@/lib/job-search/config";
 import { portalUpdates } from "@/lib/portals/updates";
 import { COUNTRIES } from "@/lib/job-search/countries";
@@ -34,7 +34,7 @@ import { AgentSection } from "./agent-section";
 import { PortalCatalog } from "./browse-portals";
 import { AiBehaviour } from "./ai-behaviour";
 import { AiDataFlows } from "./ai-data-flows";
-import { AiProviderSection } from "./ai-provider-section";
+import { AiProviderSection, ScoringProviderSwitch } from "./ai-provider-section";
 import { DataSection } from "./data-section";
 import { DocumentsSection } from "./documents-section";
 import { GoogleSection } from "./google-section";
@@ -56,7 +56,12 @@ export const metadata: Metadata = { title: "Settings" };
 export default async function SettingsPage({ searchParams }: PageProps<"/settings">) {
   const params = await searchParams;
   const section = settingsSectionFromParam(params.section);
-  const [settings, status, aiView] = await Promise.all([loadSettings(), loadSettingsStatus(), section === "ai" ? loadAiSettingsView() : null]);
+  const [settings, status, aiView, scoringAiView] = await Promise.all([
+    loadSettings(),
+    loadSettingsStatus(),
+    section === "ai" ? loadAiSettingsView() : null,
+    section === "ai" || section === "scoring" ? loadScoringAiSettingsView() : null,
+  ]);
 
   return (
     <SettingsScreen
@@ -69,12 +74,13 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
       ) : aiView ? (
         <>
           <AiProviderSection initial={aiView} />
+          <ScoringProviderSwitch initial={scoringAiView} />
           <AiBehaviour initial={{ creativity: settings.creativity, strict: settings.strict, showDiff: settings.showDiff, dailyNoteAi: settings.dailyNoteAi }} />
         </>
       ) : section === "jobs" ? (
         <JobSearchSection initial={await jobSearchViewWithUpdates()} archiveDays={settings.archiveAfterDays} />
       ) : section === "scoring" ? (
-        <ScoringSection initial={scoringView(await loadScoringConfig())} />
+        <ScoringSection initial={scoringView(await loadScoringConfig())} scoringModel={scoringAiView?.model ?? null} />
       ) : section === "agent" ? (
         <AgentSection
           initial={{
